@@ -1,6 +1,7 @@
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
 #include <caml/alloc.h>
+#include <caml/fail.h>
 #include <SDL2/SDL.h>
 #include <stdio.h>
 

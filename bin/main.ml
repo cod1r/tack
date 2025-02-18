@@ -7,12 +7,10 @@ let () = init_sdl ();;
 
 let rec loop () =
   let evt = sdl_pollevent () in
-  begin
-    match evt with
-    | Some(KeyboardEvt { keysym=keysym; _ }) -> Printf.printf "KBD: %c" keysym; print_newline ()
-    | Some(MouseButtonEvt { windowID=windowID; }) -> Printf.printf "MOUSE: %Ld" windowID; print_newline ()
-    | None -> ()
-  end;
-  loop ();;
+  let continue = match evt with
+    | Some(KeyboardEvt { keysym=keysym; _ }) -> Printf.printf "KBD: %c" keysym; print_newline (); if keysym = 'q' then false else true
+    | Some(MouseButtonEvt { mouse_evt_type=mouse_evt_type; }) -> Printf.printf "MOUSE"; print_newline (); true
+    | None -> true in
+    if continue then loop () else ();;
 
 let _ = loop ();;
