@@ -44,6 +44,16 @@ CAMLprim value sdl_pollevent(value unit) {
         Store_field(evt_type, 6, caml_copy_int64(e.button.y));
         option_val = caml_alloc_some(evt_type);
       } break;
+      case SDL_WINDOWEVENT: {
+        if (e.window.event == SDL_WINDOWEVENT_CLOSE) {
+          // tag type is 2 because third variant
+          evt_type = caml_alloc(3, 2);
+          Store_field(evt_type, 0, caml_copy_int64(e.window.timestamp));
+          Store_field(evt_type, 1, caml_copy_int64(e.window.windowID));
+          Store_field(evt_type, 2, Val_int(0));
+          option_val = caml_alloc_some(evt_type);
+        }
+      } break;
     }
   }
   CAMLreturn(option_val);

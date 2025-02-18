@@ -2,6 +2,7 @@ type keyboardEvtType = Keydown | Keyup
 type keyboardEvtState = Pressed | Released
 type mouseEvtType = Mousedown | Mouseup
 type mouseEvtState = Pressed | Released
+type windowEvtType = WindowClose | WindowResize
 type event = KeyboardEvt of {
   kbd_evt_type: keyboardEvtType;
   timestamp: int64;
@@ -17,4 +18,8 @@ type event = KeyboardEvt of {
   clicks: int32;
   x: int64;
   y: int64;
+} | WindowEvt of {
+  timestamp: int64;
+  windowID: int64;
+  event: windowEvtType;
 };;
