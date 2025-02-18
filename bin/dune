@@ -1,0 +1,23 @@
+(executable
+ (public_name limitless)
+ (name main)
+ (libraries limitless)
+ (ocamlopt_flags -cclib -lSDL2 -ccopt -L/opt/homebrew/lib -ccopt "-framework OpenGL")
+ (ocamlc_flags -cclib -lSDL2 -ccopt -L/opt/homebrew/lib -ccopt "-framework OpenGL")
+ (foreign_archives stubs))
+
+(data_only_dirs stubs)
+
+(rule
+ (deps (source_tree stubs))
+ (targets stubs.o libstubs.a)
+ (action
+ (no-infer
+  (progn
+   (chdir stubs (run make))
+   (copy stubs/stubs.o stubs.o)
+   (copy stubs/libstubs.a libstubs.a)))))
+
+(env
+  (dev
+    (flags (:standard -warn-error -A))))
