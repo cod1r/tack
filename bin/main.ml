@@ -10,6 +10,23 @@ match w with
     Printf.printf "Created window: %s %d %d" title width height; print_newline ()
 | None -> failwith "unable to create window";;
 
+match w with
+| Some(w) ->
+    begin
+      sdl_create_renderer w 0;
+      sdl_set_render_draw_color w 255 0 0 255
+    end
+| None -> ();;
+
+let draw_rect () =
+  match w with
+  | Some(w) ->
+    let rect = Rect { x=0; y=0; width=800; height=800 } in
+    sdl_render_clear w;
+    sdl_renderer_draw_rect w rect;
+    sdl_render_present w
+  | None -> ();;
+
 let rec loop () =
   let evt = sdl_pollevent () in
   let continue = match evt with
@@ -39,6 +56,6 @@ let rec loop () =
           | WindowResize -> true
         end
     | None -> true in
-    if continue then loop () else ();;
+    if continue then (draw_rect(); loop ()) else ();;
 
 let _ = loop ();;

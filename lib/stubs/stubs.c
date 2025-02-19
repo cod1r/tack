@@ -5,6 +5,77 @@
 #include <SDL.h>
 #include <stdio.h>
 
+CAMLprim value sdl_render_present(value window) {
+  CAMLparam1(window);
+  SDL_Window* w = SDL_GetWindowFromID(Int_val(Field(window, 0)));
+  if (w == NULL) caml_failwith(SDL_GetError());
+  SDL_Renderer* renderer = SDL_GetRenderer(w);
+  if (renderer == NULL) {
+    caml_failwith("SDL_GetRenderer returned NULL trying to render present");
+  }
+  SDL_RenderPresent(renderer);
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value sdl_render_clear(value window) {
+  CAMLparam1(window);
+  SDL_Window* w = SDL_GetWindowFromID(Int_val(Field(window, 0)));
+  if (w == NULL) caml_failwith(SDL_GetError());
+  SDL_Renderer* renderer = SDL_GetRenderer(w);
+  if (renderer == NULL) {
+    caml_failwith("SDL_GetRenderer returned NULL trying to render clear");
+  }
+  int result = SDL_RenderClear(renderer);
+  if (result < 0) caml_failwith(SDL_GetError());
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value sdl_create_renderer(value window, value flags) {
+  CAMLparam2(window, flags);
+  SDL_Window* w = SDL_GetWindowFromID(Int_val(Field(window, 0)));
+  if (w == NULL) caml_failwith(SDL_GetError());
+  SDL_Renderer* r = SDL_CreateRenderer(w, -1, Int_val(flags));
+  if (r == NULL) caml_failwith(SDL_GetError());
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value sdl_set_render_draw_color(value window, value r, value g, value b, value a) {
+  CAMLparam5(window, r, g, b, a);
+  SDL_Window* w = SDL_GetWindowFromID(Int_val(Field(window, 0)));
+  if (w == NULL) caml_failwith(SDL_GetError());
+  SDL_Renderer* renderer = SDL_GetRenderer(w);
+  if (renderer == NULL) {
+    caml_failwith("SDL_GetRenderer returned NULL trying to set draw color");
+  }
+  int res = SDL_SetRenderDrawColor(renderer, Int_val(r), Int_val(g), Int_val(b), Int_val(a));
+  if (res < 0) caml_failwith(SDL_GetError());
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value sdl_renderer_fill_rect(value window, value rect) {
+  CAMLparam2(window, rect);
+  SDL_Window* w = SDL_GetWindowFromID(Int_val(Field(window, 0)));
+  if (w == NULL) caml_failwith(SDL_GetError());
+  SDL_Renderer* r = SDL_GetRenderer(w);
+  if (r == NULL) caml_failwith("SDL_GetRenderer returned NULL trying to fill rect");
+  SDL_Rect c_rect = { Field(rect, 0), Field(rect, 1), Field(rect, 2), Field(rect, 3) };
+  int res = SDL_RenderFillRect(r, &c_rect);
+  if (res < 0) caml_failwith(SDL_GetError());
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value sdl_renderer_draw_rect(value window, value rect) {
+  CAMLparam2(window, rect);
+  SDL_Window* w = SDL_GetWindowFromID(Int_val(Field(window, 0)));
+  if (w == NULL) caml_failwith(SDL_GetError());
+  SDL_Renderer* r = SDL_GetRenderer(w);
+  if (r == NULL) caml_failwith("SDL_GetRenderer returned NULL trying to draw rect");
+  SDL_Rect c_rect = { Field(rect, 0), Field(rect, 1), Field(rect, 2), Field(rect, 3) };
+  int res = SDL_RenderDrawRect(r, &c_rect);
+  if (res < 0) caml_failwith(SDL_GetError());
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value sdl_create_window(value title, value x, value y, value width, value height, value flags) {
   CAMLparam5(title, x, y, width, height);
   CAMLxparam1(flags);
@@ -14,12 +85,13 @@ CAMLprim value sdl_create_window(value title, value x, value y, value width, val
   SDL_Window* w = SDL_CreateWindow(String_val(title), Int_val(x), Int_val(y), Int_val(width), Int_val(height), Int_val(flags));
   if (w) {
     // tag type 0 because record type
-    window = caml_alloc(5, 0);
-    Store_field(window, 0, title);
-    Store_field(window, 1, x);
-    Store_field(window, 2, y);
-    Store_field(window, 3, width);
-    Store_field(window, 4, height);
+    window = caml_alloc(6, 0);
+    Store_field(window, 0, Val_int(SDL_GetWindowID(w)));
+    Store_field(window, 1, title);
+    Store_field(window, 2, x);
+    Store_field(window, 3, y);
+    Store_field(window, 4, width);
+    Store_field(window, 5, height);
     option_window = caml_alloc_some(window);
   }
   CAMLreturn(option_window);
