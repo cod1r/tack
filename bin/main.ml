@@ -3,6 +3,13 @@ open Limitless.Sdl;;
 
 let () = init_sdl ();;
 
+let w = sdl_create_window "limitless" 0 0 800 800 sdl_window_resizable;;
+
+match w with
+| Some(Window { width; height; title }) ->
+    Printf.printf "Created window: %s %d %d" title width height; print_newline ()
+| None -> failwith "unable to create window";;
+
 let rec loop () =
   let evt = sdl_pollevent () in
   let continue = match evt with
@@ -21,7 +28,8 @@ let rec loop () =
       }) ->
         begin
           match mouse_evt_type with
-          | Mousedown -> Printf.printf "Mousedown %Ld, %Ld, %Ld, %ld, %ld, %Ld" x y windowID button clicks timestamp; print_newline ();
+          | Mousedown ->
+              Printf.printf "Mousedown %Ld, %Ld, %Ld, %ld, %ld, %Ld" x y windowID button clicks timestamp; print_newline ();
           | Mouseup -> Printf.printf "Mouseup"; print_newline();
         end; true
     | Some(WindowEvt { event=event }) ->

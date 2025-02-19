@@ -2,13 +2,32 @@
 #include <caml/memory.h>
 #include <caml/alloc.h>
 #include <caml/fail.h>
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <stdio.h>
+
+CAMLprim value sdl_create_window(value title, value x, value y, value width, value height, value flags) {
+  CAMLparam5(title, x, y, width, height);
+  CAMLxparam1(flags);
+  CAMLlocal1(window);
+  CAMLlocal1(option_window);
+  option_window = Val_none;
+  SDL_Window* w = SDL_CreateWindow(String_val(title), Int_val(x), Int_val(y), Int_val(width), Int_val(height), Int_val(flags));
+  if (w) {
+    // tag type 0 because record type
+    window = caml_alloc(5, 0);
+    Store_field(window, 0, title);
+    Store_field(window, 1, x);
+    Store_field(window, 2, y);
+    Store_field(window, 3, width);
+    Store_field(window, 4, height);
+    option_window = caml_alloc_some(window);
+  }
+  CAMLreturn(option_window);
+}
 
 CAMLprim value init_sdl(value unit) {
   CAMLparam1(unit);
   SDL_Init(SDL_INIT_VIDEO);
-  SDL_CreateWindow("limitless", 0, 0, 800, 800, SDL_WINDOW_RESIZABLE);
   CAMLreturn(Val_unit);
 }
 
