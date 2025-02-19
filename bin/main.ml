@@ -3,7 +3,7 @@ open Limitless.Sdl;;
 
 let () = init_sdl ();;
 
-let w = sdl_create_window "limitless" 0 0 800 800 sdl_window_resizable;;
+let w = sdl_create_window "limitless" 0 0 800 800 (sdl_window_resizable lor sdl_window_opengl);;
 
 match w with
 | Some(Window { width; height; title }) ->
@@ -13,18 +13,18 @@ match w with
 let rec loop () =
   let evt = sdl_pollevent () in
   let continue = match evt with
-    | Some(KeyboardEvt { keysym=keysym; timestamp=timestamp; }) ->
+    | Some(KeyboardEvt { keysym; timestamp; }) ->
         Printf.printf "KBD: %c, %Ld" keysym timestamp;
         print_newline ();
         if keysym = 'q' then false else true
     | Some(MouseButtonEvt {
-        mouse_evt_type=mouse_evt_type;
-        timestamp=timestamp;
-        x=x;
-        y=y;
-        windowID=windowID;
-        button=button;
-        clicks=clicks;
+        mouse_evt_type;
+        timestamp;
+        x;
+        y;
+        windowID;
+        button;
+        clicks;
       }) ->
         begin
           match mouse_evt_type with
@@ -32,7 +32,7 @@ let rec loop () =
               Printf.printf "Mousedown %Ld, %Ld, %Ld, %ld, %ld, %Ld" x y windowID button clicks timestamp; print_newline ();
           | Mouseup -> Printf.printf "Mouseup"; print_newline();
         end; true
-    | Some(WindowEvt { event=event }) ->
+    | Some(WindowEvt { event }) ->
         begin
           match event with
           | WindowClose -> false
