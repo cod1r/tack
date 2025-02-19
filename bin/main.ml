@@ -14,16 +14,18 @@ match w with
 | Some(w) ->
     begin
       sdl_create_renderer w 0;
-      sdl_set_render_draw_color w 255 0 0 255
     end
 | None -> ();;
 
 let draw_rect () =
   match w with
   | Some(w) ->
-    let rect = Rect { x=0; y=0; width=800; height=800 } in
+    let rect = Rect { x=0; y=0; width=250; height=300 } in
+    sdl_set_render_draw_color w 0 0 0 255;
     sdl_render_clear w;
+    sdl_set_render_draw_color w 255 0 0 255;
     sdl_renderer_draw_rect w rect;
+    sdl_renderer_fill_rect w rect;
     sdl_render_present w
   | None -> ();;
 
