@@ -35,7 +35,7 @@ let rec loop () =
     | Some(KeyboardEvt { keysym; timestamp; }) ->
         Printf.printf "KBD: %c, %Ld" keysym timestamp;
         print_newline ();
-        if keysym = 'q' then false else true
+        true
     | Some(MouseButtonEvt {
         mouse_evt_type;
         timestamp;
