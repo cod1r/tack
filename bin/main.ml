@@ -3,7 +3,7 @@ open Limitless.Sdl;;
 
 let () = init_sdl ();;
 
-let w = sdl_create_window "limitless" 0 0 800 800 (sdl_window_resizable lor sdl_window_opengl);;
+let w = sdl_create_window "limitless" 0 0 800 800 (sdl_window_resizable);;
 
 match w with
 | Some(Window { width; height; title }) ->
@@ -28,6 +28,8 @@ let draw_rect () =
     sdl_renderer_fill_rect w rect;
     sdl_render_present w
   | None -> ();;
+
+let () = draw_rect();;
 
 let rec loop () =
   let evt = sdl_pollevent () in
@@ -58,6 +60,6 @@ let rec loop () =
           | WindowResize -> true
         end
     | None -> true in
-    if continue then (draw_rect(); loop ()) else ();;
+    if continue then loop () else ();;
 
 let _ = loop ();;

@@ -3,15 +3,7 @@
 #include <caml/alloc.h>
 #include <caml/fail.h>
 #include <SDL.h>
-#include <SDL_ttf.h>
 #include <stdio.h>
-
-CAMLprim value sdl_ttf_init(value unit) {
-  CAMLparam1(unit);
-  int result = TTF_Init();
-  if (result < 0) caml_failwith(SDL_GetError());
-  CAMLreturn(Val_unit);
-}
 
 CAMLprim value sdl_render_present(value window) {
   CAMLparam1(window);

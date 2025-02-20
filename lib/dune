@@ -1,7 +1,7 @@
 (library
  (name limitless)
- (ocamlopt_flags -cclib -lSDL2 -cclib -lSDL2_ttf -ccopt -L/opt/homebrew/lib)
- (ocamlc_flags -cclib -lSDL2 -cclib -lSDL2_ttf -ccopt -L/opt/homebrew/lib)
+ (ocamlopt_flags -cclib -lSDL2 -ccopt -L/opt/homebrew/lib)
+ (ocamlc_flags -cclib -lSDL2 -ccopt -L/opt/homebrew/lib)
  (foreign_archives stubs))
 
 (data_only_dirs stubs)
