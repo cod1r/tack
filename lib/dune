@@ -1,17 +1,16 @@
 (library
  (name limitless)
- (ocamlopt_flags -cclib -lSDL2 -ccopt -L/opt/homebrew/lib -ccopt "-framework OpenGL")
- (ocamlc_flags -cclib -lSDL2 -ccopt -L/opt/homebrew/lib -ccopt "-framework OpenGL")
+ (ocamlopt_flags -cclib -lSDL2 -cclib -lSDL2_ttf -ccopt -L/opt/homebrew/lib)
+ (ocamlc_flags -cclib -lSDL2 -cclib -lSDL2_ttf -ccopt -L/opt/homebrew/lib)
  (foreign_archives stubs))
 
 (data_only_dirs stubs)
 
 (rule
  (deps (source_tree stubs))
- (targets stubs.o libstubs.a)
+ (targets libstubs.a)
  (action
  (no-infer
   (progn
    (chdir stubs (run make))
-   (copy stubs/stubs.o stubs.o)
    (copy stubs/libstubs.a libstubs.a)))))
