@@ -6,7 +6,7 @@ let () = init_sdl ();;
 let w = sdl_create_window "limitless" 0 0 800 800 (sdl_window_resizable);;
 
 match w with
-| Some(Window { width; height; title }) ->
+| Some(Window { width; height; title; _ }) ->
     Printf.printf "Created window: %s %d %d" title width height; print_newline ()
 | None -> failwith "unable to create window";;
 
@@ -34,8 +34,8 @@ let () = draw_rect();;
 let rec loop () =
   let evt = sdl_pollevent () in
   let continue = match evt with
-    | Some(KeyboardEvt { keysym; timestamp; }) ->
-        Printf.printf "KBD: %c, %Ld" keysym timestamp;
+    | Some(KeyboardEvt { keysym; timestamp; _ }) ->
+        Printf.printf "KBD: %c, %d" keysym timestamp;
         print_newline ();
         true
     | Some(MouseButtonEvt {
@@ -50,14 +50,18 @@ let rec loop () =
         begin
           match mouse_evt_type with
           | Mousedown ->
-              Printf.printf "Mousedown %Ld, %Ld, %Ld, %ld, %ld, %Ld" x y windowID button clicks timestamp; print_newline ();
+              Printf.printf "Mousedown %d, %d, %d, %d, %d, %d" x y windowID button clicks timestamp; print_newline ();
           | Mouseup -> Printf.printf "Mouseup"; print_newline();
         end; true
-    | Some(WindowEvt { event }) ->
+    | Some(WindowEvt { event; _ }) ->
         begin
           match event with
           | WindowClose -> false
           | WindowResize -> true
+        end
+    | Some(MouseMotionEvt { x; y; _ }) ->
+        begin
+          Printf.printf "Mousemotion %d %d" x y; print_newline(); true
         end
     | None -> true in
     if continue then loop () else ();;

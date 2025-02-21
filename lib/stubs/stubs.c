@@ -116,8 +116,8 @@ CAMLprim value sdl_pollevent(value unit) {
         // tag type is 0 because first variant
         evt_type = caml_alloc(6, 0);
         Store_field(evt_type, 0, Val_int(0));
-        Store_field(evt_type, 1, caml_copy_int64(e.key.timestamp));
-        Store_field(evt_type, 2, caml_copy_int64(e.key.windowID));
+        Store_field(evt_type, 1, Val_int(e.key.timestamp));
+        Store_field(evt_type, 2, Val_int(e.key.windowID));
         Store_field(evt_type, 3, e.key.state == SDL_PRESSED ? Val_int(0) : Val_int(1));
         Store_field(evt_type, 4, e.key.repeat ? Val_true : Val_false);
         Store_field(evt_type, 5, Val_int(e.key.keysym.sym));
@@ -127,24 +127,35 @@ CAMLprim value sdl_pollevent(value unit) {
         // tag type is 1 because second variant
         evt_type = caml_alloc(7, 1);
         Store_field(evt_type, 0, Val_int(0));
-        Store_field(evt_type, 1, caml_copy_int64(e.button.timestamp));
-        Store_field(evt_type, 2, caml_copy_int64(e.button.windowID));
-        Store_field(evt_type, 3, caml_copy_int32(e.button.button));
-        Store_field(evt_type, 4, caml_copy_int32(e.button.clicks));
-        Store_field(evt_type, 5, caml_copy_int64(e.button.x));
-        Store_field(evt_type, 6, caml_copy_int64(e.button.y));
+        Store_field(evt_type, 1, Val_int(e.button.timestamp));
+        Store_field(evt_type, 2, Val_int(e.button.windowID));
+        Store_field(evt_type, 3, Val_int(e.button.button));
+        Store_field(evt_type, 4, Val_int(e.button.clicks));
+        Store_field(evt_type, 5, Val_int(e.button.x));
+        Store_field(evt_type, 6, Val_int(e.button.y));
         option_val = caml_alloc_some(evt_type);
       } break;
       case SDL_WINDOWEVENT: {
         if (e.window.event == SDL_WINDOWEVENT_CLOSE) {
           // tag type is 2 because third variant
           evt_type = caml_alloc(3, 2);
-          Store_field(evt_type, 0, caml_copy_int64(e.window.timestamp));
-          Store_field(evt_type, 1, caml_copy_int64(e.window.windowID));
+          Store_field(evt_type, 0, Val_int(e.window.timestamp));
+          Store_field(evt_type, 1, Val_int(e.window.windowID));
           Store_field(evt_type, 2, Val_int(0));
           option_val = caml_alloc_some(evt_type);
         }
       } break;
+      case SDL_MOUSEMOTION: {
+        evt_type = caml_alloc(7, 3);
+        Store_field(evt_type, 0, Val_int(e.motion.timestamp));
+        Store_field(evt_type, 1, Val_int(e.motion.windowID));
+        Store_field(evt_type, 2, Val_int(e.motion.which));
+        Store_field(evt_type, 3, Val_int(e.motion.x));
+        Store_field(evt_type, 4, Val_int(e.motion.y));
+        Store_field(evt_type, 5, Val_int(e.motion.xrel));
+        Store_field(evt_type, 6, Val_int(e.motion.yrel));
+        option_val = caml_alloc_some(evt_type);
+      }
     }
   }
   CAMLreturn(option_val);

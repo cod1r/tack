@@ -5,21 +5,29 @@ type mouseEvtState = Pressed | Released
 type windowEvtType = WindowClose | WindowResize
 type event = KeyboardEvt of {
   kbd_evt_type: keyboardEvtType;
-  timestamp: int64;
-  windowID: int64;
+  timestamp: int;
+  windowID: int;
   state: keyboardEvtState;
   repeat: bool;
   keysym: char;
 } | MouseButtonEvt of {
   mouse_evt_type: mouseEvtType;
-  timestamp: int64;
-  windowID: int64;
-  button: int32;
-  clicks: int32;
-  x: int64;
-  y: int64;
+  timestamp: int;
+  windowID: int;
+  button: int;
+  clicks: int;
+  x: int;
+  y: int;
 } | WindowEvt of {
-  timestamp: int64;
-  windowID: int64;
+  timestamp: int;
+  windowID: int;
   event: windowEvtType;
+} | MouseMotionEvt of {
+  timestamp: int;
+  windowID: int;
+  which: int;
+  x: int;
+  y: int;
+  xrel: int;
+  yrel: int;
 };;
