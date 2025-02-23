@@ -5,3 +5,4 @@ todo:
 decide whether to software render or gpu render things
  - probably going to software render
 look into freetype and harfbuzz
+think about statically linking things vs dynamically linking things

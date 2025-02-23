@@ -1,7 +1,11 @@
 open Limitless.Events;;
 open Limitless.Sdl;;
+open Limitless.Freetype;;
 
 let () = init_sdl ();;
+
+let () = freetype_init ();;
+let () = freetype_load_font ();;
 
 let w = sdl_create_window "limitless" 0 0 800 800 (sdl_window_resizable);;
 

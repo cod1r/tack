@@ -8,6 +8,27 @@
 #include <hb.h>
 #include <stdio.h>
 
+FT_Library library;
+FT_Face face;
+
+CAMLprim value freetype_load_font(value unit) {
+  CAMLparam1(unit);
+  int result = FT_New_Face(library, "/Users/cod1r/Library/Fonts/JetBrainsMonoNerdFont-Regular.ttf", 0, &face);
+  if (result == FT_Err_Unknown_File_Format) {
+    caml_failwith("unknown font file format");
+  } else if (result) {
+    caml_failwith("could not open font file for unknown reasons");
+  }
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value freetype_init(value unit) {
+  CAMLparam1(unit);
+  int result = FT_Init_FreeType(&library);
+  if (result) caml_failwith("failed to initialize freetype");
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value sdl_render_present(value window) {
   CAMLparam1(window);
   SDL_Window* w = SDL_GetWindowFromID(Int_val(Field(window, 0)));
