@@ -5,6 +5,7 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <SDL.h>
+#include <hb.h>
 #include <stdio.h>
 
 CAMLprim value sdl_render_present(value window) {
