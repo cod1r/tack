@@ -1,16 +1,9 @@
 (library
  (name limitless)
- (ocamlopt_flags -cclib -lSDL2 -ccopt -L/opt/homebrew/lib)
- (ocamlc_flags -cclib -lSDL2 -ccopt -L/opt/homebrew/lib)
- (foreign_archives stubs))
-
-(data_only_dirs stubs)
+ (foreign_stubs (language c) (names stubs)
+ (flags (:include c_flags.sexp)))
+ (c_library_flags (:include c_library_flags.sexp)))
 
 (rule
- (deps (source_tree stubs))
- (targets libstubs.a)
- (action
- (no-infer
-  (progn
-   (chdir stubs (run make))
-   (copy stubs/libstubs.a libstubs.a)))))
+ (targets c_flags.sexp c_library_flags.sexp)
+ (action (run ./config/get_cflags.exe)))
