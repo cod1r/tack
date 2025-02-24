@@ -29,26 +29,51 @@ CAMLprim value freetype_init(value unit) {
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value sdl_render_present(value window) {
-  CAMLparam1(window);
+SDL_Renderer* get_renderer_from_window(value window) {
   SDL_Window* w = SDL_GetWindowFromID(Int_val(Field(window, 0)));
   if (w == NULL) caml_failwith(SDL_GetError());
   SDL_Renderer* renderer = SDL_GetRenderer(w);
   if (renderer == NULL) {
-    caml_failwith("SDL_GetRenderer returned NULL trying to render present");
+    caml_failwith("SDL_GetRenderer failed");
   }
+  return renderer;
+}
+
+CAMLprim value sdl_render_draw_points(value window, value points) {
+  CAMLparam2(window, points);
+  CAMLlocal1(tail);
+  CAMLlocal1(tuple);
+  int total_points = 0;
+  tail = points;
+  while (tail != Val_emptylist) {
+    tail = Field(tail, 1);
+    ++total_points;
+  }
+  SDL_Point* sdl_points = calloc(total_points, sizeof(SDL_Point) * total_points);
+  tail = points;
+  for (int points_idx = 0; points_idx < total_points; ++points_idx) {
+    tuple = Field(tail, 0);
+    sdl_points[points_idx].x = Int_val(Field(tuple, 0));
+    sdl_points[points_idx].y = Int_val(Field(tuple, 1));
+    tail = Field(tail, 1);
+  }
+  SDL_Renderer* renderer = get_renderer_from_window(window);
+  int result = SDL_RenderDrawPoints(renderer, sdl_points, total_points);
+  if (result < 0) caml_failwith(SDL_GetError());
+  free(sdl_points);
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value sdl_render_present(value window) {
+  CAMLparam1(window);
+  SDL_Renderer* renderer = get_renderer_from_window(window);
   SDL_RenderPresent(renderer);
   CAMLreturn(Val_unit);
 }
 
 CAMLprim value sdl_render_clear(value window) {
   CAMLparam1(window);
-  SDL_Window* w = SDL_GetWindowFromID(Int_val(Field(window, 0)));
-  if (w == NULL) caml_failwith(SDL_GetError());
-  SDL_Renderer* renderer = SDL_GetRenderer(w);
-  if (renderer == NULL) {
-    caml_failwith("SDL_GetRenderer returned NULL trying to render clear");
-  }
+  SDL_Renderer* renderer = get_renderer_from_window(window);
   int result = SDL_RenderClear(renderer);
   if (result < 0) caml_failwith(SDL_GetError());
   CAMLreturn(Val_unit);
@@ -65,12 +90,7 @@ CAMLprim value sdl_create_renderer(value window, value flags) {
 
 CAMLprim value sdl_set_render_draw_color(value window, value r, value g, value b, value a) {
   CAMLparam5(window, r, g, b, a);
-  SDL_Window* w = SDL_GetWindowFromID(Int_val(Field(window, 0)));
-  if (w == NULL) caml_failwith(SDL_GetError());
-  SDL_Renderer* renderer = SDL_GetRenderer(w);
-  if (renderer == NULL) {
-    caml_failwith("SDL_GetRenderer returned NULL trying to set draw color");
-  }
+  SDL_Renderer* renderer = get_renderer_from_window(window);
   int res = SDL_SetRenderDrawColor(renderer, Int_val(r), Int_val(g), Int_val(b), Int_val(a));
   if (res < 0) caml_failwith(SDL_GetError());
   CAMLreturn(Val_unit);
@@ -78,24 +98,18 @@ CAMLprim value sdl_set_render_draw_color(value window, value r, value g, value b
 
 CAMLprim value sdl_renderer_fill_rect(value window, value rect) {
   CAMLparam2(window, rect);
-  SDL_Window* w = SDL_GetWindowFromID(Int_val(Field(window, 0)));
-  if (w == NULL) caml_failwith(SDL_GetError());
-  SDL_Renderer* r = SDL_GetRenderer(w);
-  if (r == NULL) caml_failwith("SDL_GetRenderer returned NULL trying to fill rect");
+  SDL_Renderer* renderer = get_renderer_from_window(window);
   SDL_Rect c_rect = { Field(rect, 0), Field(rect, 1), Field(rect, 2), Field(rect, 3) };
-  int res = SDL_RenderFillRect(r, &c_rect);
+  int res = SDL_RenderFillRect(renderer, &c_rect);
   if (res < 0) caml_failwith(SDL_GetError());
   CAMLreturn(Val_unit);
 }
 
 CAMLprim value sdl_renderer_draw_rect(value window, value rect) {
   CAMLparam2(window, rect);
-  SDL_Window* w = SDL_GetWindowFromID(Int_val(Field(window, 0)));
-  if (w == NULL) caml_failwith(SDL_GetError());
-  SDL_Renderer* r = SDL_GetRenderer(w);
-  if (r == NULL) caml_failwith("SDL_GetRenderer returned NULL trying to draw rect");
+  SDL_Renderer* renderer = get_renderer_from_window(window);
   SDL_Rect c_rect = { Field(rect, 0), Field(rect, 1), Field(rect, 2), Field(rect, 3) };
-  int res = SDL_RenderDrawRect(r, &c_rect);
+  int res = SDL_RenderDrawRect(renderer, &c_rect);
   if (res < 0) caml_failwith(SDL_GetError());
   CAMLreturn(Val_unit);
 }

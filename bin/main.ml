@@ -17,7 +17,7 @@ match w with
 match w with
 | Some(w) ->
     begin
-      sdl_create_renderer w 0;
+      sdl_create_renderer w 1;
     end
 | None -> ();;
 
@@ -25,15 +25,37 @@ let draw_rect () =
   match w with
   | Some(w) ->
     let rect = Rect { x=0; y=0; width=250; height=300 } in
-    sdl_set_render_draw_color w 0 0 0 255;
-    sdl_render_clear w;
     sdl_set_render_draw_color w 255 0 0 255;
     sdl_renderer_draw_rect w rect;
     sdl_renderer_fill_rect w rect;
-    sdl_render_present w
   | None -> ();;
 
-let () = draw_rect();;
+let draw_points points =
+  match w with
+  | Some(w) ->
+      sdl_set_render_draw_color w 0 255 0 255;
+      sdl_render_draw_points w points;
+  | None -> ();;
+
+let points =
+  let rec points' x y acc =
+    let new_point = Point (x, y) in
+    match (x, y) with
+    | (100, 100) -> new_point :: acc
+    | (_, 100) -> points' (succ x) 0 (new_point :: acc)
+    | _ -> points' x (succ y) (new_point :: acc)
+  in
+  points' 0 0 []
+;;
+
+let draw () =
+  draw_rect ();
+  draw_points points;
+  match w with
+  | Some(w) -> sdl_render_present w
+  | None -> ();;
+
+let () = draw ();;
 
 let rec loop () =
   let evt = sdl_pollevent () in
