@@ -11,6 +11,29 @@
 FT_Library library;
 FT_Face face;
 
+CAMLprim value freetype_set_char_size(value unit) {
+  CAMLparam1(unit);
+  int result = FT_Set_Char_Size(face, 0, 16*64, 800, 800);
+  if (result) caml_failwith("FT_Set_Char_Size failed");
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value freetype_load_glyph_a(value unit) {
+  CAMLparam1(unit);
+  CAMLlocal1(byte_seq);
+  FT_UInt glyph_index = FT_Get_Char_Index(face, 'a');
+  if (glyph_index == 0) caml_failwith("FT_Get_Char_Index returned undefined character code");
+  int result = FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER);
+  if (result) {
+    caml_failwith("FT_Load_Glyph failed");
+  }
+  FT_Bitmap bitmap = face->glyph->bitmap;
+  int64_t n = (int64_t)bitmap.rows * (int64_t)bitmap.pitch;
+  if (n < 0) n = -n;
+  byte_seq = caml_alloc_initialized_string(n, (const char *)bitmap.buffer);
+  CAMLreturn(byte_seq);
+}
+
 CAMLprim value freetype_load_font(value unit) {
   CAMLparam1(unit);
   int result = FT_New_Face(library, "/Users/cod1r/Library/Fonts/JetBrainsMonoNerdFont-Regular.ttf", 0, &face);

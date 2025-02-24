@@ -6,6 +6,9 @@ let () = init_sdl ();;
 
 let () = freetype_init ();;
 let () = freetype_load_font ();;
+let () = freetype_set_char_size ();;
+
+let byte_sequence = freetype_load_glyph_a ();;
 
 let w = sdl_create_window "limitless" 0 0 800 800 (sdl_window_resizable);;
 
