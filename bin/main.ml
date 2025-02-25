@@ -8,7 +8,7 @@ let () = freetype_init ();;
 let () = freetype_load_font ();;
 let () = freetype_set_char_size ();;
 
-let byte_sequence = freetype_load_glyph_a ();;
+let bmp = freetype_load_glyph_a ();;
 
 let w = sdl_create_window "limitless" 0 0 800 800 (sdl_window_resizable);;
 
@@ -51,9 +51,31 @@ let points =
   points' 0 0 []
 ;;
 
+let bmp_points =
+  let rec get_points x y acc =
+    let byte = Bytes.get (bmp.buffer) (y * bmp.pitch + x) in
+    let new_acc = if byte = Char.chr 0 then acc else (Point (x, y) :: acc) in
+    match (x = bmp.width - 1, y = bmp.rows - 1) with
+    | (true, true) -> new_acc
+    | (true, _) -> get_points 0 (succ y) new_acc
+    | _ -> get_points (succ x) y new_acc
+  in
+  get_points 0 0 []
+;;
+
+let draw_bmp_points pts =
+  match w with
+  | Some(w) ->
+    let filtered = List.filter (function | Point (x, y) -> Bytes.get bmp.buffer (y * bmp.pitch + x) != Char.chr 0) pts in
+    sdl_set_render_draw_color w 0 0 255 255;
+    sdl_render_draw_points w filtered
+  | None -> ()
+;;
+
 let draw () =
   draw_rect ();
   draw_points points;
+  draw_bmp_points bmp_points;
   match w with
   | Some(w) -> sdl_render_present w
   | None -> ();;

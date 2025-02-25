@@ -21,6 +21,7 @@ CAMLprim value freetype_set_char_size(value unit) {
 CAMLprim value freetype_load_glyph_a(value unit) {
   CAMLparam1(unit);
   CAMLlocal1(byte_seq);
+  CAMLlocal1(bitmap_value);
   FT_UInt glyph_index = FT_Get_Char_Index(face, 'a');
   if (glyph_index == 0) caml_failwith("FT_Get_Char_Index returned undefined character code");
   int result = FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER);
@@ -31,7 +32,12 @@ CAMLprim value freetype_load_glyph_a(value unit) {
   int64_t n = (int64_t)bitmap.rows * (int64_t)bitmap.pitch;
   if (n < 0) n = -n;
   byte_seq = caml_alloc_initialized_string(n, (const char *)bitmap.buffer);
-  CAMLreturn(byte_seq);
+  bitmap_value = caml_alloc(4, 0);
+  Store_field(bitmap_value, 0, Val_int(bitmap.rows));
+  Store_field(bitmap_value, 1, Val_int(bitmap.width));
+  Store_field(bitmap_value, 2, Val_int(bitmap.pitch));
+  Store_field(bitmap_value, 3, byte_seq);
+  CAMLreturn(bitmap_value);
 }
 
 CAMLprim value freetype_load_font(value unit) {
