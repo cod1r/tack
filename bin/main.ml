@@ -1,4 +1,3 @@
-open Limitless.Events;;
 open Limitless.Sdl;;
 open Limitless.Freetype;;
 
@@ -114,6 +113,7 @@ let rec loop () =
         begin
           Printf.printf "Mousemotion %d %d" x y; print_newline(); true
         end
+    | Some(Quit) -> false
     | None -> true in
     if continue then loop () else ();;
 

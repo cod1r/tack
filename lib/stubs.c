@@ -22,7 +22,7 @@ CAMLprim value freetype_load_glyph_a(value unit) {
   CAMLparam1(unit);
   CAMLlocal1(byte_seq);
   CAMLlocal1(bitmap_value);
-  FT_UInt glyph_index = FT_Get_Char_Index(face, 'a');
+  FT_UInt glyph_index = FT_Get_Char_Index(face, 'd');
   if (glyph_index == 0) caml_failwith("FT_Get_Char_Index returned undefined character code");
   int result = FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER);
   if (result) {
@@ -222,7 +222,11 @@ CAMLprim value sdl_pollevent(value unit) {
         Store_field(evt_type, 5, Val_int(e.motion.xrel));
         Store_field(evt_type, 6, Val_int(e.motion.yrel));
         option_val = caml_alloc_some(evt_type);
-      }
+      } break;
+      case SDL_QUIT: {
+        evt_type = Val_int(0);
+        option_val = caml_alloc_some(evt_type);
+      } break;
     }
   }
   CAMLreturn(option_val);
