@@ -4,5 +4,6 @@
  (libraries limitless))
 
 (env
-  (dev
-    (flags (:standard -warn-error -27-32))))
+ (dev
+  (flags
+   (:standard -warn-error -27-32))))

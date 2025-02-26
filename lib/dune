@@ -1,9 +1,14 @@
 (library
  (name limitless)
- (foreign_stubs (language c) (names stubs)
- (flags (:include c_flags.sexp)))
- (c_library_flags (:include c_library_flags.sexp)))
+ (foreign_stubs
+  (language c)
+  (names stubs)
+  (flags
+   (:include c_flags.sexp)))
+ (c_library_flags
+  (:include c_library_flags.sexp)))
 
 (rule
  (targets c_flags.sexp c_library_flags.sexp)
- (action (run ./config/get_cflags.exe)))
+ (action
+  (run ./config/get_cflags.exe)))

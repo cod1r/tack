@@ -3,5 +3,6 @@
  (libraries dune-configurator))
 
 (env
-  (dev
-    (flags (:standard -warn-error -27))))
+ (dev
+  (flags
+   (:standard -warn-error -27))))
