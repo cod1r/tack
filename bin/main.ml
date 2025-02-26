@@ -5,11 +5,11 @@ let () = init_sdl ();;
 
 let () = freetype_init ();;
 let () = freetype_load_font ();;
-let () = freetype_set_char_size ();;
+let () = freetype_set_pixel_sizes 8;;
 
-let bmp = freetype_load_glyph_a ();;
+let bmp = freetype_load_glyph_letter 'a';;
 
-let w = sdl_create_window "limitless" 0 0 800 800 (sdl_window_resizable);;
+let w = sdl_create_window "limitless" 0 0 800 800 (sdl_window_resizable lor sdl_window_allow_highdpi);;
 
 match w with
 | Some(Window { width; height; title; _ }) ->
@@ -65,9 +65,11 @@ let bmp_points =
 let draw_bmp_points pts =
   match w with
   | Some(w) ->
-    let filtered = List.filter (function | Point (x, y) -> Bytes.get bmp.buffer (y * bmp.pitch + x) != Char.chr 0) pts in
-    sdl_set_render_draw_color w 0 0 255 255;
-    sdl_render_draw_points w filtered
+    let floats = List.map (function | Point(x, y) -> (PointF (Int.to_float x, Int.to_float y), Bytes.get bmp.buffer (y * bmp.pitch + x))) pts in
+    List.iter (function | (PointF (x, y), byte) ->
+      let int_byte = Char.code byte in
+      sdl_set_render_draw_color w 0 0 0 int_byte;
+      sdl_render_draw_points_float w [PointF (x /. 3., y)]) floats
   | None -> ()
 ;;
 

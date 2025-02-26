@@ -11,23 +11,32 @@
 FT_Library library;
 FT_Face face;
 
+CAMLprim value freetype_set_pixel_sizes(value size) {
+  CAMLparam1(size);
+  int result = FT_Set_Pixel_Sizes(face, 0, Val_int(size));
+  if (result) caml_failwith("FT_Set_Pixel_Sizes failed");
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value freetype_set_char_size(value unit) {
   CAMLparam1(unit);
-  int result = FT_Set_Char_Size(face, 0, 16*64, 800, 800);
+  int result = FT_Set_Char_Size(face, 0, 1*72, 800, 800);
   if (result) caml_failwith("FT_Set_Char_Size failed");
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value freetype_load_glyph_a(value unit) {
-  CAMLparam1(unit);
+CAMLprim value freetype_load_glyph_letter(value letter) {
+  CAMLparam1(letter);
   CAMLlocal1(byte_seq);
   CAMLlocal1(bitmap_value);
-  FT_UInt glyph_index = FT_Get_Char_Index(face, 'd');
+  FT_UInt glyph_index = FT_Get_Char_Index(face, Int_val(letter));
   if (glyph_index == 0) caml_failwith("FT_Get_Char_Index returned undefined character code");
-  int result = FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER);
+  int result = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
   if (result) {
     caml_failwith("FT_Load_Glyph failed");
   }
+  int render_result = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_LCD);
+  if (render_result) caml_failwith("FT_Render_Glyph failed");
   FT_Bitmap bitmap = face->glyph->bitmap;
   int64_t n = (int64_t)bitmap.rows * (int64_t)bitmap.pitch;
   if (n < 0) n = -n;
@@ -42,7 +51,7 @@ CAMLprim value freetype_load_glyph_a(value unit) {
 
 CAMLprim value freetype_load_font(value unit) {
   CAMLparam1(unit);
-  int result = FT_New_Face(library, "/Users/cod1r/Library/Fonts/JetBrainsMonoNerdFont-Regular.ttf", 0, &face);
+  int result = FT_New_Face(library, "/Users/cod1r/Library/Fonts/GeistMonoNerdFont-UltraLight.otf", 0, &face);
   if (result == FT_Err_Unknown_File_Format) {
     caml_failwith("unknown font file format");
   } else if (result) {
@@ -66,6 +75,31 @@ SDL_Renderer* get_renderer_from_window(value window) {
     caml_failwith("SDL_GetRenderer failed");
   }
   return renderer;
+}
+
+CAMLprim value sdl_render_draw_points_float(value window, value points_float) {
+  CAMLparam2(window, points_float);
+  CAMLlocal1(tail);
+  CAMLlocal1(tuple);
+  int total_points = 0;
+  tail = points_float;
+  while (tail != Val_emptylist) {
+    tail = Field(tail, 1);
+    ++total_points;
+  }
+  SDL_FPoint* sdl_points = calloc(total_points, sizeof(SDL_FPoint) * total_points);
+  tail = points_float;
+  for (int points_idx = 0; points_idx < total_points; ++points_idx) {
+    tuple = Field(tail, 0);
+    sdl_points[points_idx].x = Double_val(Field(tuple, 0));
+    sdl_points[points_idx].y = Double_val(Field(tuple, 1));
+    tail = Field(tail, 1);
+  }
+  SDL_Renderer* renderer = get_renderer_from_window(window);
+  int result = SDL_RenderDrawPointsF(renderer, sdl_points, total_points);
+  if (result < 0) caml_failwith(SDL_GetError());
+  free(sdl_points);
+  CAMLreturn(Val_unit);
 }
 
 CAMLprim value sdl_render_draw_points(value window, value points) {

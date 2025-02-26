@@ -53,7 +53,9 @@ type rect = Rect of {
 };;
 
 type point = Point of int * int;;
+type pointf = PointF of float * float;;
 
+external sdl_render_draw_points_float: window -> pointf list -> unit = "sdl_render_draw_points_float" "sdl_render_draw_points_float"
 external sdl_render_draw_points: window -> point list -> unit = "sdl_render_draw_points" "sdl_render_draw_points"
 external sdl_create_window: string -> int -> int -> int -> int -> int -> window option = "sdl_create_window" "sdl_create_window"
 external sdl_render_present: window -> unit = "sdl_render_present" "sdl_render_present"
@@ -66,3 +68,4 @@ external sdl_create_renderer: window -> int -> unit = "sdl_create_renderer" "sdl
 let sdl_window_resizable = 0x00000020;;
 let sdl_window_opengl = 0x00000002;;
 let sdl_window_shown = 0x00000004;;
+let sdl_window_allow_highdpi = 0x00002000
