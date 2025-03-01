@@ -52,6 +52,8 @@ type rect = Rect of { x : int; y : int; width : int; height : int }
 type point = Point of int * int
 type pointf = PointF of float * float
 
+external sdl_set_render_draw_blendmode : window -> int -> unit = "sdl_set_render_draw_blendmode" "sdl_set_render_draw_blendmode"
+
 external sdl_render_draw_points_float : window -> pointf list -> unit
   = "sdl_render_draw_points_float" "sdl_render_draw_points_float"
 
@@ -84,3 +86,5 @@ let sdl_window_resizable = 0x00000020
 let sdl_window_opengl = 0x00000002
 let sdl_window_shown = 0x00000004
 let sdl_window_allow_highdpi = 0x00002000
+let sdl_blendmode_blend = 0x00000001
+let sdl_renderer_software = 0x00000001

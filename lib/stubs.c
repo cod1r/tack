@@ -51,7 +51,7 @@ CAMLprim value freetype_load_glyph_letter(value letter) {
 
 CAMLprim value freetype_load_font(value unit) {
   CAMLparam1(unit);
-  int result = FT_New_Face(library, "/Users/cod1r/Library/Fonts/GeistMonoNerdFont-UltraLight.otf", 0, &face);
+  int result = FT_New_Face(library, "/Users/cod1r/Library/Fonts/JetBrainsMonoNerdFont-Regular.ttf", 0, &face);
   if (result == FT_Err_Unknown_File_Format) {
     caml_failwith("unknown font file format");
   } else if (result) {
@@ -75,6 +75,14 @@ SDL_Renderer* get_renderer_from_window(value window) {
     caml_failwith("SDL_GetRenderer failed");
   }
   return renderer;
+}
+
+CAMLprim value sdl_set_render_draw_blendmode(value window, value blendmode) {
+  CAMLparam2(window, blendmode);
+  SDL_Renderer* renderer = get_renderer_from_window(window);
+  int result = SDL_SetRenderDrawBlendMode(renderer, Int_val(blendmode));
+  if (result) caml_failwith(SDL_GetError());
+  CAMLreturn(Val_unit);
 }
 
 CAMLprim value sdl_render_draw_points_float(value window, value points_float) {
@@ -200,7 +208,8 @@ CAMLprim value sdl_create_window(value title, value x, value y, value width, val
 
 CAMLprim value init_sdl(value unit) {
   CAMLparam1(unit);
-  SDL_Init(SDL_INIT_VIDEO);
+  int result = SDL_Init(SDL_INIT_VIDEO);
+  if (result) caml_failwith(SDL_GetError());
   CAMLreturn(Val_unit);
 }
 

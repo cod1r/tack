@@ -5,7 +5,7 @@ let () = init_sdl ()
 let () = freetype_init ()
 let () = freetype_load_font ()
 let () = freetype_set_pixel_sizes 8
-let bmp = freetype_load_glyph_letter 'a'
+let bmp = freetype_load_glyph_letter 'f'
 
 let w =
   sdl_create_window "limitless" 0 0 800 800
@@ -19,7 +19,11 @@ match w with
 | None -> failwith "unable to create window"
 ;;
 
-match w with Some w -> sdl_create_renderer w 1 | None -> ()
+match w with
+| Some w ->
+  sdl_create_renderer w sdl_renderer_software;
+  sdl_set_render_draw_blendmode w sdl_blendmode_blend
+| None -> ()
 
 let draw_rect () =
   match w with
@@ -33,7 +37,7 @@ let draw_rect () =
 let draw_points points =
   match w with
   | Some w ->
-      sdl_set_render_draw_color w 0 255 0 255;
+      sdl_set_render_draw_color w 0 255 0 100;
       sdl_render_draw_points w points
   | None -> ()
 
@@ -49,8 +53,7 @@ let points =
 
 let bmp_points =
   let rec get_points x y acc =
-    let byte = Bytes.get bmp.buffer ((y * bmp.pitch) + x) in
-    let new_acc = if byte = Char.chr 0 then acc else Point (x, y) :: acc in
+    let new_acc = Point (x, y) :: acc in
     match (x = bmp.width - 1, y = bmp.rows - 1) with
     | true, true -> new_acc
     | true, _ -> get_points 0 (succ y) new_acc
