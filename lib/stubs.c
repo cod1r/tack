@@ -29,6 +29,9 @@ CAMLprim value freetype_load_glyph_letter(value letter) {
   CAMLparam1(letter);
   CAMLlocal1(byte_seq);
   CAMLlocal1(bitmap_value);
+  CAMLlocal1(glyph_info);
+  CAMLlocal1(glyph_metrics);
+  CAMLlocal1(glyph_advance);
   FT_UInt glyph_index = FT_Get_Char_Index(face, Int_val(letter));
   if (glyph_index == 0) caml_failwith("FT_Get_Char_Index returned undefined character code");
   int result = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
@@ -40,13 +43,33 @@ CAMLprim value freetype_load_glyph_letter(value letter) {
   FT_Bitmap bitmap = face->glyph->bitmap;
   int64_t n = (int64_t)bitmap.rows * (int64_t)bitmap.pitch;
   if (n < 0) n = -n;
+
   byte_seq = caml_alloc_initialized_string(n, (const char *)bitmap.buffer);
   bitmap_value = caml_alloc(4, 0);
   Store_field(bitmap_value, 0, Val_int(bitmap.rows));
   Store_field(bitmap_value, 1, Val_int(bitmap.width));
   Store_field(bitmap_value, 2, Val_int(bitmap.pitch));
   Store_field(bitmap_value, 3, byte_seq);
-  CAMLreturn(bitmap_value);
+
+  glyph_info = caml_alloc(3, 0);
+
+  glyph_advance = caml_alloc(2, 0);
+  // FreeType uses fixed floating point numbers (26.6 is the name) where the 6 least significant bits
+  // are used for fixed point stuff. We currently only need the integer part
+  Store_field(glyph_advance, 0, Val_int(face->glyph->advance.x >> 6));
+  Store_field(glyph_advance, 1, Val_int(face->glyph->advance.y >> 6));
+  Store_field(glyph_info, 0, glyph_advance);
+
+  glyph_metrics = caml_alloc(4, 0);
+  Store_field(glyph_metrics, 0, Val_int(face->glyph->metrics.width >> 6));
+  Store_field(glyph_metrics, 1, Val_int(face->glyph->metrics.height >> 6));
+  Store_field(glyph_metrics, 2, Val_int(face->glyph->metrics.horiBearingX >> 6));
+  Store_field(glyph_metrics, 3, Val_int(face->glyph->metrics.horiBearingY >> 6));
+  Store_field(glyph_info, 1, glyph_metrics);
+
+  Store_field(glyph_info, 2, bitmap_value);
+
+  CAMLreturn(glyph_info);
 }
 
 CAMLprim value freetype_load_font(value unit) {
@@ -62,6 +85,8 @@ CAMLprim value freetype_load_font(value unit) {
 
 CAMLprim value freetype_init(value unit) {
   CAMLparam1(unit);
+  memset(&face, 0, sizeof(FT_Face));
+  memset(&library, 0, sizeof(FT_Library));
   int result = FT_Init_FreeType(&library);
   if (result) caml_failwith("failed to initialize freetype");
   CAMLreturn(Val_unit);

@@ -52,7 +52,8 @@ type rect = Rect of { x : int; y : int; width : int; height : int }
 type point = Point of int * int
 type pointf = PointF of float * float
 
-external sdl_set_render_draw_blendmode : window -> int -> unit = "sdl_set_render_draw_blendmode" "sdl_set_render_draw_blendmode"
+external sdl_set_render_draw_blendmode : window -> int -> unit
+  = "sdl_set_render_draw_blendmode" "sdl_set_render_draw_blendmode"
 
 external sdl_render_draw_points_float : window -> pointf list -> unit
   = "sdl_render_draw_points_float" "sdl_render_draw_points_float"
