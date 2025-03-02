@@ -2,10 +2,10 @@ open Limitless.Sdl
 open Limitless.Freetype
 
 let () = init_sdl ()
-let () = freetype_init ()
-let () = freetype_load_font ()
-let () = freetype_set_pixel_sizes 8
-let glyph_info = freetype_load_glyph_letter 'f'
+let () = FreeType.freetype_init ()
+let () = FreeType.freetype_load_font ()
+let () = FreeType.freetype_set_pixel_sizes 8
+let glyph_info = FreeType.freetype_load_glyph_letter 'f'
 
 let glyph_infos =
   let startcode, endcode = (32, 126) in
@@ -14,14 +14,14 @@ let glyph_infos =
     if char_code > endcode then
       acc
     else
-      let new_glyph_info = freetype_load_glyph_letter (Char.chr char_code) in
+      let new_glyph_info = FreeType.freetype_load_glyph_letter (Char.chr char_code) in
       get_glyph_info (succ char_code) (new_glyph_info :: acc)
   in
   get_glyph_info startcode []
 ;;
 
 Printf.printf "%d" (List.length glyph_infos); print_newline ();;
-List.iter (fun glyph -> Printf.printf "%d\n" (Bytes.length glyph.bitmap.buffer)) glyph_infos
+List.iter (fun glyph -> Printf.printf "%d\n" (Bytes.length glyph.FreeType.bitmap.buffer)) glyph_infos
 
 let w =
   sdl_create_window "limitless" 0 0 800 800
@@ -86,8 +86,8 @@ let draw_bmp_points glyph_info pts offset =
             | Point (x, y) ->
                 (*Printf.printf "what %d %d" (Bytes.length glyph_info.bitmap.buffer) ((y * glyph_info.bitmap.pitch) + x); print_newline ();*)
                 ( PointF (Int.to_float x, Int.to_float y),
-                  Bytes.get glyph_info.bitmap.buffer
-                    ((y * glyph_info.bitmap.pitch) + x) ))
+                  Bytes.get glyph_info.FreeType.bitmap.buffer
+                    ((y * glyph_info.FreeType.bitmap.pitch) + x) ))
           pts
       in
       List.iter
@@ -100,9 +100,9 @@ let draw_bmp_points glyph_info pts offset =
   | None -> ()
 
 let draw_glyphs () =
-  let rec get_points x y acc (bitmap: freetype_bitmap) =
+  let rec get_points x y acc (bitmap : FreeType.freetype_bitmap) =
     let new_acc = Point (x, y) :: acc in
-    let (width, rows) = (bitmap.width, bitmap.rows) in
+    let (width, rows) = (bitmap.FreeType.width, bitmap.FreeType.rows) in
     if width > 0 && rows > 0 then
       match (x = width - 1, y = rows - 1) with
       | true, true -> new_acc
@@ -114,10 +114,10 @@ let draw_glyphs () =
   let rec get_xs glyphs x acc =
     match glyphs with
     | [] -> acc
-    | h :: t -> get_xs t (x + fst h.advance) (x :: acc)
+    | h :: t -> get_xs t (x + fst h.FreeType.advance) (x :: acc)
   in
   let xs = get_xs glyph_infos 0 [] in
-  let points_list = List.map (fun glyph -> (glyph, get_points 0 0 [] glyph.bitmap)) glyph_infos in
+  let points_list = List.map (fun glyph -> (glyph, get_points 0 0 [] glyph.FreeType.bitmap)) glyph_infos in
   (*List.iter (function | Point (x, y) -> Printf.printf "%d %d" x y; print_newline ()) (List.flatten points_list)*)
   List.iter2 (fun (glyph, pl) x -> draw_bmp_points glyph pl (Int.to_float x, 0.)) points_list xs
 ;;

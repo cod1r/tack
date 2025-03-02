@@ -1,3 +1,5 @@
+module FreeType =
+  struct
 external freetype_init : unit -> unit = "freetype_init" "freetype_init"
 
 external freetype_load_font : unit -> unit
@@ -26,3 +28,4 @@ external freetype_set_char_size : unit -> unit
 
 external freetype_set_pixel_sizes : int -> unit
   = "freetype_set_pixel_sizes" "freetype_set_pixel_sizes"
+  end;;
