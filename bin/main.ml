@@ -4,7 +4,7 @@ open Limitless.Freetype
 let () = init_sdl ()
 let () = FreeType.freetype_init ()
 let () = FreeType.freetype_load_font ()
-let () = FreeType.freetype_set_pixel_sizes 8
+let () = FreeType.freetype_set_pixel_sizes 6
 let glyph_info = FreeType.freetype_load_glyph_letter 'f'
 
 let glyph_infos =
@@ -20,6 +20,11 @@ let glyph_infos =
       get_glyph_info (succ char_code) (new_glyph_info :: acc)
   in
   get_glyph_info startcode []
+
+let biggest_horiBearingY =
+  List.fold_left
+    (fun acc g -> max g.FreeType.metrics.horiBearingY acc)
+    0 glyph_infos
 ;;
 
 Printf.printf "%d" (List.length glyph_infos);
@@ -61,7 +66,7 @@ let draw_rect () =
 let draw_points points =
   match w with
   | Some w ->
-      sdl_set_render_draw_color w 0 255 0 100;
+      sdl_set_render_draw_color w 0 255 0 200;
       sdl_render_draw_points w points
   | None -> ()
 
@@ -92,7 +97,6 @@ let draw_bmp_points glyph_info pts offset =
         List.map
           (function
             | Point (x, y) ->
-                (*Printf.printf "what %d %d" (Bytes.length glyph_info.bitmap.buffer) ((y * glyph_info.bitmap.pitch) + x); print_newline ();*)
                 ( PointF (Int.to_float x, Int.to_float y),
                   Bytes.get glyph_info.FreeType.bitmap.buffer
                     ((y * glyph_info.FreeType.bitmap.pitch) + x) ))
@@ -130,9 +134,12 @@ let draw_glyphs () =
       (fun glyph -> (glyph, get_points 0 0 [] glyph.FreeType.bitmap))
       glyph_infos
   in
-  (*List.iter (function | Point (x, y) -> Printf.printf "%d %d" x y; print_newline ()) (List.flatten points_list)*)
   List.iter2
-    (fun (glyph, pl) x -> draw_bmp_points glyph pl (Int.to_float x, 0.))
+    (fun (glyph, pl) x ->
+      draw_bmp_points glyph pl
+        ( Int.to_float (x + glyph.FreeType.metrics.horiBearingX),
+          Int.to_float biggest_horiBearingY
+          -. Int.to_float glyph.FreeType.metrics.horiBearingY ))
     points_list xs
 
 let draw () =

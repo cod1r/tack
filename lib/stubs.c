@@ -11,6 +11,18 @@
 FT_Library library;
 FT_Face face;
 
+CAMLprim value freetype_get_kerning(value prev_index, value curr_index) {
+  CAMLparam2(prev_index, curr_index);
+  CAMLlocal1(kerning_tuple);
+  FT_Vector kerning;
+  int result = FT_Get_Kerning(face, Int_val(prev_index), Int_val(curr_index), FT_KERNING_DEFAULT, &kerning);
+  if (result) caml_failwith("FT_Get_Kerning failed");
+  kerning_tuple = caml_alloc(2, 0);
+  Store_field(kerning_tuple, 0, Val_int(kerning.x >> 6));
+  Store_field(kerning_tuple, 1, Val_int(kerning.y >> 6));
+  CAMLreturn(kerning_tuple);
+}
+
 CAMLprim value freetype_set_pixel_sizes(value size) {
   CAMLparam1(size);
   int result = FT_Set_Pixel_Sizes(face, 0, Val_int(size));
@@ -51,7 +63,7 @@ CAMLprim value freetype_load_glyph_letter(value letter) {
   Store_field(bitmap_value, 2, Val_int(bitmap.pitch));
   Store_field(bitmap_value, 3, byte_seq);
 
-  glyph_info = caml_alloc(3, 0);
+  glyph_info = caml_alloc(4, 0);
 
   glyph_advance = caml_alloc(2, 0);
   // FreeType uses fixed floating point numbers (26.6 is the name) where the 6 least significant bits
@@ -69,12 +81,14 @@ CAMLprim value freetype_load_glyph_letter(value letter) {
 
   Store_field(glyph_info, 2, bitmap_value);
 
+  Store_field(glyph_info, 3, Val_int(glyph_index));
+
   CAMLreturn(glyph_info);
 }
 
 CAMLprim value freetype_load_font(value unit) {
   CAMLparam1(unit);
-  int result = FT_New_Face(library, "/Users/cod1r/Library/Fonts/JetBrainsMonoNerdFont-Regular.ttf", 0, &face);
+  int result = FT_New_Face(library, "/System/Library/Fonts/Menlo.ttc", 0, &face);
   if (result == FT_Err_Unknown_File_Format) {
     caml_failwith("unknown font file format");
   } else if (result) {

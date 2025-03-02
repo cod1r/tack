@@ -22,7 +22,13 @@ module FreeType = struct
     advance : int * int;
     metrics : freetype_glyph_metrics;
     bitmap : freetype_bitmap;
+    glyph_index : int;
   }
+
+  type kerning = int * int
+
+  external freetype_get_kerning : int -> int -> kerning
+    = "freetype_get_kerning" "freetype_get_kerning"
 
   external freetype_load_glyph_letter : char -> freetype_glyph_info
     = "freetype_load_glyph_letter" "freetype_load_glyph_letter"
