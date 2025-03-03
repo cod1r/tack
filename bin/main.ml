@@ -207,25 +207,7 @@ let rec loop editor_info =
     | Some (KeyboardEvt { keysym; timestamp; _ }) ->
         Printf.printf "KBD: %d, %d" (Char.code keysym) timestamp;
         print_newline ();
-        let char_code = Char.code keysym in
-        let new_buffer, offset =
-          if char_code = 8 then
-            let offset =
-              match editor_info.buffer with
-              | [] -> (0, 0)
-              | _ ->
-                  erase_letter_glyph
-                    (List.hd editor_info.buffer)
-                    editor_info.cursor_pos
-            in
-            match editor_info.buffer with
-            | [] -> ([ keysym ], offset)
-            | _ :: t -> (t, offset)
-          else
-            ( keysym :: editor_info.buffer,
-              draw_letter_glyph keysym editor_info.cursor_pos )
-        in
-        (new_buffer, (offset, true))
+      (editor_info.buffer, ((0, 0), true))
     | Some
         (MouseButtonEvt
            { mouse_evt_type; timestamp; x; y; windowID; button; clicks }) ->
@@ -246,6 +228,30 @@ let rec loop editor_info =
         Printf.printf "Mousemotion %d %d" x y;
         print_newline ();
         (editor_info.buffer, ((0, 0), true))
+    | Some (TextInputEvt { text; _ }) -> (
+      (editor_info.buffer, ((0, 0), true))
+      (*let temp_buffer = String.fold_left (fun acc c -> c :: acc) text in*)
+      (*List.fold_left (fun acc c ->*)
+      (*  let char_code = Char.code c in*)
+      (*  let new_buffer, offset =*)
+      (*    if char_code = 8 then*)
+      (*      let offset =*)
+      (*        match editor_info.buffer with*)
+      (*        | [] -> (0, 0)*)
+      (*        | _ ->*)
+      (*            erase_letter_glyph*)
+      (*              (List.hd editor_info.buffer)*)
+      (*              editor_info.cursor_pos*)
+      (*      in*)
+      (*      match editor_info.buffer with*)
+      (*      | [] -> ([ c ], offset)*)
+      (*      | _ :: t -> (t, offset)*)
+      (*    else*)
+      (*      ( c :: acc,*)
+      (*        draw_letter_glyph keysym editor_info.cursor_pos )*)
+      (*  in*)
+      (*  (new_buffer, (offset, true))*)
+    )
     | Some Quit -> (editor_info.buffer, ((0, 0), false))
     | None -> (editor_info.buffer, ((0, 0), true))
   in

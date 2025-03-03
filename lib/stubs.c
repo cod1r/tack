@@ -7,6 +7,7 @@
 #include <SDL.h>
 #include <hb.h>
 #include <stdio.h>
+#include <string.h>
 
 FT_Library library;
 FT_Face face;
@@ -338,6 +339,14 @@ CAMLprim value sdl_pollevent(value unit) {
       } break;
       case SDL_QUIT: {
         evt_type = Val_int(0);
+        option_val = caml_alloc_some(evt_type);
+      } break;
+      case SDL_TEXTINPUT: {
+        printf("%s\n", e.text.text);
+        evt_type = caml_alloc(3, 4);
+        Store_field(evt_type, 0, Val_int(e.text.timestamp));
+        Store_field(evt_type, 1, Val_int(e.text.windowID));
+        Store_field(evt_type, 2, caml_copy_string(e.text.text));
         option_val = caml_alloc_some(evt_type);
       } break;
     }
