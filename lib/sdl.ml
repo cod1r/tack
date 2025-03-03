@@ -49,9 +49,19 @@ type window =
     }
 
 type window_size = int * int
-type rect = Rect of { x : int; y : int; width : int; height : int }
+
+type rect =
+  | Rect of { x : int; y : int; width : int; height : int }
+  | RectF of { x : float; y : float; width : float; height : float }
+
 type point = Point of int * int
 type pointf = PointF of float * float
+
+external sdl_renderer_fill_rect_float : window -> rect -> unit
+  = "sdl_renderer_fill_rect_float" "sdl_renderer_fill_rect_float"
+
+external sdl_renderer_draw_rect_float : window -> rect -> unit
+  = "sdl_renderer_draw_rect_float" "sdl_renderer_draw_rect_float"
 
 external sdl_get_window_size : window -> window_size
   = "sdl_get_window_size" "sdl_get_window_size"

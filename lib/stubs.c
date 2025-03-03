@@ -219,10 +219,28 @@ CAMLprim value sdl_set_render_draw_color(value window, value r, value g, value b
   CAMLreturn(Val_unit);
 }
 
+CAMLprim value sdl_renderer_fill_rect_float(value window, value rect) {
+  CAMLparam2(window, rect);
+  SDL_Renderer* renderer = get_renderer_from_window(window);
+  SDL_FRect c_rect = { Double_val(Field(rect, 0)), Double_val(Field(rect, 1)), Double_val(Field(rect, 2)), Double_val(Field(rect, 3)) };
+  int res = SDL_RenderFillRectF(renderer, &c_rect);
+  if (res < 0) caml_failwith(SDL_GetError());
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value sdl_renderer_draw_rect_float(value window, value rect) {
+  CAMLparam2(window, rect);
+  SDL_Renderer* renderer = get_renderer_from_window(window);
+  SDL_FRect c_rect = { Double_val(Field(rect, 0)), Double_val(Field(rect, 1)), Double_val(Field(rect, 2)), Double_val(Field(rect, 3)) };
+  int res = SDL_RenderDrawRectF(renderer, &c_rect);
+  if (res < 0) caml_failwith(SDL_GetError());
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value sdl_renderer_fill_rect(value window, value rect) {
   CAMLparam2(window, rect);
   SDL_Renderer* renderer = get_renderer_from_window(window);
-  SDL_Rect c_rect = { Field(rect, 0), Field(rect, 1), Field(rect, 2), Field(rect, 3) };
+  SDL_Rect c_rect = { Int_val(Field(rect, 0)), Int_val(Field(rect, 1)), Int_val(Field(rect, 2)), Int_val(Field(rect, 3)) };
   int res = SDL_RenderFillRect(renderer, &c_rect);
   if (res < 0) caml_failwith(SDL_GetError());
   CAMLreturn(Val_unit);
@@ -231,7 +249,7 @@ CAMLprim value sdl_renderer_fill_rect(value window, value rect) {
 CAMLprim value sdl_renderer_draw_rect(value window, value rect) {
   CAMLparam2(window, rect);
   SDL_Renderer* renderer = get_renderer_from_window(window);
-  SDL_Rect c_rect = { Field(rect, 0), Field(rect, 1), Field(rect, 2), Field(rect, 3) };
+  SDL_Rect c_rect = { Int_val(Field(rect, 0)), Int_val(Field(rect, 1)), Int_val(Field(rect, 2)), Int_val(Field(rect, 3)) };
   int res = SDL_RenderDrawRect(renderer, &c_rect);
   if (res < 0) caml_failwith(SDL_GetError());
   CAMLreturn(Val_unit);

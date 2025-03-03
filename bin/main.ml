@@ -5,7 +5,6 @@ let () = init_sdl ()
 let () = FreeType.freetype_init ()
 let () = FreeType.freetype_load_font ()
 let () = FreeType.freetype_set_pixel_sizes 6
-let glyph_info = FreeType.freetype_load_glyph_letter 'f'
 
 let glyph_infos =
   let startcode, endcode = (32, 126) in
@@ -80,16 +79,6 @@ let points =
   in
   points' 0 0 []
 
-let bmp_points =
-  let rec get_points x y acc =
-    let new_acc = Point (x, y) :: acc in
-    match (x = glyph_info.bitmap.width - 1, y = glyph_info.bitmap.rows - 1) with
-    | true, true -> new_acc
-    | true, _ -> get_points 0 (succ y) new_acc
-    | _ -> get_points (succ x) y new_acc
-  in
-  get_points 0 0 []
-
 let draw_bmp_points glyph_info pts offset =
   match w with
   | Some w ->
@@ -146,7 +135,6 @@ let draw_glyphs () =
 let draw () =
   draw_rect ();
   draw_points points;
-  draw_bmp_points glyph_info bmp_points (0., 0.);
   (*draw_glyphs ();*)
   match w with
   | Some w -> sdl_render_present w
@@ -172,7 +160,7 @@ let draw_letter_glyph letter (x, y) =
       in
       let pts = get_points 0 0 [] g.FreeType.bitmap in
       (draw_bmp_points g pts
-         ( Int.to_float x,
+         ( Int.to_float (x + g.FreeType.metrics.horiBearingX),
            Int.to_float y
            +. Int.to_float biggest_horiBearingY
            -. Int.to_float g.FreeType.metrics.horiBearingY );
@@ -180,15 +168,64 @@ let draw_letter_glyph letter (x, y) =
       g.FreeType.advance
   | None -> (0, 0)
 
-let rec loop (x, y) =
+let erase_letter_glyph letter (x, y) =
+  let found_glyph =
+    List.find_opt (fun (c, _) -> Char.chr c = letter) glyph_infos
+  in
+  match found_glyph with
+  | Some (_, g) -> (
+      match w with
+      | Some w ->
+          let rect =
+            RectF
+              {
+                x = Int.to_float x -. Int.to_float (fst g.FreeType.advance);
+                y =
+                  Int.to_float y
+                  +. Int.to_float biggest_horiBearingY
+                  -. Int.to_float g.FreeType.metrics.horiBearingY;
+                width =
+                  Int.to_float g.FreeType.metrics.width
+                  +. Int.to_float g.FreeType.metrics.horiBearingX;
+                height = Int.to_float g.FreeType.metrics.height;
+              }
+          in
+          sdl_set_render_draw_color w 0 0 0 255;
+          sdl_renderer_draw_rect_float w rect;
+          sdl_renderer_fill_rect_float w rect;
+          sdl_render_present w;
+          (-fst g.FreeType.advance, 0)
+      | None -> (0, 0))
+  | None -> (0, 0)
+
+type editor_info = { buffer : char list; cursor_pos : int * int }
+
+let rec loop editor_info =
   let evt = sdl_pollevent () in
-  let offset, continue =
+  let new_buffer, (offset, continue) =
     match evt with
     | Some (KeyboardEvt { keysym; timestamp; _ }) ->
-        Printf.printf "KBD: %c, %d" keysym timestamp;
+        Printf.printf "KBD: %d, %d" (Char.code keysym) timestamp;
         print_newline ();
-        let offset = draw_letter_glyph keysym (x, y) in
-        (offset, true)
+        let char_code = Char.code keysym in
+        let new_buffer, offset =
+          if char_code = 8 then
+            let offset =
+              match editor_info.buffer with
+              | [] -> (0, 0)
+              | _ ->
+                  erase_letter_glyph
+                    (List.hd editor_info.buffer)
+                    editor_info.cursor_pos
+            in
+            match editor_info.buffer with
+            | [] -> ([ keysym ], offset)
+            | _ :: t -> (t, offset)
+          else
+            ( keysym :: editor_info.buffer,
+              draw_letter_glyph keysym editor_info.cursor_pos )
+        in
+        (new_buffer, (offset, true))
     | Some
         (MouseButtonEvt
            { mouse_evt_type; timestamp; x; y; windowID; button; clicks }) ->
@@ -200,18 +237,21 @@ let rec loop (x, y) =
         | Mouseup ->
             Printf.printf "Mouseup";
             print_newline ());
-        ((0, 0), true)
+        (editor_info.buffer, ((0, 0), true))
     | Some (WindowEvt { event; _ }) -> (
         match event with
-        | WindowClose -> ((0, 0), false)
-        | WindowResize -> ((0, 0), true))
+        | WindowClose -> (editor_info.buffer, ((0, 0), false))
+        | WindowResize -> (editor_info.buffer, ((0, 0), true)))
     | Some (MouseMotionEvt { x; y; _ }) ->
         Printf.printf "Mousemotion %d %d" x y;
         print_newline ();
-        ((0, 0), true)
-    | Some Quit -> ((0, 0), false)
-    | None -> ((0, 0), true)
+        (editor_info.buffer, ((0, 0), true))
+    | Some Quit -> (editor_info.buffer, ((0, 0), false))
+    | None -> (editor_info.buffer, ((0, 0), true))
   in
-  if continue then loop (x + fst offset, y + snd offset) else ()
+  let x, y = editor_info.cursor_pos in
+  if continue then
+    loop { buffer = new_buffer; cursor_pos = (x + fst offset, y + snd offset) }
+  else ()
 
-let _ = loop (0, 0)
+let _ = loop { buffer = []; cursor_pos = (0, 0) }
