@@ -17,13 +17,13 @@ let glyph_infos =
       let new_glyph_info =
         FreeType.freetype_load_glyph_letter (Char.chr char_code)
       in
-      get_glyph_info (succ char_code) (new_glyph_info :: acc)
+      get_glyph_info (succ char_code) ((char_code, new_glyph_info) :: acc)
   in
   get_glyph_info startcode []
 
 let biggest_horiBearingY =
   List.fold_left
-    (fun acc g -> max g.FreeType.metrics.horiBearingY acc)
+    (fun acc (_, g) -> max g.FreeType.metrics.horiBearingY acc)
     0 glyph_infos
 ;;
 
@@ -32,7 +32,7 @@ print_newline ()
 ;;
 
 List.iter
-  (fun glyph ->
+  (fun (_, glyph) ->
     Printf.printf "%d\n" (Bytes.length glyph.FreeType.bitmap.buffer))
   glyph_infos
 
@@ -127,12 +127,12 @@ let draw_glyphs () =
   let rec get_xs glyphs x acc =
     match glyphs with
     | [] -> acc
-    | h :: t -> get_xs t (x + fst h.FreeType.advance) (x :: acc)
+    | (_, h) :: t -> get_xs t (x + fst h.FreeType.advance) (x :: acc)
   in
   let xs = get_xs glyph_infos 0 [] in
   let points_list =
     List.map
-      (fun glyph -> (glyph, get_points 0 0 [] glyph.FreeType.bitmap))
+      (fun (_, glyph) -> (glyph, get_points 0 0 [] glyph.FreeType.bitmap))
       glyph_infos
   in
   List.iter2
@@ -147,19 +147,48 @@ let draw () =
   draw_rect ();
   draw_points points;
   draw_bmp_points glyph_info bmp_points (0., 0.);
-  draw_glyphs ();
-  match w with Some w -> sdl_render_present w | None -> ()
+  (*draw_glyphs ();*)
+  match w with
+  | Some w -> sdl_render_present w
+  | None -> ()
 
 let () = draw ()
 
-let rec loop () =
+let draw_letter_glyph letter (x, y) =
+  let found_glyph =
+    List.find_opt (fun (c, _) -> Char.chr c = letter) glyph_infos
+  in
+  match found_glyph with
+  | Some (_, g) ->
+      let rec get_points x y acc (bitmap : FreeType.freetype_bitmap) =
+        let new_acc = Point (x, y) :: acc in
+        let width, rows = (bitmap.FreeType.width, bitmap.FreeType.rows) in
+        if width > 0 && rows > 0 then
+          match (x = width - 1, y = rows - 1) with
+          | true, true -> new_acc
+          | true, _ -> get_points 0 (succ y) new_acc bitmap
+          | _ -> get_points (succ x) y new_acc bitmap
+        else []
+      in
+      let pts = get_points 0 0 [] g.FreeType.bitmap in
+      (draw_bmp_points g pts
+         ( Int.to_float x,
+           Int.to_float y
+           +. Int.to_float biggest_horiBearingY
+           -. Int.to_float g.FreeType.metrics.horiBearingY );
+       match w with Some w -> sdl_render_present w | None -> ());
+      g.FreeType.advance
+  | None -> (0, 0)
+
+let rec loop (x, y) =
   let evt = sdl_pollevent () in
-  let continue =
+  let offset, continue =
     match evt with
     | Some (KeyboardEvt { keysym; timestamp; _ }) ->
         Printf.printf "KBD: %c, %d" keysym timestamp;
         print_newline ();
-        true
+        let offset = draw_letter_glyph keysym (x, y) in
+        (offset, true)
     | Some
         (MouseButtonEvt
            { mouse_evt_type; timestamp; x; y; windowID; button; clicks }) ->
@@ -171,16 +200,18 @@ let rec loop () =
         | Mouseup ->
             Printf.printf "Mouseup";
             print_newline ());
-        true
+        ((0, 0), true)
     | Some (WindowEvt { event; _ }) -> (
-        match event with WindowClose -> false | WindowResize -> true)
+        match event with
+        | WindowClose -> ((0, 0), false)
+        | WindowResize -> ((0, 0), true))
     | Some (MouseMotionEvt { x; y; _ }) ->
         Printf.printf "Mousemotion %d %d" x y;
         print_newline ();
-        true
-    | Some Quit -> false
-    | None -> true
+        ((0, 0), true)
+    | Some Quit -> ((0, 0), false)
+    | None -> ((0, 0), true)
   in
-  if continue then loop () else ()
+  if continue then loop (x + fst offset, y + snd offset) else ()
 
-let _ = loop ()
+let _ = loop (0, 0)

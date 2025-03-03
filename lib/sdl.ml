@@ -49,12 +49,12 @@ type window =
     }
 
 type window_size = int * int
-
 type rect = Rect of { x : int; y : int; width : int; height : int }
 type point = Point of int * int
 type pointf = PointF of float * float
 
-external sdl_get_window_size: window -> window_size = "sdl_get_window_size" "sdl_get_window_size"
+external sdl_get_window_size : window -> window_size
+  = "sdl_get_window_size" "sdl_get_window_size"
 
 external sdl_set_render_draw_blendmode : window -> int -> unit
   = "sdl_set_render_draw_blendmode" "sdl_set_render_draw_blendmode"
