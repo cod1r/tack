@@ -108,6 +108,7 @@ let draw_bmp_points glyph_info pts offset =
               let int_byte = Char.code byte in
               sdl_set_render_draw_color w 255 255 255 int_byte;
               sdl_render_draw_points_float w
+                (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
                 [ PointF ((x /. 3.) +. fst offset, y +. snd offset) ])
         floats
   | None -> ()
