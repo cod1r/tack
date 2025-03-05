@@ -207,6 +207,14 @@ let rec loop editor_info =
     | Some (KeyboardEvt { keysym; timestamp; _ }) ->
         Printf.printf "KBD: %d, %d" (Char.code keysym) timestamp;
         print_newline ();
+        let char_code = Char.code keysym in
+        if char_code = 8 then
+          match editor_info.buffer with
+          | [] -> [], ((0, 0), true)
+          | h :: t ->
+              let cursor_offset = erase_letter_glyph h editor_info.cursor_pos in
+              (t, (cursor_offset, true))
+        else
       (editor_info.buffer, ((0, 0), true))
     | Some
         (MouseButtonEvt
@@ -229,28 +237,9 @@ let rec loop editor_info =
         print_newline ();
         (editor_info.buffer, ((0, 0), true))
     | Some (TextInputEvt { text; _ }) -> (
-      (editor_info.buffer, ((0, 0), true))
-      (*let temp_buffer = String.fold_left (fun acc c -> c :: acc) text in*)
-      (*List.fold_left (fun acc c ->*)
-      (*  let char_code = Char.code c in*)
-      (*  let new_buffer, offset =*)
-      (*    if char_code = 8 then*)
-      (*      let offset =*)
-      (*        match editor_info.buffer with*)
-      (*        | [] -> (0, 0)*)
-      (*        | _ ->*)
-      (*            erase_letter_glyph*)
-      (*              (List.hd editor_info.buffer)*)
-      (*              editor_info.cursor_pos*)
-      (*      in*)
-      (*      match editor_info.buffer with*)
-      (*      | [] -> ([ c ], offset)*)
-      (*      | _ :: t -> (t, offset)*)
-      (*    else*)
-      (*      ( c :: acc,*)
-      (*        draw_letter_glyph keysym editor_info.cursor_pos )*)
-      (*  in*)
-      (*  (new_buffer, (offset, true))*)
+      let new_cursor_pos = String.fold_left (fun acc c -> draw_letter_glyph c acc) editor_info.cursor_pos text in
+      let char_list = String.fold_left (fun acc c -> c :: acc) [] text in
+      (char_list @ editor_info.buffer, (new_cursor_pos, true))
     )
     | Some Quit -> (editor_info.buffer, ((0, 0), false))
     | None -> (editor_info.buffer, ((0, 0), true))
