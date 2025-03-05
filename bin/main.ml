@@ -208,9 +208,10 @@ let rec loop editor_info =
         Printf.printf "KBD: %d, %d" (Char.code keysym) timestamp;
         print_newline ();
         let char_code = Char.code keysym in
-        if char_code = 8 then
-              let cursor_offset = erase_letter_glyph (String.get editor_info.buffer 0) editor_info.cursor_pos in
-              (String.sub editor_info.buffer 1 (String.length editor_info.buffer - 1), (cursor_offset, true))
+        let str_len = String.length editor_info.buffer in
+        if char_code = 8 && str_len > 0 then
+          let cursor_offset = erase_letter_glyph editor_info.buffer.[str_len - 1] editor_info.cursor_pos in
+              (String.sub editor_info.buffer 0 (str_len - 1), (cursor_offset, true))
         else
       (editor_info.buffer, ((0, 0), true))
     | Some
@@ -234,8 +235,8 @@ let rec loop editor_info =
         print_newline ();
         (editor_info.buffer, ((0, 0), true))
     | Some (TextInputEvt { text; _ }) -> (
-      let new_cursor_pos = String.fold_left (fun acc c -> draw_letter_glyph c acc) editor_info.cursor_pos text in
-      (text ^ editor_info.buffer, (new_cursor_pos, true))
+      let new_cursor_pos = String.fold_right (fun c acc -> draw_letter_glyph c acc) text editor_info.cursor_pos in
+      (editor_info.buffer ^ text, (new_cursor_pos, true))
     )
     | Some Quit -> (editor_info.buffer, ((0, 0), false))
     | None -> (editor_info.buffer, ((0, 0), true))
