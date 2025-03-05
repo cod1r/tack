@@ -5,22 +5,22 @@
 (generate_opam_files true)
 
 (source
- (github username/reponame))
+ (github cod1r/limitless))
 
-(authors "Author Name <author@example.com>")
+(authors "Jason Ho jasonho353@gmail.com")
 
-(maintainers "Maintainer Name <maintainer@example.com>")
+(maintainers "Jason Ho jasonho353@gmail.com")
 
-(license LICENSE)
+(license MIT)
 
 (documentation https://url/to/documentation)
 
 (package
  (name limitless)
- (synopsis "A short synopsis")
- (description "A longer description")
+ (synopsis "a GUI text editor written in OCaml")
+ (description "a GUI text editor written in OCaml")
  (depends ocaml)
  (tags
-  ("add topics" "to describe" your project)))
+  ("editor" "ocaml")))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html
