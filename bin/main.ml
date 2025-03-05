@@ -198,7 +198,7 @@ let erase_letter_glyph letter (x, y) =
       | None -> (0, 0))
   | None -> (0, 0)
 
-type editor_info = { buffer : char list; cursor_pos : int * int }
+type editor_info = { buffer : string; cursor_pos : int * int }
 
 let rec loop editor_info =
   let evt = sdl_pollevent () in
@@ -209,11 +209,8 @@ let rec loop editor_info =
         print_newline ();
         let char_code = Char.code keysym in
         if char_code = 8 then
-          match editor_info.buffer with
-          | [] -> [], ((0, 0), true)
-          | h :: t ->
-              let cursor_offset = erase_letter_glyph h editor_info.cursor_pos in
-              (t, (cursor_offset, true))
+              let cursor_offset = erase_letter_glyph (String.get editor_info.buffer 0) editor_info.cursor_pos in
+              (String.sub editor_info.buffer 1 (String.length editor_info.buffer - 1), (cursor_offset, true))
         else
       (editor_info.buffer, ((0, 0), true))
     | Some
@@ -238,8 +235,7 @@ let rec loop editor_info =
         (editor_info.buffer, ((0, 0), true))
     | Some (TextInputEvt { text; _ }) -> (
       let new_cursor_pos = String.fold_left (fun acc c -> draw_letter_glyph c acc) editor_info.cursor_pos text in
-      let char_list = String.fold_left (fun acc c -> c :: acc) [] text in
-      (char_list @ editor_info.buffer, (new_cursor_pos, true))
+      (text ^ editor_info.buffer, (new_cursor_pos, true))
     )
     | Some Quit -> (editor_info.buffer, ((0, 0), false))
     | None -> (editor_info.buffer, ((0, 0), true))
@@ -249,4 +245,4 @@ let rec loop editor_info =
     loop { buffer = new_buffer; cursor_pos = (x + fst offset, y + snd offset) }
   else ()
 
-let _ = loop { buffer = []; cursor_pos = (0, 0) }
+let _ = loop { buffer = ""; cursor_pos = (0, 0) }
