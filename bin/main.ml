@@ -50,7 +50,9 @@ let w =
 sdl_create_renderer w sdl_renderer_software;
 sdl_set_render_draw_blendmode w sdl_blendmode_blend
 
-let () = sdl_set_render_draw_color w 255 255 255 255
+let () =
+  sdl_set_render_draw_color w 255 255 255 255;
+  sdl_render_clear w
 
 let draw_rect () =
   let rect = Rect { x = 0; y = 0; width = 250; height = 300 } in
@@ -86,7 +88,7 @@ let draw_bmp_points glyph_info pts offset =
     (function
       | PointF (x, y), byte ->
           let int_byte = Char.code byte in
-          sdl_set_render_draw_color w 255 255 255 int_byte;
+          sdl_set_render_draw_color w 0 0 0 int_byte;
           sdl_render_draw_points_float w
             (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
             [ PointF ((x /. 3.) +. fst offset, y +. snd offset) ])
@@ -176,7 +178,7 @@ let erase_letter_glyph letter (x, y) =
             height = Int.to_float g.FreeType.metrics.height;
           }
       in
-      sdl_set_render_draw_color w 0 0 0 255;
+      sdl_set_render_draw_color w 255 255 255 255;
       sdl_renderer_draw_rect_float w rect;
       sdl_renderer_fill_rect_float w rect;
       sdl_render_present w;
@@ -185,9 +187,24 @@ let erase_letter_glyph letter (x, y) =
 
 type editor_info = { buffer : string; cursor_pos : int * int }
 
+let draw_cursor (x, y) =
+  sdl_set_render_draw_color w 0 0 0 255;
+  let r =
+    RectF
+      {
+        x = Int.to_float x;
+        y = Int.to_float y;
+        width = 3.;
+        height = Int.to_float biggest_horiBearingY;
+      }
+  in
+  sdl_renderer_draw_rect_float w r;
+  sdl_renderer_fill_rect_float w r;
+  sdl_render_present w
+
 let rec loop editor_info =
   let evt = sdl_pollevent () in
-  let new_buffer, (offset, continue) =
+  let new_editor, continue =
     match evt with
     | Some (KeyboardEvt { keysym; timestamp; _ }) ->
         Printf.printf "KBD: %d, %d" (Char.code keysym) timestamp;
@@ -200,8 +217,15 @@ let rec loop editor_info =
               editor_info.buffer.[str_len - 1]
               editor_info.cursor_pos
           in
-          (String.sub editor_info.buffer 0 (str_len - 1), (cursor_offset, true))
-        else (editor_info.buffer, ((0, 0), true))
+          let new_buffer = String.sub editor_info.buffer 0 (str_len - 1) in
+          ( {
+              buffer = new_buffer;
+              cursor_pos =
+                ( fst cursor_offset + fst editor_info.cursor_pos,
+                  snd cursor_offset + snd editor_info.cursor_pos );
+            },
+            true )
+        else (editor_info, true)
     | Some
         (MouseButtonEvt
            { mouse_evt_type; timestamp; x; y; windowID; button; clicks }) ->
@@ -209,32 +233,62 @@ let rec loop editor_info =
         | Mousedown ->
             Printf.printf "Mousedown %d, %d, %d, %d, %d, %d" x y windowID button
               clicks timestamp;
-            print_newline ()
+            print_newline ();
+            let chars_to_glyphs =
+              String.fold_right
+                (fun c acc ->
+                  List.find_opt (fun (c', _) -> Char.chr c' = c) glyph_infos
+                  :: acc)
+                editor_info.buffer []
+            in
+            let glyphs = List.filter_map (fun g_opt -> g_opt) chars_to_glyphs in
+            let steps =
+              List.fold_left
+                (fun acc (_, g) ->
+                  let hdx, hdy = List.hd acc in
+                  (hdx + fst g.FreeType.advance, hdy + snd g.FreeType.advance)
+                  :: acc)
+                [ (0, 0) ]
+                glyphs
+            in
+            let closest =
+              List.fold_left
+                (fun acc (gx, _) ->
+                  let accdiff = abs acc - x in
+                  let diff = abs x - gx in
+                  if accdiff > diff then gx else acc)
+                Int.max_int steps
+            in
+            Printf.printf "%d" closest;
+            print_newline ();
+            draw_cursor (closest, 0)
         | Mouseup ->
             Printf.printf "Mouseup";
             print_newline ());
-        (editor_info.buffer, ((0, 0), true))
+        (editor_info, true)
     | Some (WindowEvt { event; _ }) -> (
         match event with
-        | WindowClose -> (editor_info.buffer, ((0, 0), false))
-        | WindowResize -> (editor_info.buffer, ((0, 0), true)))
+        | WindowClose -> (editor_info, false)
+        | WindowResize -> (editor_info, true))
     | Some (MouseMotionEvt { x; y; _ }) ->
         Printf.printf "Mousemotion %d %d" x y;
         print_newline ();
-        (editor_info.buffer, ((0, 0), true))
+        (editor_info, true)
     | Some (TextInputEvt { text; _ }) ->
         let new_cursor_pos =
           String.fold_right
             (fun c acc -> draw_letter_glyph c acc)
             text editor_info.cursor_pos
         in
-        (editor_info.buffer ^ text, (new_cursor_pos, true))
-    | Some Quit -> (editor_info.buffer, ((0, 0), false))
-    | None -> (editor_info.buffer, ((0, 0), true))
+        let oldx, oldy = editor_info.cursor_pos in
+        ( {
+            buffer = editor_info.buffer ^ text;
+            cursor_pos = (oldx + fst new_cursor_pos, oldy + snd new_cursor_pos);
+          },
+          true )
+    | Some Quit -> (editor_info, false)
+    | None -> (editor_info, true)
   in
-  let x, y = editor_info.cursor_pos in
-  if continue then
-    loop { buffer = new_buffer; cursor_pos = (x + fst offset, y + snd offset) }
-  else ()
+  if continue then loop new_editor else ()
 
 let _ = loop { buffer = ""; cursor_pos = (0, 0) }
