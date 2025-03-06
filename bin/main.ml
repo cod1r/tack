@@ -34,40 +34,31 @@ List.iter
   (fun (_, glyph) ->
     Printf.printf "%d\n" (Bytes.length glyph.FreeType.bitmap.buffer))
   glyph_infos
-
-let w =
+;;
+let w = match
   sdl_create_window "limitless" 0 0 800 800
     (sdl_window_resizable lor sdl_window_allow_highdpi)
-;;
-
-match w with
-| Some (Window { width; height; title; _ }) ->
+with
+| Some (Window { width; height; title; _ } as w) ->
     Printf.printf "Created window: %s %d %d" title width height;
-    print_newline ()
+    print_newline ();
+    w
 | None -> failwith "unable to create window"
 ;;
-
-match w with
-| Some w ->
     sdl_create_renderer w sdl_renderer_software;
     sdl_set_render_draw_blendmode w sdl_blendmode_blend
-| None -> ()
+
+let () = sdl_set_render_draw_color w 255 255 255 255;;
 
 let draw_rect () =
-  match w with
-  | Some w ->
-      let rect = Rect { x = 0; y = 0; width = 250; height = 300 } in
-      sdl_set_render_draw_color w 255 0 0 255;
-      sdl_renderer_draw_rect w rect;
-      sdl_renderer_fill_rect w rect
-  | None -> ()
+    let rect = Rect { x = 0; y = 0; width = 250; height = 300 } in
+    sdl_set_render_draw_color w 255 0 0 255;
+    sdl_renderer_draw_rect w rect;
+    sdl_renderer_fill_rect w rect
 
 let draw_points points =
-  match w with
-  | Some w ->
-      sdl_set_render_draw_color w 0 255 0 200;
-      sdl_render_draw_points w points
-  | None -> ()
+    sdl_set_render_draw_color w 0 255 0 200;
+    sdl_render_draw_points w points
 
 let points =
   let rec points' x y acc =
@@ -80,8 +71,6 @@ let points =
   points' 0 0 []
 
 let draw_bmp_points glyph_info pts offset =
-  match w with
-  | Some w ->
       let floats =
         List.map
           (function
@@ -100,7 +89,6 @@ let draw_bmp_points glyph_info pts offset =
                 (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
                 [ PointF ((x /. 3.) +. fst offset, y +. snd offset) ])
         floats
-  | None -> ()
 
 let draw_glyphs () =
   let rec get_points x y acc (bitmap : FreeType.freetype_bitmap) =
@@ -136,9 +124,7 @@ let draw () =
   draw_rect ();
   draw_points points;
   (*draw_glyphs ();*)
-  match w with
-  | Some w -> sdl_render_present w
-  | None -> ()
+  sdl_render_present w
 
 let () = draw ()
 
@@ -164,7 +150,7 @@ let draw_letter_glyph letter (x, y) =
            Int.to_float y
            +. Int.to_float biggest_horiBearingY
            -. Int.to_float g.FreeType.metrics.horiBearingY );
-       match w with Some w -> sdl_render_present w | None -> ());
+       sdl_render_present w);
       g.FreeType.advance
   | None -> (0, 0)
 
@@ -174,28 +160,25 @@ let erase_letter_glyph letter (x, y) =
   in
   match found_glyph with
   | Some (_, g) -> (
-      match w with
-      | Some w ->
-          let rect =
-            RectF
-              {
-                x = Int.to_float x -. Int.to_float (fst g.FreeType.advance);
-                y =
-                  Int.to_float y
-                  +. Int.to_float biggest_horiBearingY
-                  -. Int.to_float g.FreeType.metrics.horiBearingY;
-                width =
-                  Int.to_float g.FreeType.metrics.width
-                  +. Int.to_float g.FreeType.metrics.horiBearingX;
-                height = Int.to_float g.FreeType.metrics.height;
-              }
-          in
-          sdl_set_render_draw_color w 0 0 0 255;
-          sdl_renderer_draw_rect_float w rect;
-          sdl_renderer_fill_rect_float w rect;
-          sdl_render_present w;
-          (-fst g.FreeType.advance, 0)
-      | None -> (0, 0))
+        let rect =
+          RectF
+            {
+              x = Int.to_float x -. Int.to_float (fst g.FreeType.advance);
+              y =
+                Int.to_float y
+                +. Int.to_float biggest_horiBearingY
+                -. Int.to_float g.FreeType.metrics.horiBearingY;
+              width =
+                Int.to_float g.FreeType.metrics.width
+                +. Int.to_float g.FreeType.metrics.horiBearingX;
+              height = Int.to_float g.FreeType.metrics.height;
+            }
+        in
+        sdl_set_render_draw_color w 0 0 0 255;
+        sdl_renderer_draw_rect_float w rect;
+        sdl_renderer_fill_rect_float w rect;
+        sdl_render_present w;
+        (-fst g.FreeType.advance, 0))
   | None -> (0, 0)
 
 type editor_info = { buffer : string; cursor_pos : int * int }
