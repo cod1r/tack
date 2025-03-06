@@ -32,11 +32,7 @@ type event =
       xrel : int;
       yrel : int;
     }
-  | TextInputEvt of {
-      timestamp : int;
-      windowID : int;
-      text : string;
-    }
+  | TextInputEvt of { timestamp : int; windowID : int; text : string }
   | Quit
 
 external sdl_delay : int -> unit = "SDL_Delay" "SDL_Delay"

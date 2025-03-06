@@ -1,11 +1,9 @@
 type rope =
   | Leaf of string
-  | Node of { left: rope; right: rope; length: int }
+  | Node of { left : rope; right : rope; length : int }
 
 (* Get the length of a rope *)
-let length = function
-  | Leaf s -> String.length s
-  | Node { length; _ } -> length
+let length = function Leaf s -> String.length s | Node { length; _ } -> length
 
 (* Create a rope from a string *)
 let of_string s = Leaf s
@@ -24,8 +22,7 @@ let rec substring r start len =
   match r with
   | Leaf s -> String.sub s start len
   | Node { left; right; _ } ->
-      if start + len <= length left then
-        substring left start len
+      if start + len <= length left then substring left start len
       else if start >= length left then
         substring right (start - length left) len
       else
@@ -41,10 +38,8 @@ let rec insert r pos s =
       let right = String.sub str pos (String.length str - pos) in
       concat (Leaf left) (concat (Leaf s) (Leaf right))
   | Node { left; right; _ } ->
-      if pos <= length left then
-        concat (insert left pos s) right
-      else
-        concat left (insert right (pos - length left) s)
+      if pos <= length left then concat (insert left pos s) right
+      else concat left (insert right (pos - length left) s)
 
 (* Delete a substring from the rope *)
 let delete r start len =
@@ -55,12 +50,12 @@ let delete r start len =
 (* Rebalance a rope *)
 let rebalance r =
   let rec flatten = function
-    | Leaf s -> [s]
+    | Leaf s -> [ s ]
     | Node { left; right; _ } -> flatten left @ flatten right
   in
   let rec build = function
     | [] -> failwith "Cannot rebalance an empty rope"
-    | [s] -> Leaf s
+    | [ s ] -> Leaf s
     | lst ->
         let mid = List.length lst / 2 in
         let left = build (List.take mid lst) in

@@ -34,31 +34,33 @@ List.iter
   (fun (_, glyph) ->
     Printf.printf "%d\n" (Bytes.length glyph.FreeType.bitmap.buffer))
   glyph_infos
-;;
-let w = match
-  sdl_create_window "limitless" 0 0 800 800
-    (sdl_window_resizable lor sdl_window_allow_highdpi)
-with
-| Some (Window { width; height; title; _ } as w) ->
-    Printf.printf "Created window: %s %d %d" title width height;
-    print_newline ();
-    w
-| None -> failwith "unable to create window"
-;;
-    sdl_create_renderer w sdl_renderer_software;
-    sdl_set_render_draw_blendmode w sdl_blendmode_blend
 
-let () = sdl_set_render_draw_color w 255 255 255 255;;
+let w =
+  match
+    sdl_create_window "limitless" 0 0 800 800
+      (sdl_window_resizable lor sdl_window_allow_highdpi)
+  with
+  | Some (Window { width; height; title; _ } as w) ->
+      Printf.printf "Created window: %s %d %d" title width height;
+      print_newline ();
+      w
+  | None -> failwith "unable to create window"
+;;
+
+sdl_create_renderer w sdl_renderer_software;
+sdl_set_render_draw_blendmode w sdl_blendmode_blend
+
+let () = sdl_set_render_draw_color w 255 255 255 255
 
 let draw_rect () =
-    let rect = Rect { x = 0; y = 0; width = 250; height = 300 } in
-    sdl_set_render_draw_color w 255 0 0 255;
-    sdl_renderer_draw_rect w rect;
-    sdl_renderer_fill_rect w rect
+  let rect = Rect { x = 0; y = 0; width = 250; height = 300 } in
+  sdl_set_render_draw_color w 255 0 0 255;
+  sdl_renderer_draw_rect w rect;
+  sdl_renderer_fill_rect w rect
 
 let draw_points points =
-    sdl_set_render_draw_color w 0 255 0 200;
-    sdl_render_draw_points w points
+  sdl_set_render_draw_color w 0 255 0 200;
+  sdl_render_draw_points w points
 
 let points =
   let rec points' x y acc =
@@ -71,24 +73,24 @@ let points =
   points' 0 0 []
 
 let draw_bmp_points glyph_info pts offset =
-      let floats =
-        List.map
-          (function
-            | Point (x, y) ->
-                ( PointF (Int.to_float x, Int.to_float y),
-                  Bytes.get glyph_info.FreeType.bitmap.buffer
-                    ((y * glyph_info.FreeType.bitmap.pitch) + x) ))
-          pts
-      in
-      List.iter
-        (function
-          | PointF (x, y), byte ->
-              let int_byte = Char.code byte in
-              sdl_set_render_draw_color w 255 255 255 int_byte;
-              sdl_render_draw_points_float w
-                (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
-                [ PointF ((x /. 3.) +. fst offset, y +. snd offset) ])
-        floats
+  let floats =
+    List.map
+      (function
+        | Point (x, y) ->
+            ( PointF (Int.to_float x, Int.to_float y),
+              Bytes.get glyph_info.FreeType.bitmap.buffer
+                ((y * glyph_info.FreeType.bitmap.pitch) + x) ))
+      pts
+  in
+  List.iter
+    (function
+      | PointF (x, y), byte ->
+          let int_byte = Char.code byte in
+          sdl_set_render_draw_color w 255 255 255 int_byte;
+          sdl_render_draw_points_float w
+            (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
+            [ PointF ((x /. 3.) +. fst offset, y +. snd offset) ])
+    floats
 
 let draw_glyphs () =
   let rec get_points x y acc (bitmap : FreeType.freetype_bitmap) =
@@ -145,12 +147,12 @@ let draw_letter_glyph letter (x, y) =
         else []
       in
       let pts = get_points 0 0 [] g.FreeType.bitmap in
-      (draw_bmp_points g pts
-         ( Int.to_float (x + g.FreeType.metrics.horiBearingX),
-           Int.to_float y
-           +. Int.to_float biggest_horiBearingY
-           -. Int.to_float g.FreeType.metrics.horiBearingY );
-       sdl_render_present w);
+      draw_bmp_points g pts
+        ( Int.to_float (x + g.FreeType.metrics.horiBearingX),
+          Int.to_float y
+          +. Int.to_float biggest_horiBearingY
+          -. Int.to_float g.FreeType.metrics.horiBearingY );
+      sdl_render_present w;
       g.FreeType.advance
   | None -> (0, 0)
 
@@ -159,26 +161,26 @@ let erase_letter_glyph letter (x, y) =
     List.find_opt (fun (c, _) -> Char.chr c = letter) glyph_infos
   in
   match found_glyph with
-  | Some (_, g) -> (
-        let rect =
-          RectF
-            {
-              x = Int.to_float x -. Int.to_float (fst g.FreeType.advance);
-              y =
-                Int.to_float y
-                +. Int.to_float biggest_horiBearingY
-                -. Int.to_float g.FreeType.metrics.horiBearingY;
-              width =
-                Int.to_float g.FreeType.metrics.width
-                +. Int.to_float g.FreeType.metrics.horiBearingX;
-              height = Int.to_float g.FreeType.metrics.height;
-            }
-        in
-        sdl_set_render_draw_color w 0 0 0 255;
-        sdl_renderer_draw_rect_float w rect;
-        sdl_renderer_fill_rect_float w rect;
-        sdl_render_present w;
-        (-fst g.FreeType.advance, 0))
+  | Some (_, g) ->
+      let rect =
+        RectF
+          {
+            x = Int.to_float x -. Int.to_float (fst g.FreeType.advance);
+            y =
+              Int.to_float y
+              +. Int.to_float biggest_horiBearingY
+              -. Int.to_float g.FreeType.metrics.horiBearingY;
+            width =
+              Int.to_float g.FreeType.metrics.width
+              +. Int.to_float g.FreeType.metrics.horiBearingX;
+            height = Int.to_float g.FreeType.metrics.height;
+          }
+      in
+      sdl_set_render_draw_color w 0 0 0 255;
+      sdl_renderer_draw_rect_float w rect;
+      sdl_renderer_fill_rect_float w rect;
+      sdl_render_present w;
+      (-fst g.FreeType.advance, 0)
   | None -> (0, 0)
 
 type editor_info = { buffer : string; cursor_pos : int * int }
@@ -193,10 +195,13 @@ let rec loop editor_info =
         let char_code = Char.code keysym in
         let str_len = String.length editor_info.buffer in
         if char_code = 8 && str_len > 0 then
-          let cursor_offset = erase_letter_glyph editor_info.buffer.[str_len - 1] editor_info.cursor_pos in
-              (String.sub editor_info.buffer 0 (str_len - 1), (cursor_offset, true))
-        else
-      (editor_info.buffer, ((0, 0), true))
+          let cursor_offset =
+            erase_letter_glyph
+              editor_info.buffer.[str_len - 1]
+              editor_info.cursor_pos
+          in
+          (String.sub editor_info.buffer 0 (str_len - 1), (cursor_offset, true))
+        else (editor_info.buffer, ((0, 0), true))
     | Some
         (MouseButtonEvt
            { mouse_evt_type; timestamp; x; y; windowID; button; clicks }) ->
@@ -217,10 +222,13 @@ let rec loop editor_info =
         Printf.printf "Mousemotion %d %d" x y;
         print_newline ();
         (editor_info.buffer, ((0, 0), true))
-    | Some (TextInputEvt { text; _ }) -> (
-      let new_cursor_pos = String.fold_right (fun c acc -> draw_letter_glyph c acc) text editor_info.cursor_pos in
-      (editor_info.buffer ^ text, (new_cursor_pos, true))
-    )
+    | Some (TextInputEvt { text; _ }) ->
+        let new_cursor_pos =
+          String.fold_right
+            (fun c acc -> draw_letter_glyph c acc)
+            text editor_info.cursor_pos
+        in
+        (editor_info.buffer ^ text, (new_cursor_pos, true))
     | Some Quit -> (editor_info.buffer, ((0, 0), false))
     | None -> (editor_info.buffer, ((0, 0), true))
   in
