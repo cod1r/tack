@@ -1,26 +1,33 @@
+open Freetype
+
 type rope =
-  | Leaf of string
+  | Leaf of (char * FreeType.freetype_glyph_info) list
   | Node of { left : rope; right : rope; length : int }
 
-(* Get the length of a rope *)
-let length = function Leaf s -> String.length s | Node { length; _ } -> length
+let length = function Leaf l -> List.length l | Node { length; _ } -> length
 
-(* Create a rope from a string *)
-let of_string s = Leaf s
+let of_string s glyph_infos =
+  let list_chars = String.fold_left (fun acc c -> c :: acc) [] s in
+  List.combine list_chars glyph_infos
 
-(* Concatenate two ropes *)
 let concat r1 r2 =
   Node { left = r1; right = r2; length = length r1 + length r2 }
 
-(* Convert a rope to a string *)
 let rec to_string = function
-  | Leaf s -> s
+  | Leaf l -> List.fold_left (fun acc (c, _) -> String.make 1 c ^ acc) "" l
   | Node { left; right; _ } -> to_string left ^ to_string right
 
-(* Get a substring of a rope *)
 let rec substring r start len =
   match r with
-  | Leaf s -> String.sub s start len
+  | Leaf l ->
+      let rec sublist lst endIdx idx acc =
+        if idx = endIdx then acc
+        else
+          match lst with
+          | [] -> acc
+          | h :: t -> sublist t endIdx (succ idx) (h :: acc)
+      in
+      Leaf (sublist l (start + len) 0 [])
   | Node { left; right; _ } ->
       if start + len <= length left then substring left start len
       else if start >= length left then
@@ -28,26 +35,23 @@ let rec substring r start len =
       else
         let left_part = substring left start (length left - start) in
         let right_part = substring right 0 (len - (length left - start)) in
-        left_part ^ right_part
+        concat left_part right_part
 
-(* Insert a string at a given position in the rope *)
 let rec insert r pos s =
   match r with
-  | Leaf str ->
-      let left = String.sub str 0 pos in
-      let right = String.sub str pos (String.length str - pos) in
-      concat (Leaf left) (concat (Leaf s) (Leaf right))
+  | Leaf _ as ropeLeaf ->
+      let left = substring ropeLeaf 0 pos in
+      let right = substring ropeLeaf pos (length ropeLeaf - pos) in
+      concat left (concat (Leaf s) right)
   | Node { left; right; _ } ->
       if pos <= length left then concat (insert left pos s) right
       else concat left (insert right (pos - length left) s)
 
-(* Delete a substring from the rope *)
 let delete r start len =
   let before = substring r 0 start in
   let after = substring r (start + len) (length r - (start + len)) in
-  concat (of_string before) (of_string after)
+  concat before after
 
-(* Rebalance a rope *)
 let rebalance r =
   let rec flatten = function
     | Leaf s -> [ s ]
