@@ -1,5 +1,7 @@
 open Limitless.Sdl
 open Limitless.Freetype
+open Limitless.Editor
+open Limitless.Rope
 
 let () = init_sdl ()
 let () = FreeType.freetype_init ()
@@ -158,34 +160,37 @@ let draw_letter_glyph letter (x, y) =
       g.FreeType.advance
   | None -> (0, 0)
 
-let erase_letter_glyph letter (x, y) =
-  let found_glyph =
-    List.find_opt (fun (c, _) -> Char.chr c = letter) glyph_infos
-  in
-  match found_glyph with
-  | Some (_, g) ->
-      let rect =
-        RectF
-          {
-            x = Int.to_float x -. Int.to_float (fst g.FreeType.advance);
-            y =
-              Int.to_float y
-              +. Int.to_float biggest_horiBearingY
-              -. Int.to_float g.FreeType.metrics.horiBearingY;
-            width =
-              Int.to_float g.FreeType.metrics.width
-              +. Int.to_float g.FreeType.metrics.horiBearingX;
-            height = Int.to_float g.FreeType.metrics.height;
-          }
-      in
-      sdl_set_render_draw_color w 255 255 255 255;
-      sdl_renderer_draw_rect_float w rect;
-      sdl_renderer_fill_rect_float w rect;
-      sdl_render_present w;
-      (-fst g.FreeType.advance, 0)
-  | None -> (0, 0)
-
-type editor_info = { buffer : string; cursor_pos : int * int }
+let erase_letter_glyph ropeLeaf (x, y) =
+  match ropeLeaf with
+  | Leaf l -> (
+      let last = List.drop (List.length l - 1) l in
+      match last with
+      | [] -> (0, 0)
+      | (c', _) :: _ -> (
+          let found_glyph =
+            List.find_opt (fun (c, _) -> Char.chr c = c') glyph_infos
+          in
+          match found_glyph with
+          | Some (_, g) ->
+              let rect =
+                RectF
+                  {
+                    x = Int.to_float x -. Int.to_float (fst g.FreeType.advance);
+                    y =
+                      Int.to_float y
+                      +. Int.to_float biggest_horiBearingY
+                      -. Int.to_float g.FreeType.metrics.horiBearingY;
+                    width = Int.to_float (fst g.FreeType.advance);
+                    height = Int.to_float g.FreeType.metrics.height;
+                  }
+              in
+              sdl_set_render_draw_color w 255 255 255 255;
+              sdl_renderer_draw_rect_float w rect;
+              sdl_renderer_fill_rect_float w rect;
+              sdl_render_present w;
+              (-fst g.FreeType.advance, 0)
+          | None -> (0, 0)))
+  | Node _ -> (0, 0)
 
 let draw_cursor (x, y) =
   sdl_set_render_draw_color w 0 0 0 255;
@@ -206,62 +211,41 @@ let rec loop editor_info =
   let evt = sdl_pollevent () in
   let new_editor, continue =
     match evt with
-    | Some (KeyboardEvt { keysym; timestamp; _ }) ->
+    | Some (KeyboardEvt { keysym; timestamp; _ }) -> (
         Printf.printf "KBD: %d, %d" (Char.code keysym) timestamp;
         print_newline ();
         let char_code = Char.code keysym in
-        let str_len = String.length editor_info.buffer in
-        if char_code = 8 && str_len > 0 then
-          let cursor_offset =
-            erase_letter_glyph
-              editor_info.buffer.[str_len - 1]
-              editor_info.cursor_pos
-          in
-          let new_buffer = String.sub editor_info.buffer 0 (str_len - 1) in
-          ( {
-              buffer = new_buffer;
-              cursor_pos =
-                ( fst cursor_offset + fst editor_info.cursor_pos,
-                  snd cursor_offset + snd editor_info.cursor_pos );
-            },
-            true )
-        else (editor_info, true)
+        match editor_info.rope with
+        | Some r ->
+            let rope_len = length r in
+            if char_code = 8 && rope_len > 0 then
+              let cursor_offset =
+                erase_letter_glyph
+                  (substring r (length r - 1) 1)
+                  editor_info.cursor_pos
+              in
+              ( {
+                  rope = Some (delete r (length r) 1);
+                  cursor_pos =
+                    ( fst cursor_offset + fst editor_info.cursor_pos,
+                      snd cursor_offset + snd editor_info.cursor_pos );
+                },
+                true )
+            else (editor_info, true)
+        | None -> (editor_info, true))
     | Some
         (MouseButtonEvt
            { mouse_evt_type; timestamp; x; y; windowID; button; clicks }) ->
         (match mouse_evt_type with
-        | Mousedown ->
+        | Mousedown -> (
             Printf.printf "Mousedown %d, %d, %d, %d, %d, %d" x y windowID button
               clicks timestamp;
             print_newline ();
-            let chars_to_glyphs =
-              String.fold_right
-                (fun c acc ->
-                  List.find_opt (fun (c', _) -> Char.chr c' = c) glyph_infos
-                  :: acc)
-                editor_info.buffer []
-            in
-            let glyphs = List.filter_map (fun g_opt -> g_opt) chars_to_glyphs in
-            let steps =
-              List.fold_left
-                (fun acc (_, g) ->
-                  let hdx, hdy = List.hd acc in
-                  (hdx + fst g.FreeType.advance, hdy + snd g.FreeType.advance)
-                  :: acc)
-                [ (0, 0) ]
-                glyphs
-            in
-            let closest =
-              List.fold_left
-                (fun acc (gx, _) ->
-                  let accdiff = abs acc - x in
-                  let diff = abs x - gx in
-                  if accdiff > diff then gx else acc)
-                Int.max_int steps
-            in
-            Printf.printf "%d" closest;
-            print_newline ();
-            draw_cursor (closest, 0)
+            match editor_info.rope with
+            | Some r ->
+                let closest = search_closest (x, y) r (0, 0) in
+                draw_cursor closest
+            | None -> ())
         | Mouseup ->
             Printf.printf "Mouseup";
             print_newline ());
@@ -274,21 +258,41 @@ let rec loop editor_info =
         Printf.printf "Mousemotion %d %d" x y;
         print_newline ();
         (editor_info, true)
-    | Some (TextInputEvt { text; _ }) ->
+    | Some (TextInputEvt { text; _ }) -> (
         let new_cursor_pos =
           String.fold_right
             (fun c acc -> draw_letter_glyph c acc)
             text editor_info.cursor_pos
         in
         let oldx, oldy = editor_info.cursor_pos in
-        ( {
-            buffer = editor_info.buffer ^ text;
-            cursor_pos = (oldx + fst new_cursor_pos, oldy + snd new_cursor_pos);
-          },
-          true )
+        let char_list = String.fold_left (fun acc c -> c :: acc) [] text in
+        let zipped =
+          List.map
+            (fun c ->
+              let _, gi =
+                List.find (fun (c', _) -> c = Char.chr c') glyph_infos
+              in
+              (c, gi))
+            char_list
+        in
+        match editor_info.rope with
+        | Some r ->
+            ( {
+                rope = Some (insert r (length r) zipped);
+                cursor_pos =
+                  (oldx + fst new_cursor_pos, oldy + snd new_cursor_pos);
+              },
+              true )
+        | None ->
+            ( {
+                rope = Some (Leaf zipped);
+                cursor_pos =
+                  (oldx + fst new_cursor_pos, oldy + snd new_cursor_pos);
+              },
+              true ))
     | Some Quit -> (editor_info, false)
     | None -> (editor_info, true)
   in
   if continue then loop new_editor else ()
 
-let _ = loop { buffer = ""; cursor_pos = (0, 0) }
+let _ = loop { rope = None; cursor_pos = (0, 0) }

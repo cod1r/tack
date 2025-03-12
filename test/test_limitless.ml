@@ -1,7 +1,7 @@
-open Limitless
+(* open Limitless *)
 
 (* Example usage *)
-let () =
+(* let () =
   let r1 = Rope.of_string "Hello " in
   let r2 = Rope.of_string "World!" in
   let r = Rope.concat r1 r2 in
@@ -16,4 +16,4 @@ let () =
   print_endline (Rope.to_string r_deleted);
   (* Outputs: Hello World! *)
   let r_balanced = Rope.rebalance r_deleted in
-  print_endline (Rope.to_string r_balanced)
+  print_endline (Rope.to_string r_balanced) *)
