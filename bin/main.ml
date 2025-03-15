@@ -157,8 +157,8 @@ let draw_letter_glyph letter (x, y) =
           +. Int.to_float biggest_horiBearingY
           -. Int.to_float g.FreeType.metrics.horiBearingY );
       sdl_render_present w;
-      g.FreeType.advance
-  | None -> (0, 0)
+      (x + fst g.FreeType.advance, y + snd g.FreeType.advance)
+  | None -> (x, y)
 
 let erase_letter_glyph ropeLeaf (x, y) =
   match ropeLeaf with
@@ -195,13 +195,7 @@ let erase_letter_glyph ropeLeaf (x, y) =
 let draw_cursor (x, y) =
   sdl_set_render_draw_color w 0 0 0 255;
   let r =
-    RectF
-      {
-        x = Int.to_float x;
-        y = Int.to_float y;
-        width = 3.;
-        height = Int.to_float biggest_horiBearingY;
-      }
+    RectF { x; y; width = 3.; height = Int.to_float biggest_horiBearingY }
   in
   sdl_renderer_draw_rect_float w r;
   sdl_renderer_fill_rect_float w r;
@@ -226,9 +220,7 @@ let rec loop editor_info =
               in
               ( {
                   rope = Some (delete r (length r) 1);
-                  cursor_pos =
-                    ( fst cursor_offset + fst editor_info.cursor_pos,
-                      snd cursor_offset + snd editor_info.cursor_pos );
+                  cursor_pos = editor_info.cursor_pos;
                 },
                 true )
             else (editor_info, true)
@@ -243,7 +235,11 @@ let rec loop editor_info =
             print_newline ();
             match editor_info.rope with
             | Some r ->
-                let closest = search_closest (x, y) r (0, 0) in
+                let closest =
+                  search_closest (Int.to_float x, Int.to_float y) r
+                in
+                Printf.printf "closest: %f %f" (fst closest) (snd closest);
+                print_newline ();
                 draw_cursor closest
             | None -> ())
         | Mouseup ->
@@ -264,7 +260,6 @@ let rec loop editor_info =
             (fun c acc -> draw_letter_glyph c acc)
             text editor_info.cursor_pos
         in
-        let oldx, oldy = editor_info.cursor_pos in
         let char_list = String.fold_left (fun acc c -> c :: acc) [] text in
         let zipped =
           List.map
@@ -278,18 +273,12 @@ let rec loop editor_info =
         match editor_info.rope with
         | Some r ->
             ( {
-                rope = Some (insert r (length r) zipped);
-                cursor_pos =
-                  (oldx + fst new_cursor_pos, oldy + snd new_cursor_pos);
+                rope = Some (concat r (Leaf zipped));
+                cursor_pos = new_cursor_pos;
               },
               true )
         | None ->
-            ( {
-                rope = Some (Leaf zipped);
-                cursor_pos =
-                  (oldx + fst new_cursor_pos, oldy + snd new_cursor_pos);
-              },
-              true ))
+            ({ rope = Some (Leaf zipped); cursor_pos = new_cursor_pos }, true))
     | Some Quit -> (editor_info, false)
     | None -> (editor_info, true)
   in

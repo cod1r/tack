@@ -8,7 +8,11 @@ let length = function Leaf l -> List.length l | Node { length; _ } -> length
 
 let of_string s glyph_infos =
   let list_chars = String.fold_left (fun acc c -> c :: acc) [] s in
-  List.combine list_chars glyph_infos
+  Leaf
+    (List.map
+       (fun c ->
+         (c, List.find (fun (c', _) -> Char.chr c' = c) glyph_infos |> snd))
+       list_chars)
 
 let concat r1 r2 =
   Node { left = r1; right = r2; length = length r1 + length r2 }
@@ -20,14 +24,16 @@ let rec to_string = function
 let rec substring r start len =
   match r with
   | Leaf l ->
-      let rec sublist lst endIdx idx acc =
+      let rec sublist lst endIdx startIdx idx acc =
         if idx = endIdx then acc
         else
           match lst with
           | [] -> acc
-          | h :: t -> sublist t endIdx (succ idx) (h :: acc)
+          | h :: t ->
+              let newlist = if idx >= startIdx then h :: acc else acc in
+              sublist t endIdx startIdx (succ idx) newlist
       in
-      Leaf (sublist l (start + len) 0 [])
+      Leaf (sublist (List.rev l) (start + len) start 0 [])
   | Node { left; right; _ } ->
       if start + len <= length left then substring left start len
       else if start >= length left then
@@ -42,7 +48,9 @@ let rec insert r pos s =
   | Leaf _ as ropeLeaf ->
       let left = substring ropeLeaf 0 pos in
       let right = substring ropeLeaf pos (length ropeLeaf - pos) in
-      concat left (concat (Leaf s) right)
+      if length left = 0 || length right = 0 then
+        failwith "Leaf node cannot contain empty list"
+      else concat left (concat (Leaf s) right)
   | Node { left; right; _ } ->
       if pos <= length left then concat (insert left pos s) right
       else concat left (insert right (pos - length left) s)

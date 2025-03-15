@@ -21,7 +21,7 @@ let _ =
   let r1 = Limitless.Rope.of_string "Hello " glyph_infos in
   let r2 = Limitless.Rope.of_string "World!" glyph_infos in
   let r3 = Limitless.Rope.concat r1 r2 in
-  let r4 = Limitless.Rope.delete r3 5 6 in
+  let r4 = Limitless.Rope.delete r3 5 5 in
   let s = Limitless.Rope.to_string r4 in
-  Printf.printf "%s" s;
+  Printf.printf "what: %s, %s" s (Limitless.Rope.to_string r1);
   print_newline ()
