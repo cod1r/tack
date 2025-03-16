@@ -39,3 +39,22 @@ module FreeType = struct
   external freetype_set_pixel_sizes : int -> unit
     = "freetype_set_pixel_sizes" "freetype_set_pixel_sizes"
 end
+
+let glyph_infos =
+  let startcode, endcode = (32, 126) in
+  let rec get_glyph_info char_code acc =
+    Printf.printf "%c" (Char.chr char_code);
+    print_newline ();
+    if char_code > endcode then acc
+    else
+      let new_glyph_info =
+        FreeType.freetype_load_glyph_letter (Char.chr char_code)
+      in
+      get_glyph_info (succ char_code) ((char_code, new_glyph_info) :: acc)
+  in
+  get_glyph_info startcode []
+
+let biggest_horiBearingY =
+  List.fold_left
+    (fun acc (_, g) -> max g.FreeType.metrics.horiBearingY acc)
+    0 glyph_infos

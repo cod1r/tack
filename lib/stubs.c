@@ -117,6 +117,20 @@ SDL_Renderer* get_renderer_from_window(value window) {
   return renderer;
 }
 
+CAMLprim value sdl_get_renderer_size(value window) {
+  CAMLparam1(window);
+  CAMLlocal1(size_tuple);
+  SDL_Renderer* r = get_renderer_from_window(window);
+  int w;
+  int h;
+  int res = SDL_GetRendererOutputSize(r, &w, &h);
+  if (!res) caml_failwith(SDL_GetError());
+  size_tuple = caml_alloc(2, 0);
+  Store_field(size_tuple, 0, Val_int(w));
+  Store_field(size_tuple, 1, Val_int(h));
+  CAMLreturn(size_tuple);
+}
+
 CAMLprim value sdl_get_window_size(value window) {
   CAMLparam1(window);
   CAMLlocal1(size_tuple);
