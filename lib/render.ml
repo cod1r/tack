@@ -2,37 +2,37 @@ open Freetype
 open Sdl
 
 module Render = struct
-  let draw_cursor w (x, y) =
-    sdl_set_render_draw_color w 0 0 0 255;
+  let draw_cursor w (x, y) biggest_horiBearingY =
+    Sdl.sdl_set_render_draw_color w 0 0 0 255;
     let r =
-      RectF { x; y; width = 3.; height = Int.to_float biggest_horiBearingY }
+      Sdl.RectF { x; y; width = 3.; height = Int.to_float biggest_horiBearingY }
     in
-    sdl_renderer_draw_rect_float w r;
-    sdl_renderer_fill_rect_float w r
+    Sdl.sdl_renderer_draw_rect_float w r;
+    Sdl.sdl_renderer_fill_rect_float w r
 
   let draw_bmp_points w glyph_info pts offset =
     let floats =
       List.map
         (function
-          | Point (x, y) ->
-              ( PointF (Int.to_float x, Int.to_float y),
+          | Sdl.Point (x, y) ->
+              ( Sdl.PointF (Int.to_float x, Int.to_float y),
                 Bytes.get glyph_info.FreeType.bitmap.buffer
                   ((y * glyph_info.FreeType.bitmap.pitch) + x) ))
         pts
     in
     List.iter
       (function
-        | PointF (x, y), byte ->
+        | Sdl.PointF (x, y), byte ->
             let int_byte = Char.code byte in
-            sdl_set_render_draw_color w 0 0 0 int_byte;
-            sdl_render_draw_points_float w
+            Sdl.sdl_set_render_draw_color w 0 0 0 int_byte;
+            Sdl.sdl_render_draw_points_float w
               (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
               [ PointF ((x /. 3.) +. fst offset, y +. snd offset) ])
       floats
 
-  let draw_glyphs w =
+  let draw_glyphs w glyph_infos biggest_horiBearingY =
     let rec get_points x y acc (bitmap : FreeType.freetype_bitmap) =
-      let new_acc = Point (x, y) :: acc in
+      let new_acc = Sdl.Point (x, y) :: acc in
       let width, rows = (bitmap.FreeType.width, bitmap.FreeType.rows) in
       if width > 0 && rows > 0 then
         match (x = width - 1, y = rows - 1) with
@@ -67,7 +67,7 @@ module Render = struct
     match found_glyph with
     | Some (_, g) ->
         let rec get_points x y acc (bitmap : FreeType.freetype_bitmap) =
-          let new_acc = Point (x, y) :: acc in
+          let new_acc = Sdl.Point (x, y) :: acc in
           let width, rows = (bitmap.FreeType.width, bitmap.FreeType.rows) in
           if width > 0 && rows > 0 then
             match (x = width - 1, y = rows - 1) with
@@ -82,7 +82,6 @@ module Render = struct
             Int.to_float y
             +. Int.to_float biggest_horiBearingY
             -. Int.to_float g.FreeType.metrics.horiBearingY );
-        sdl_render_present w;
         (x + fst g.FreeType.advance, y + snd g.FreeType.advance)
     | None -> (x, y)
 end

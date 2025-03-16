@@ -4,14 +4,32 @@ open Limitless.Editor
 open Limitless.Rope
 open Limitless.Render
 
-let () = init_sdl ()
 let () = FreeType.freetype_init ()
 let () = FreeType.freetype_load_font ()
 let () = FreeType.freetype_set_pixel_sizes 6
 
+let glyph_infos =
+  let startcode, endcode = (32, 126) in
+  let rec get_glyph_info char_code acc =
+    Printf.printf "%c" (Char.chr char_code);
+    print_newline ();
+    if char_code > endcode then acc
+    else
+      let new_glyph_info =
+        FreeType.freetype_load_glyph_letter (Char.chr char_code)
+      in
+      get_glyph_info (succ char_code) ((char_code, new_glyph_info) :: acc)
+  in
+  get_glyph_info startcode []
+
+let biggest_horiBearingY =
+  List.fold_left
+    (fun acc (_, g) -> max g.FreeType.metrics.horiBearingY acc)
+    0 glyph_infos
+
 let w =
   match
-    sdl_create_window "limitless" 0 0 800 800
+    Sdl.sdl_create_window "limitless" 0 0 800 800
       (sdl_window_resizable lor sdl_window_allow_highdpi)
   with
   | Some (Window { width; height; title; _ } as w) ->
@@ -21,15 +39,15 @@ let w =
   | None -> failwith "unable to create window"
 ;;
 
-sdl_create_renderer w sdl_renderer_software;
-sdl_set_render_draw_blendmode w sdl_blendmode_blend
+Sdl.sdl_create_renderer w sdl_renderer_software;
+Sdl.sdl_set_render_draw_blendmode w sdl_blendmode_blend
 
 let () =
-  sdl_set_render_draw_color w 255 255 255 255;
-  sdl_render_clear w
+  Sdl.sdl_set_render_draw_color w 255 255 255 255;
+  Sdl.sdl_render_clear w
 
 let rec loop editor_info =
-  let evt = sdl_pollevent () in
+  let evt = Sdl.sdl_pollevent () in
   let new_editor, continue =
     match evt with
     | Some (KeyboardEvt { keysym; timestamp; _ }) -> (
@@ -62,7 +80,7 @@ let rec loop editor_info =
                 in
                 Printf.printf "closest: %f %f" (fst closest) (snd closest);
                 print_newline ();
-                draw_cursor closest
+                Render.draw_cursor w closest biggest_horiBearingY
             | None -> ())
         | Mouseup ->
             Printf.printf "Mouseup";
