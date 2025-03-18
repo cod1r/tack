@@ -124,7 +124,7 @@ CAMLprim value sdl_get_renderer_size(value window) {
   int w;
   int h;
   int res = SDL_GetRendererOutputSize(r, &w, &h);
-  if (!res) caml_failwith(SDL_GetError());
+  if (res != 0) caml_failwith(SDL_GetError());
   size_tuple = caml_alloc(2, 0);
   Store_field(size_tuple, 0, Val_int(w));
   Store_field(size_tuple, 1, Val_int(h));

@@ -106,7 +106,6 @@ module Sdl = struct
     = "sdl_create_renderer" "sdl_create_renderer"
 end
 
-let () = Sdl.init_sdl ()
 let sdl_window_resizable = 0x00000020
 let sdl_window_opengl = 0x00000002
 let sdl_window_shown = 0x00000004

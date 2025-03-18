@@ -15,3 +15,6 @@ think about text cursors
 
 think about sdl_surface and sdl_texture with how those structures can help with redrawing the screen and having correct
 pixels; how will sdl_surface and sdl_texture be represented in ocaml - should abstract datatypes start being used, etc
+
+idk why but for some reason im just realizing that there needs to be a separation between a position in an index and position on the
+screen

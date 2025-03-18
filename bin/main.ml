@@ -4,6 +4,7 @@ open Limitless.Editor
 open Limitless.Rope
 open Limitless.Render
 
+let () = Sdl.init_sdl ()
 let () = FreeType.freetype_init ()
 let () = FreeType.freetype_load_font ()
 let () = FreeType.freetype_set_pixel_sizes 6
@@ -11,8 +12,6 @@ let () = FreeType.freetype_set_pixel_sizes 6
 let glyph_infos =
   let startcode, endcode = (32, 126) in
   let rec get_glyph_info char_code acc =
-    Printf.printf "%c" (Char.chr char_code);
-    print_newline ();
     if char_code > endcode then acc
     else
       let new_glyph_info =
@@ -39,27 +38,26 @@ let w =
   | None -> failwith "unable to create window"
 ;;
 
-Sdl.sdl_create_renderer w sdl_renderer_software;
-Sdl.sdl_set_render_draw_blendmode w sdl_blendmode_blend
-
-let () =
-  Sdl.sdl_set_render_draw_color w 255 255 255 255;
-  Sdl.sdl_render_clear w
+Sdl.sdl_create_renderer w sdl_renderer_software;;
+Sdl.sdl_set_render_draw_blendmode w sdl_blendmode_blend;;
+Sdl.sdl_set_render_draw_color w 255 255 255 255;;
+Sdl.sdl_render_clear w;;
 
 let rec loop editor_info =
   let evt = Sdl.sdl_pollevent () in
+  Render.draw w editor_info.Editor.rope biggest_horiBearingY;
   let new_editor, continue =
     match evt with
     | Some (KeyboardEvt { keysym; timestamp; _ }) -> (
         Printf.printf "KBD: %d, %d" (Char.code keysym) timestamp;
         print_newline ();
         let char_code = Char.code keysym in
-        match editor_info.rope with
+        match editor_info.Editor.rope with
         | Some r ->
             let rope_len = length r in
             if char_code = 8 && rope_len > 0 then
               ( {
-                  rope = Some (delete r (length r) 1);
+                  Editor.rope = Some (delete r (length r) 1);
                   cursor_pos = editor_info.cursor_pos;
                 },
                 true )
@@ -76,7 +74,7 @@ let rec loop editor_info =
             match editor_info.rope with
             | Some r ->
                 let closest =
-                  search_closest (Int.to_float x, Int.to_float y) r
+                  Editor.search_closest (Int.to_float x, Int.to_float y) r
                 in
                 Printf.printf "closest: %f %f" (fst closest) (snd closest);
                 print_newline ();
@@ -98,8 +96,14 @@ let rec loop editor_info =
         let new_cursor_pos =
           String.fold_right
             (fun c acc ->
-              Render.draw_letter_glyph w c acc glyph_infos biggest_horiBearingY)
-            text editor_info.cursor_pos
+              let glyph_info =
+                List.find_opt (fun (c', _) -> Char.chr c' = c) glyph_infos
+              in
+              match glyph_info with
+              | Some (_, glyph_info) ->
+                  Render.draw_letter_glyph w acc glyph_info biggest_horiBearingY
+              | None -> acc)
+            text editor_info.Editor.cursor_pos
         in
         let char_list = String.fold_left (fun acc c -> c :: acc) [] text in
         let zipped =

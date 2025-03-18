@@ -30,6 +30,7 @@ module Render = struct
               [ PointF ((x /. 3.) +. fst offset, y +. snd offset) ])
       floats
 
+  (* this function draws all of the glyphs in glyph_infos *)
   let draw_glyphs w glyph_infos biggest_horiBearingY =
     let rec get_points x y acc (bitmap : FreeType.freetype_bitmap) =
       let new_acc = Sdl.Point (x, y) :: acc in
@@ -60,28 +61,48 @@ module Render = struct
             -. Int.to_float glyph.FreeType.metrics.horiBearingY ))
       points_list xs
 
-  let draw_letter_glyph w letter (x, y) glyph_infos biggest_horiBearingY =
-    let found_glyph =
-      List.find_opt (fun (c, _) -> Char.chr c = letter) glyph_infos
+  let draw_letter_glyph w (x, y) g biggest_horiBearingY =
+    let rec get_points x y acc (bitmap : FreeType.freetype_bitmap) =
+      let new_acc = Sdl.Point (x, y) :: acc in
+      let width, rows = (bitmap.FreeType.width, bitmap.FreeType.rows) in
+      if width > 0 && rows > 0 then
+        match (x = width - 1, y = rows - 1) with
+        | true, true -> new_acc
+        | true, _ -> get_points 0 (succ y) new_acc bitmap
+        | _ -> get_points (succ x) y new_acc bitmap
+      else []
     in
-    match found_glyph with
-    | Some (_, g) ->
-        let rec get_points x y acc (bitmap : FreeType.freetype_bitmap) =
-          let new_acc = Sdl.Point (x, y) :: acc in
-          let width, rows = (bitmap.FreeType.width, bitmap.FreeType.rows) in
-          if width > 0 && rows > 0 then
-            match (x = width - 1, y = rows - 1) with
-            | true, true -> new_acc
-            | true, _ -> get_points 0 (succ y) new_acc bitmap
-            | _ -> get_points (succ x) y new_acc bitmap
-          else []
-        in
-        let pts = get_points 0 0 [] g.FreeType.bitmap in
-        draw_bmp_points w g pts
-          ( Int.to_float (x + g.FreeType.metrics.horiBearingX),
-            Int.to_float y
-            +. Int.to_float biggest_horiBearingY
-            -. Int.to_float g.FreeType.metrics.horiBearingY );
-        (x + fst g.FreeType.advance, y + snd g.FreeType.advance)
-    | None -> (x, y)
+    let width_screen, height_screen = Sdl.sdl_get_renderer_size w in
+    let next_x = x + g.FreeType.metrics.horiBearingX in
+    let next_y =
+      if next_x >= width_screen then y + biggest_horiBearingY else y
+    in
+    let pts = get_points 0 0 [] g.FreeType.bitmap in
+    draw_bmp_points w g pts
+      ( Int.to_float next_x,
+        Int.to_float next_y
+        +. Int.to_float biggest_horiBearingY
+        -. Int.to_float g.FreeType.metrics.horiBearingY );
+    (x + fst g.FreeType.advance, y + snd g.FreeType.advance)
+
+  let draw_rope w rope biggest_horiBearingY =
+    let rec draw_rope' w rope offset =
+      match rope with
+      | Rope.Leaf l ->
+          List.fold_right
+            (fun (c, g) acc -> draw_letter_glyph w acc g biggest_horiBearingY)
+            l offset
+      | Rope.Node { left; right; _ } ->
+          let left_offset = draw_rope' w left offset in
+          draw_rope' w right left_offset
+    in
+    let _ = draw_rope' w rope (0, 0) in
+    ()
+  ;;
+
+  let draw w rope biggest_horiBearingY =
+    (match rope with
+    | Some(r) -> draw_rope w r biggest_horiBearingY;
+    | None -> ());
+    Sdl.sdl_render_present w;
 end
