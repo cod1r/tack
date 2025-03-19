@@ -41,7 +41,7 @@ let w =
 Sdl.sdl_create_renderer w sdl_renderer_software;;
 Sdl.sdl_set_render_draw_blendmode w sdl_blendmode_blend;;
 Sdl.sdl_set_render_draw_color w 255 255 255 255;;
-Sdl.sdl_render_clear w;;
+Sdl.sdl_render_clear w
 
 let rec loop editor_info =
   let evt = Sdl.sdl_pollevent () in

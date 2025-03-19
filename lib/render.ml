@@ -74,16 +74,23 @@ module Render = struct
     in
     let width_screen, height_screen = Sdl.sdl_get_renderer_size w in
     let next_x = x + g.FreeType.metrics.horiBearingX in
-    let next_y =
-      if next_x >= width_screen then y + biggest_horiBearingY else y
+    let used_x, used_y =
+      if next_x >= width_screen then
+        (g.FreeType.metrics.horiBearingX, y + biggest_horiBearingY)
+      else (next_x, y)
+    in
+    let accx, accy =
+      if next_x >= width_screen then
+        (fst g.FreeType.advance, y + biggest_horiBearingY)
+      else (x + fst g.FreeType.advance, y + snd g.FreeType.advance)
     in
     let pts = get_points 0 0 [] g.FreeType.bitmap in
     draw_bmp_points w g pts
-      ( Int.to_float next_x,
-        Int.to_float next_y
+      ( Int.to_float used_x,
+        Int.to_float used_y
         +. Int.to_float biggest_horiBearingY
         -. Int.to_float g.FreeType.metrics.horiBearingY );
-    (x + fst g.FreeType.advance, y + snd g.FreeType.advance)
+    (accx, accy)
 
   let draw_rope w rope biggest_horiBearingY =
     let rec draw_rope' w rope offset =
@@ -98,11 +105,12 @@ module Render = struct
     in
     let _ = draw_rope' w rope (0, 0) in
     ()
-  ;;
 
   let draw w rope biggest_horiBearingY =
+    Sdl.sdl_set_render_draw_color w 255 255 255 255;
+    Sdl.sdl_render_clear w;
     (match rope with
-    | Some(r) -> draw_rope w r biggest_horiBearingY;
+    | Some r -> draw_rope w r biggest_horiBearingY
     | None -> ());
-    Sdl.sdl_render_present w;
+    Sdl.sdl_render_present w
 end
