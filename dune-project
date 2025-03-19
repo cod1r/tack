@@ -19,7 +19,7 @@
  (name limitless)
  (synopsis "a GUI text editor written in OCaml")
  (description "a GUI text editor written in OCaml")
- (depends ocaml)
+ (depends ocaml ounit2)
  (tags
   ("editor" "ocaml")))
 

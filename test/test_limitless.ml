@@ -1,3 +1,4 @@
+open OUnit2
 open Limitless.Freetype
 
 let () = FreeType.freetype_init ()
@@ -16,24 +17,29 @@ let glyph_infos =
   in
   get_glyph_info startcode []
 
-let _ =
+let concat_test _ =
   let r1 = Limitless.Rope.of_string "Hello " glyph_infos in
   let r2 = Limitless.Rope.of_string "World!" glyph_infos in
   let r3 = Limitless.Rope.concat r1 r2 in
-  let r4 = Limitless.Rope.delete r3 5 6 in
-  let s = Limitless.Rope.to_string r4 in
-  Printf.printf "%s" s;
-  print_newline ()
+  assert_equal (Limitless.Rope.to_string r3) "Hello World!"
 
-let _ =
+let delete_test _ =
   let r1 = Limitless.Rope.of_string "Hello " glyph_infos in
   let r2 = Limitless.Rope.delete r1 4 1 in
   let s = Limitless.Rope.to_string r2 in
-  Printf.printf "%s" s;
-  print_newline ()
+  assert_equal s "Hell "
 
-let _ =
+let length_test _ =
   let r1 = Limitless.Rope.of_string "Hello " glyph_infos in
   let len = Limitless.Rope.length r1 in
-  Printf.printf "%d" len;
-  print_newline ()
+  assert_equal len 6
+
+let tests =
+  "rope tests" >::: [
+    "concat test" >:: concat_test;
+    "delete test" >:: delete_test;
+    "length test" >:: length_test
+  ]
+
+let () =
+  run_test_tt_main tests
