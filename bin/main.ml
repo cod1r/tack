@@ -57,7 +57,7 @@ let rec loop editor_info =
             let rope_len = length r in
             if char_code = 8 && rope_len > 0 then
               ( {
-                  Editor.rope = Some (delete r (length r) 1);
+                  Editor.rope = Some (delete r (length r - 1) 1);
                   cursor_pos = editor_info.cursor_pos;
                 },
                 true )

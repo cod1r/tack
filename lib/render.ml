@@ -72,7 +72,7 @@ module Render = struct
         | _ -> get_points (succ x) y new_acc bitmap
       else []
     in
-    let width_screen, height_screen = Sdl.sdl_get_renderer_size w in
+    let width_screen, _ = Sdl.sdl_get_renderer_size w in
     let next_x = x + g.FreeType.metrics.horiBearingX in
     let used_x, used_y =
       if next_x >= width_screen then

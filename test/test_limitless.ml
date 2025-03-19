@@ -16,7 +16,6 @@ let glyph_infos =
   in
   get_glyph_info startcode []
 
-(* Example usage *)
 let _ =
   let r1 = Limitless.Rope.of_string "Hello " glyph_infos in
   let r2 = Limitless.Rope.of_string "World!" glyph_infos in
@@ -24,4 +23,17 @@ let _ =
   let r4 = Limitless.Rope.delete r3 5 6 in
   let s = Limitless.Rope.to_string r4 in
   Printf.printf "%s" s;
+  print_newline ()
+
+let _ =
+  let r1 = Limitless.Rope.of_string "Hello " glyph_infos in
+  let r2 = Limitless.Rope.delete r1 4 1 in
+  let s = Limitless.Rope.to_string r2 in
+  Printf.printf "%s" s;
+  print_newline ()
+
+let _ =
+  let r1 = Limitless.Rope.of_string "Hello " glyph_infos in
+  let len = Limitless.Rope.length r1 in
+  Printf.printf "%d" len;
   print_newline ()
