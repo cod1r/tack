@@ -152,6 +152,14 @@ CAMLprim value sdl_set_render_draw_blendmode(value window, value blendmode) {
   CAMLreturn(Val_unit);
 }
 
+CAMLprim value sdl_render_draw_point_f(value window, value x, value y) {
+  CAMLparam3(window, x, y);
+  SDL_Renderer* renderer = get_renderer_from_window(window);
+  int result = SDL_RenderDrawPointF(renderer, Double_val(x), Double_val(y));
+  if (result) caml_failwith(SDL_GetError());
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value sdl_render_draw_points_float(value window, value points_float) {
   CAMLparam2(window, points_float);
   CAMLlocal1(tail);

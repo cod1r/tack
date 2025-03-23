@@ -25,41 +25,10 @@ module Render = struct
         | Sdl.PointF (x, y), byte ->
             let int_byte = Char.code byte in
             Sdl.sdl_set_render_draw_color w 0 0 0 int_byte;
-            Sdl.sdl_render_draw_points_float w
+            Sdl.sdl_render_draw_point_f w
               (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
-              [ PointF ((x /. 3.) +. fst offset, y +. snd offset) ])
+              ((x /. 3.) +. fst offset) (y +. snd offset))
       floats
-
-  (* this function draws all of the glyphs in glyph_infos *)
-  let draw_glyphs w glyph_infos biggest_horiBearingY =
-    let rec get_points x y acc (bitmap : FreeType.freetype_bitmap) =
-      let new_acc = Sdl.Point (x, y) :: acc in
-      let width, rows = (bitmap.FreeType.width, bitmap.FreeType.rows) in
-      if width > 0 && rows > 0 then
-        match (x = width - 1, y = rows - 1) with
-        | true, true -> new_acc
-        | true, _ -> get_points 0 (succ y) new_acc bitmap
-        | _ -> get_points (succ x) y new_acc bitmap
-      else []
-    in
-    let rec get_xs glyphs x acc =
-      match glyphs with
-      | [] -> acc
-      | (_, h) :: t -> get_xs t (x + fst h.FreeType.advance) (x :: acc)
-    in
-    let xs = get_xs glyph_infos 0 [] in
-    let points_list =
-      List.map
-        (fun (_, glyph) -> (glyph, get_points 0 0 [] glyph.FreeType.bitmap))
-        glyph_infos
-    in
-    List.iter2
-      (fun (glyph, pl) x ->
-        draw_bmp_points w glyph pl
-          ( Int.to_float (x + glyph.FreeType.metrics.horiBearingX),
-            Int.to_float biggest_horiBearingY
-            -. Int.to_float glyph.FreeType.metrics.horiBearingY ))
-      points_list xs
 
   let draw_letter_glyph w (x, y) g biggest_horiBearingY =
     let rec get_points x y acc (bitmap : FreeType.freetype_bitmap) =

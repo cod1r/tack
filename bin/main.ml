@@ -93,18 +93,6 @@ let rec loop editor_info =
         print_newline ();
         (editor_info, true)
     | Some (TextInputEvt { text; _ }) -> (
-        let new_cursor_pos =
-          String.fold_right
-            (fun c acc ->
-              let glyph_info =
-                List.find_opt (fun (c', _) -> Char.chr c' = c) glyph_infos
-              in
-              match glyph_info with
-              | Some (_, glyph_info) ->
-                  Render.draw_letter_glyph w acc glyph_info biggest_horiBearingY
-              | None -> acc)
-            text editor_info.Editor.cursor_pos
-        in
         let char_list = String.fold_left (fun acc c -> c :: acc) [] text in
         let zipped =
           List.map
@@ -119,11 +107,11 @@ let rec loop editor_info =
         | Some r ->
             ( {
                 rope = Some (concat r (Leaf zipped));
-                cursor_pos = new_cursor_pos;
+                cursor_pos = editor_info.cursor_pos;
               },
               true )
         | None ->
-            ({ rope = Some (Leaf zipped); cursor_pos = new_cursor_pos }, true))
+            ({ rope = Some (Leaf zipped); cursor_pos = editor_info.cursor_pos }, true))
     | Some Quit -> (editor_info, false)
     | None -> (editor_info, true)
   in

@@ -76,6 +76,9 @@ module Sdl = struct
   external sdl_set_render_draw_blendmode : window -> int -> unit
     = "sdl_set_render_draw_blendmode" "sdl_set_render_draw_blendmode"
 
+  external sdl_render_draw_point_f : window -> float -> float -> unit
+    = "sdl_render_draw_point_f" "sdl_render_draw_point_f"
+
   external sdl_render_draw_points_float : window -> pointf list -> unit
     = "sdl_render_draw_points_float" "sdl_render_draw_points_float"
 
