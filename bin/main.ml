@@ -111,7 +111,8 @@ let rec loop editor_info =
               },
               true )
         | None ->
-            ({ rope = Some (Leaf zipped); cursor_pos = editor_info.cursor_pos }, true))
+            ( { rope = Some (Leaf zipped); cursor_pos = editor_info.cursor_pos },
+              true ))
     | Some Quit -> (editor_info, false)
     | None -> (editor_info, true)
   in

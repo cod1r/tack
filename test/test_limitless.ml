@@ -35,11 +35,11 @@ let length_test _ =
   assert_equal len 6
 
 let tests =
-  "rope tests" >::: [
-    "concat test" >:: concat_test;
-    "delete test" >:: delete_test;
-    "length test" >:: length_test
-  ]
+  "rope tests"
+  >::: [
+         "concat test" >:: concat_test;
+         "delete test" >:: delete_test;
+         "length test" >:: length_test;
+       ]
 
-let () =
-  run_test_tt_main tests
+let () = run_test_tt_main tests

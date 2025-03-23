@@ -115,3 +115,4 @@ let sdl_window_shown = 0x00000004
 let sdl_window_allow_highdpi = 0x00002000
 let sdl_blendmode_blend = 0x00000001
 let sdl_renderer_software = 0x00000001
+let sdl_renderer_accelerated = 0x00000002
