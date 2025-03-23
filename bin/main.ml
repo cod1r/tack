@@ -44,8 +44,8 @@ Sdl.sdl_set_render_draw_color w 255 255 255 255;;
 Sdl.sdl_render_clear w
 
 let rec loop editor_info =
-  let evt = Sdl.sdl_pollevent () in
   Render.draw w editor_info.Editor.rope biggest_horiBearingY;
+  let evt = Sdl.sdl_pollevent () in
   let new_editor, continue =
     match evt with
     | Some (KeyboardEvt { keysym; timestamp; _ }) -> (
