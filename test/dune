@@ -6,6 +6,10 @@
  (name test_rope)
  (libraries limitless ounit2))
 
+(test
+ (name test_render)
+ (libraries limitless ounit2))
+
 (env
  (dev
   (flags
