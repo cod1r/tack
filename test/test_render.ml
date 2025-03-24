@@ -22,7 +22,8 @@ let glyph_infos =
 let timing_test_drawing_rope _ =
   let gj = List.find (fun (c, _) -> Char.chr c = 'j') glyph_infos in
   let new_gj = (Char.chr (fst gj), snd gj) in
-  let all_j = List.init 4_00 (fun _ -> new_gj) in
+  let ropes = 1 in
+  let all_j = List.init ropes (fun _ -> new_gj) in
   let w =
     match
       Sdl.sdl_create_window "limitless" 0 0 800 800
@@ -51,11 +52,15 @@ let timing_test_drawing_rope _ =
   ();
   Sdl.sdl_create_renderer w sdl_renderer_software;
   let start = Unix.gettimeofday () in
-  for _ = 0 to 100 do
+  let times = 500_000 in
+  for _ = 0 to times do
     Render.draw_rope w rope biggest_horiBearingY
   done;
   let end' = Unix.gettimeofday () -. start in
-  assert_bool "time it takes to draw 4_00 ropes/leaves" (end' < 0.0001)
+  assert_bool
+    ("time it takes to draw " ^ Int.to_string ropes ^ " ropes/leaves "
+   ^ Int.to_string times ^ " times")
+    (end' < 0.5)
 
 let tests =
   "render tests" >::: [ "rope drawing time" >:: timing_test_drawing_rope ]

@@ -76,8 +76,9 @@ module Sdl = struct
   external sdl_set_render_draw_blendmode : window -> int -> unit
     = "sdl_set_render_draw_blendmode" "sdl_set_render_draw_blendmode"
 
-  external sdl_render_draw_point_f : window -> float -> float -> unit
-    = "sdl_render_draw_point_f" "sdl_render_draw_point_f"
+  external sdl_render_draw_point_f :
+    window -> (float[@unboxed]) -> (float[@unboxed]) -> unit
+    = "sdl_render_draw_point_f_bytec" "sdl_render_draw_point_f"
 
   external sdl_render_draw_points_float : window -> pointf list -> unit
     = "sdl_render_draw_points_float" "sdl_render_draw_points_float"
@@ -102,8 +103,12 @@ module Sdl = struct
     = "sdl_renderer_draw_rect" "sdl_renderer_draw_rect"
 
   external sdl_set_render_draw_color :
-    window -> int -> int -> int -> int -> unit
-    = "sdl_set_render_draw_color" "sdl_set_render_draw_color"
+    window ->
+    (int32[@unboxed]) ->
+    (int32[@unboxed]) ->
+    (int32[@unboxed]) ->
+    (int32[@unboxed]) ->
+    unit = "sdl_set_render_draw_color_bytec" "sdl_set_render_draw_color"
 
   external sdl_create_renderer : window -> int -> unit
     = "sdl_create_renderer" "sdl_create_renderer"

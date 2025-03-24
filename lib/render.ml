@@ -3,7 +3,7 @@ open Sdl
 
 module Render = struct
   let draw_cursor w (x, y) biggest_horiBearingY =
-    Sdl.sdl_set_render_draw_color w 0 0 0 255;
+    Sdl.sdl_set_render_draw_color w 0l 0l 0l 255l;
     let r =
       Sdl.RectF { x; y; width = 3.; height = Int.to_float biggest_horiBearingY }
     in
@@ -28,7 +28,7 @@ module Render = struct
                 ((y * glyph_info.FreeType.bitmap.pitch) + x)
             in
             let int_byte = Char.code byte in
-            Sdl.sdl_set_render_draw_color w 0 0 0 int_byte;
+            Sdl.sdl_set_render_draw_color w 0l 0l 0l (Int32.of_int int_byte);
             Sdl.sdl_render_draw_point_f w
               (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
               ((Int.to_float x /. 3.) +. fst offset)
@@ -59,9 +59,10 @@ module Render = struct
     let rec draw_rope' w rope offset =
       match rope with
       | Rope.Leaf l ->
-          List.fold_right
-            (fun (c, g) acc -> draw_letter_glyph w acc g biggest_horiBearingY)
-            l offset
+          (* fold_right isn't tail_recursive and l is stored in reverse order *)
+          List.fold_left
+            (fun acc (c, g) -> draw_letter_glyph w acc g biggest_horiBearingY)
+            offset (List.rev l)
       | Rope.Node { left; right; _ } ->
           let left_offset = draw_rope' w left offset in
           draw_rope' w right left_offset
@@ -70,7 +71,7 @@ module Render = struct
     ()
 
   let draw w rope biggest_horiBearingY =
-    Sdl.sdl_set_render_draw_color w 255 255 255 255;
+    Sdl.sdl_set_render_draw_color w 255l 255l 255l 255l;
     Sdl.sdl_render_clear w;
     (match rope with
     | Some r -> draw_rope w r biggest_horiBearingY

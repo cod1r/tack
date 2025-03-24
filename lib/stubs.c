@@ -152,7 +152,15 @@ CAMLprim value sdl_set_render_draw_blendmode(value window, value blendmode) {
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value sdl_render_draw_point_f(value window, value x, value y) {
+CAMLprim value sdl_render_draw_point_f(value window, double x, double y) {
+  CAMLparam1(window);
+  SDL_Renderer* renderer = get_renderer_from_window(window);
+  int result = SDL_RenderDrawPointF(renderer, x, y);
+  if (result) caml_failwith(SDL_GetError());
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value sdl_render_draw_point_f_bytec(value window, value x, value y) {
   CAMLparam3(window, x, y);
   SDL_Renderer* renderer = get_renderer_from_window(window);
   int result = SDL_RenderDrawPointF(renderer, Double_val(x), Double_val(y));
@@ -234,7 +242,15 @@ CAMLprim value sdl_create_renderer(value window, value flags) {
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value sdl_set_render_draw_color(value window, value r, value g, value b, value a) {
+CAMLprim value sdl_set_render_draw_color(value window, int32_t r, int32_t g, int32_t b, int32_t a) {
+  CAMLparam1(window);
+  SDL_Renderer* renderer = get_renderer_from_window(window);
+  int res = SDL_SetRenderDrawColor(renderer, r, g, b, a);
+  if (res < 0) caml_failwith(SDL_GetError());
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value sdl_set_render_draw_color_bytec(value window, value r, value g, value b, value a) {
   CAMLparam5(window, r, g, b, a);
   SDL_Renderer* renderer = get_renderer_from_window(window);
   int res = SDL_SetRenderDrawColor(renderer, Int_val(r), Int_val(g), Int_val(b), Int_val(a));
