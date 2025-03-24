@@ -11,29 +11,25 @@ module Render = struct
     Sdl.sdl_renderer_fill_rect_float w r
 
   let draw_bmp_points w glyph_info offset =
-    let indices =
-      List.init
-        (glyph_info.FreeType.bitmap.width * glyph_info.FreeType.bitmap.rows)
-        (fun i -> i)
+    let length =
+      glyph_info.FreeType.bitmap.width * glyph_info.FreeType.bitmap.rows
     in
-    List.iter
-      (function
-        | i ->
-            let x, y =
-              ( i mod glyph_info.FreeType.bitmap.width,
-                i / glyph_info.FreeType.bitmap.width )
-            in
-            let byte =
-              Bytes.get glyph_info.FreeType.bitmap.buffer
-                ((y * glyph_info.FreeType.bitmap.pitch) + x)
-            in
-            let int_byte = Char.code byte in
-            Sdl.sdl_set_render_draw_color w 0l 0l 0l (Int32.of_int int_byte);
-            Sdl.sdl_render_draw_point_f w
-              (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
-              ((Int.to_float x /. 3.) +. fst offset)
-              (Int.to_float y +. snd offset))
-      indices
+    for i = 0 to length - 1 do
+      let x, y =
+        ( i mod glyph_info.FreeType.bitmap.width,
+          i / glyph_info.FreeType.bitmap.width )
+      in
+      let byte =
+        Bytes.get glyph_info.FreeType.bitmap.buffer
+          ((y * glyph_info.FreeType.bitmap.pitch) + x)
+      in
+      let int_byte = Char.code byte in
+      Sdl.sdl_set_render_draw_color w 0l 0l 0l (Int32.of_int int_byte);
+      Sdl.sdl_render_draw_point_f w
+        (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
+        ((Int.to_float x /. 3.) +. fst offset)
+        (Int.to_float y +. snd offset)
+    done
 
   let draw_letter_glyph w (x, y) g biggest_horiBearingY =
     let width_screen, _ = Sdl.sdl_get_renderer_size w in
