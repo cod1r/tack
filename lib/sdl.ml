@@ -61,6 +61,15 @@ module Sdl = struct
   type point = Point of int * int
   type pointf = PointF of float * float
 
+  external sdl_gl_swapwindow : window -> (unit, string) result =
+    "sdl_gl_swapwindow" "sdl_gl_swapwindow"
+
+  external sdl_gl_make_current : window -> (unit, string) result = 
+    "sdl_gl_make_current" "sdl_gl_make_current"
+
+  external sdl_gl_create_context : window -> (unit, string) result =
+    "sdl_gl_create_context" "sdl_gl_create_context"
+
   external sdl_renderer_fill_rect_float : window -> rect -> unit
     = "sdl_renderer_fill_rect_float" "sdl_renderer_fill_rect_float"
 

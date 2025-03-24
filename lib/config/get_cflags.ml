@@ -18,9 +18,14 @@ let flags =
   List.map (fun s -> run_cmd s |> String.split_on_char ' ') cmds |> List.concat
 
 let () =
-  C.main ~name:"get_cflags" (fun _ ->
+  C.main ~name:"get_cflags" (fun c ->
+      let opengl_flag =
+        if C.ocaml_config_var c "system" = Some "macosx" then
+          "-framework OpenGL"
+        else "-lGL"
+      in
       let default : C.Pkg_config.package_conf =
-        { libs = flags; cflags = flags }
+        { libs = opengl_flag :: flags; cflags = flags }
       in
       C.Flags.write_sexp "c_flags.sexp" default.cflags;
       C.Flags.write_sexp "c_library_flags.sexp" default.libs)

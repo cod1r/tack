@@ -2,7 +2,7 @@
  (name limitless)
  (foreign_stubs
   (language c)
-  (names stubs)
+  (names stubs opengl_stubs)
   (flags
    (:include c_flags.sexp)))
  (c_library_flags
