@@ -10,24 +10,33 @@ module Render = struct
     Sdl.sdl_renderer_draw_rect_float w r;
     Sdl.sdl_renderer_fill_rect_float w r
 
-  let draw_bmp_points w glyph_info offset =
-    let lst = List.init (glyph_info.FreeType.bitmap.width * glyph_info.FreeType.bitmap.rows) (fun i ->
-      let x, y =
-        ( i mod glyph_info.FreeType.bitmap.width,
-          i / glyph_info.FreeType.bitmap.width )
-      in
-      let byte =
-        Bytes.get glyph_info.FreeType.bitmap.buffer
-          ((y * glyph_info.FreeType.bitmap.pitch) + x)
-      in
-      let int_byte = Char.code byte in
-          (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
-  int_byte, ((Int.to_float x /. 3.) +. fst offset), (Int.to_float y +. snd offset)
-    ) in
-    Sdl.custom_render w lst
+  let draw_bmp_points bigarray glyph_info offset =
+    let length =
+      glyph_info.FreeType.bitmap.width * glyph_info.FreeType.bitmap.rows * 3
+    in
+    let rec loop idx end_val =
+      if idx >= end_val then ()
+      else
+        let i = idx in
+        let x, y =
+          ( i mod glyph_info.FreeType.bitmap.width,
+            i / glyph_info.FreeType.bitmap.width )
+        in
+        let byte =
+          Bytes.get glyph_info.FreeType.bitmap.buffer
+            ((y * glyph_info.FreeType.bitmap.pitch) + x)
+        in
+        let int_byte = Char.code byte in
+        (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
+        bigarray.{i} <- (Int.to_float x /. 3.) +. fst offset;
+        bigarray.{i + 1} <- Int.to_float y +. snd offset;
+        bigarray.{i + 2} <- Int.to_float int_byte;
+        loop (idx + 3) end_val
+    in
+    loop 0 length
 
-  let draw_letter_glyph w (x, y) g biggest_horiBearingY =
-    let width_screen, _ = Sdl.sdl_get_renderer_size w in
+  let draw_letter_glyph bigarray (x, y) g biggest_horiBearingY =
+    let width_screen = 800 in
     let next_x = x + g.FreeType.metrics.horiBearingX in
     let used_x, used_y =
       if next_x >= width_screen then
@@ -39,33 +48,30 @@ module Render = struct
         (fst g.FreeType.advance, y + biggest_horiBearingY)
       else (x + fst g.FreeType.advance, y + snd g.FreeType.advance)
     in
-    draw_bmp_points w g
+    draw_bmp_points bigarray g
       ( Int.to_float used_x,
         Int.to_float used_y
         +. Int.to_float biggest_horiBearingY
         -. Int.to_float g.FreeType.metrics.horiBearingY );
     (accx, accy)
 
-  let draw_rope w rope biggest_horiBearingY =
-    let rec draw_rope' w rope offset =
+  let draw_rope bigarray rope biggest_horiBearingY =
+    let rec draw_rope' bigarray rope offset =
       match rope with
       | Rope.Leaf l ->
           (* fold_right isn't tail_recursive and l is stored in reverse order *)
           List.fold_left
-            (fun acc (c, g) -> draw_letter_glyph w acc g biggest_horiBearingY)
+            (fun acc (c, g) -> draw_letter_glyph bigarray acc g biggest_horiBearingY)
             offset (List.rev l)
       | Rope.Node { left; right; _ } ->
-          let left_offset = draw_rope' w left offset in
-          draw_rope' w right left_offset
+          let left_offset = draw_rope' bigarray left offset in
+          draw_rope' bigarray right left_offset
     in
-    let _ = draw_rope' w rope (0, 0) in
+    let _ = draw_rope' bigarray rope (0, 0) in
     ()
 
-  let draw w rope biggest_horiBearingY =
-    Sdl.sdl_set_render_draw_color w 255l 255l 255l 255l;
-    Sdl.sdl_render_clear w;
+  let draw bigarray rope biggest_horiBearingY =
     (match rope with
-    | Some r -> draw_rope w r biggest_horiBearingY
+    | Some r -> draw_rope bigarray r biggest_horiBearingY
     | None -> ());
-    Sdl.sdl_render_present w
 end

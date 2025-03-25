@@ -29,7 +29,7 @@ let biggest_horiBearingY =
 let w =
   match
     Sdl.sdl_create_window "limitless" 0 0 800 800
-      (sdl_window_resizable lor sdl_window_allow_highdpi)
+      (sdl_window_resizable lor sdl_window_allow_highdpi lor sdl_window_opengl)
   with
   | Some (Window { width; height; title; _ } as w) ->
       Printf.printf "Created window: %s %d %d" title width height;
@@ -38,13 +38,10 @@ let w =
   | None -> failwith "unable to create window"
 ;;
 
-Sdl.sdl_create_renderer w sdl_renderer_software;;
-Sdl.sdl_set_render_draw_blendmode w sdl_blendmode_blend;;
-Sdl.sdl_set_render_draw_color w 255l 255l 255l 255l;;
-Sdl.sdl_render_clear w
+let bigarray = Bigarray.Array1.create Float32 C_layout 10_000;;
 
 let rec loop editor_info =
-  Render.draw w editor_info.Editor.rope biggest_horiBearingY;
+  Render.draw bigarray editor_info.Editor.rope biggest_horiBearingY;
   let evt = Sdl.sdl_pollevent () in
   let new_editor, continue =
     match evt with

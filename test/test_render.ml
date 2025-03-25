@@ -50,11 +50,12 @@ let timing_test_drawing_rope _ =
     |> Option.get
   in
   ();
+  let bigarray = Bigarray.Array1.create Float32 C_layout 1_000 in
   Sdl.sdl_create_renderer w sdl_renderer_software;
   let start = Unix.gettimeofday () in
   let times = 500_000 in
   for _ = 0 to times do
-    Render.draw_rope w rope biggest_horiBearingY
+    Render.draw_rope bigarray rope biggest_horiBearingY
   done;
   let end' = Unix.gettimeofday () -. start in
   assert_bool
