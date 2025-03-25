@@ -13,6 +13,7 @@
 #include <caml/memory.h>
 #include <caml/alloc.h>
 #include <caml/fail.h>
+#include <stdio.h>
 
 //CAMLprim value load_vertices(value bigarray, value size) {
 //  glGenBuffers();
@@ -21,7 +22,7 @@
 //  glVertexAttribPointer();
 //}
 
-CAMLprim value gl_clear_color(float r, float g, float b, float a) {
+CAMLprim value gl_clear_color(double r, double g, double b, double a) {
   CAMLparam0();
   glClearColor(r, g, b, a);
   CAMLreturn(Val_unit);

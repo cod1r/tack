@@ -3,8 +3,12 @@ open Limitless.Freetype
 open Limitless.Editor
 open Limitless.Rope
 open Limitless.Render
+open Limitless.Opengl;;
 
-let () = Sdl.init_sdl ()
+match Sdl.init_sdl () with
+| Ok(()) -> ()
+| Error e -> failwith e;;
+
 let () = FreeType.freetype_init ()
 let () = FreeType.freetype_load_font ()
 let () = FreeType.freetype_set_pixel_sizes 6
@@ -29,7 +33,7 @@ let biggest_horiBearingY =
 let w =
   match
     Sdl.sdl_create_window "limitless" 0 0 800 800
-      (sdl_window_resizable lor sdl_window_allow_highdpi lor sdl_window_opengl)
+      sdl_window_opengl
   with
   | Some (Window { width; height; title; _ } as w) ->
       Printf.printf "Created window: %s %d %d" title width height;
@@ -38,7 +42,31 @@ let w =
   | None -> failwith "unable to create window"
 ;;
 
+match Sdl.sdl_gl_create_context w with
+| Ok(()) -> ()
+| Error e -> failwith e
+;;
+
+match Sdl.sdl_gl_make_current w with
+| Ok(()) -> ()
+| Error e -> failwith e
+
 let bigarray = Bigarray.Array1.create Float32 C_layout 10_000;;
+
+let rec loopTestOpenGL () =
+  let evt = Sdl.sdl_pollevent () in ();
+  let continue = match evt with
+  | Some Quit -> false
+  | _ -> true in
+  gl_clear_color 0. 1. 0. 1.;
+  gl_clear ();
+  (match Sdl.sdl_gl_swapwindow w with
+  | Ok(()) -> ()
+  | Error e -> failwith e);
+  if continue then loopTestOpenGL () else ()
+;;
+
+loopTestOpenGL ();;
 
 let rec loop editor_info =
   Render.draw bigarray editor_info.Editor.rope biggest_horiBearingY;
@@ -115,4 +143,4 @@ let rec loop editor_info =
   in
   if continue then loop new_editor else ()
 
-let _ = loop { rope = None; cursor_pos = (0, 0) }
+(*let _ = loop { rope = None; cursor_pos = (0, 0) }*)
