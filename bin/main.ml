@@ -53,21 +53,6 @@ match Sdl.sdl_gl_make_current w with
 
 let bigarray = Bigarray.Array1.create Float32 C_layout 10_000;;
 
-let rec loopTestOpenGL () =
-  let evt = Sdl.sdl_pollevent () in ();
-  let continue = match evt with
-  | Some Quit -> false
-  | _ -> true in
-  gl_clear_color 0. 1. 0. 1.;
-  gl_clear ();
-  (match Sdl.sdl_gl_swapwindow w with
-  | Ok(()) -> ()
-  | Error e -> failwith e);
-  if continue then loopTestOpenGL () else ()
-;;
-
-loopTestOpenGL ();;
-
 let rec loop editor_info =
   Render.draw bigarray editor_info.Editor.rope biggest_horiBearingY;
   let evt = Sdl.sdl_pollevent () in
@@ -143,4 +128,4 @@ let rec loop editor_info =
   in
   if continue then loop new_editor else ()
 
-(*let _ = loop { rope = None; cursor_pos = (0, 0) }*)
+let _ = loop { rope = None; cursor_pos = (0, 0) }

@@ -17,7 +17,7 @@ module Render = struct
     let rec loop idx end_val =
       if idx >= end_val then ()
       else
-        let i = idx in
+        let i = idx / 3 in
         let x, y =
           ( i mod glyph_info.FreeType.bitmap.width,
             i / glyph_info.FreeType.bitmap.width )
@@ -28,9 +28,9 @@ module Render = struct
         in
         let int_byte = Char.code byte in
         (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
-        bigarray.{i} <- (Int.to_float x /. 3.) +. fst offset;
-        bigarray.{i + 1} <- Int.to_float y +. snd offset;
-        bigarray.{i + 2} <- Int.to_float int_byte;
+        bigarray.{idx} <- (Int.to_float x /. 3.) +. fst offset;
+        bigarray.{idx + 1} <- Int.to_float y +. snd offset;
+        bigarray.{idx + 2} <- Int.to_float int_byte;
         loop (idx + 3) end_val
     in
     loop 0 length
