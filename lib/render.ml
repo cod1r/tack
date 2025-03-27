@@ -2,6 +2,22 @@ open Freetype
 open Sdl
 
 module Render = struct
+  let vertex_shader = {|
+  #version 120
+  attribute vec3 point_vertex;
+  varying float alpha;
+  void main() {
+    gl_Position = vec4(point_vertex.x, point_vertex.y, 0.0, 1.0);
+    alpha = point_vertex.z;
+  }
+  |}
+  let fragment_shader = {|
+  #version 120
+  varying float alpha;
+  void main() {
+    gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
+  }
+  |}
   let draw_cursor w (x, y) biggest_horiBearingY =
     Sdl.sdl_set_render_draw_color w 0l 0l 0l 255l;
     let r =

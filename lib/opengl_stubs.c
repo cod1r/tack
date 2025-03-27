@@ -18,6 +18,20 @@
 #include <stdbool.h>
 #include <string.h>
 
+CAMLprim value gl_attach_shader(value program, value shader) {
+  CAMLparam2(program, shader);
+  glAttachShader(Int_val(program), Int_val(shader));
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value gl_shader_source(value shader, value source) {
+  CAMLparam2(shader, source);
+  const char* source_cstr = String_val(source);
+  const GLint length = strlen(String_val(source));
+  glShaderSource(Int_val(shader), 1, &source_cstr, &length);
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value gl_buffer_data(value bigarray, value size) {
   CAMLparam2(bigarray, size);
   glBufferData(GL_ARRAY_BUFFER, Int_val(size), Caml_ba_data_val(bigarray), GL_DYNAMIC_DRAW);

@@ -39,3 +39,6 @@ external gl_buffer_data :
 external gl_buffer_subdata :
   (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> unit
   = "gl_buffer_subdata" "gl_buffer_subdata"
+
+external gl_shader_source: int -> string -> unit = "gl_shader_source" "gl_shader_source"
+external gl_attach_shader: int -> int -> unit = "gl_attach_shader" "gl_attach_shader"
