@@ -5,9 +5,7 @@ open Limitless.Rope
 open Limitless.Render
 open Limitless.Opengl;;
 
-match Sdl.init_sdl () with
-| Ok(()) -> ()
-| Error e -> failwith e;;
+match Sdl.init_sdl () with Ok () -> () | Error e -> failwith e
 
 let () = FreeType.freetype_init ()
 let () = FreeType.freetype_load_font ()
@@ -31,10 +29,7 @@ let biggest_horiBearingY =
     0 glyph_infos
 
 let w =
-  match
-    Sdl.sdl_create_window "limitless" 0 0 800 800
-      sdl_window_opengl
-  with
+  match Sdl.sdl_create_window "limitless" 0 0 800 800 sdl_window_opengl with
   | Some (Window { width; height; title; _ } as w) ->
       Printf.printf "Created window: %s %d %d" title width height;
       print_newline ();
@@ -42,16 +37,10 @@ let w =
   | None -> failwith "unable to create window"
 ;;
 
-match Sdl.sdl_gl_create_context w with
-| Ok(()) -> ()
-| Error e -> failwith e
-;;
+match Sdl.sdl_gl_create_context w with Ok () -> () | Error e -> failwith e;;
+match Sdl.sdl_gl_make_current w with Ok () -> () | Error e -> failwith e
 
-match Sdl.sdl_gl_make_current w with
-| Ok(()) -> ()
-| Error e -> failwith e
-
-let bigarray = Bigarray.Array1.create Float32 C_layout 10_000;;
+let bigarray = Bigarray.Array1.create Float32 C_layout 10_000
 
 let rec loop editor_info =
   Render.draw bigarray editor_info.Editor.rope biggest_horiBearingY;

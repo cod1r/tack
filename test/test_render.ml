@@ -21,41 +21,31 @@ let glyph_infos =
 
 let timing_test_opengl_works _ =
   let w =
-    match
-      Sdl.sdl_create_window "limitless" 0 0 800 800
-        sdl_window_opengl
-    with
+    match Sdl.sdl_create_window "limitless" 0 0 800 800 sdl_window_opengl with
     | Some (Window { width; height; title; _ } as w) ->
         Printf.printf "Created window: %s %d %d" title width height;
         print_newline ();
         w
     | None -> failwith "unable to create window"
   in
-  let _ = (match Sdl.sdl_gl_create_context w with
-  | Ok(()) -> ()
-  | Error e -> failwith e) in
-  let _ = (match Sdl.sdl_gl_make_current w with
-  | Ok(()) -> ()
-  | Error e -> failwith e) in
+  let _ =
+    match Sdl.sdl_gl_create_context w with Ok () -> () | Error e -> failwith e
+  in
+  let _ =
+    match Sdl.sdl_gl_make_current w with Ok () -> () | Error e -> failwith e
+  in
   let _ = Sdl.sdl_pollevent () in
   for _ = 0 to 100_000 do
     Limitless.Opengl.gl_clear_color 1. 0. 0. 1.;
     Limitless.Opengl.gl_clear ();
-    (match Sdl.sdl_gl_swapwindow w with
-    | Ok(()) -> ()
-    | Error e -> failwith e);
+    (match Sdl.sdl_gl_swapwindow w with Ok () -> () | Error e -> failwith e);
     Limitless.Opengl.gl_clear_color 0. 1. 0. 1.;
     Limitless.Opengl.gl_clear ();
-    (match Sdl.sdl_gl_swapwindow w with
-    | Ok(()) -> ()
-    | Error e -> failwith e);
+    (match Sdl.sdl_gl_swapwindow w with Ok () -> () | Error e -> failwith e);
     Limitless.Opengl.gl_clear_color 0. 0. 1. 1.;
     Limitless.Opengl.gl_clear ();
-    (match Sdl.sdl_gl_swapwindow w with
-    | Ok(()) -> ()
-    | Error e -> failwith e);
+    match Sdl.sdl_gl_swapwindow w with Ok () -> () | Error e -> failwith e
   done
-;;
 
 let timing_test_drawing_rope _ =
   let gj = List.find (fun (c, _) -> Char.chr c = 'j') glyph_infos in
@@ -63,22 +53,19 @@ let timing_test_drawing_rope _ =
   let ropes = 1 in
   let all_j = List.init ropes (fun _ -> new_gj) in
   let w =
-    match
-      Sdl.sdl_create_window "limitless" 0 0 800 800
-        sdl_window_opengl
-    with
+    match Sdl.sdl_create_window "limitless" 0 0 800 800 sdl_window_opengl with
     | Some (Window { width; height; title; _ } as w) ->
         Printf.printf "Created window: %s %d %d" title width height;
         print_newline ();
         w
     | None -> failwith "unable to create window"
   in
-  let _ = (match Sdl.sdl_gl_create_context w with
-  | Ok(()) -> ()
-  | Error e -> failwith e) in
-  let _ = (match Sdl.sdl_gl_make_current w with
-  | Ok(()) -> ()
-  | Error e -> failwith e) in
+  let _ =
+    match Sdl.sdl_gl_create_context w with Ok () -> () | Error e -> failwith e
+  in
+  let _ =
+    match Sdl.sdl_gl_make_current w with Ok () -> () | Error e -> failwith e
+  in
   let biggest_horiBearingY =
     List.fold_left
       (fun acc (_, g) -> max g.FreeType.metrics.horiBearingY acc)
@@ -107,9 +94,10 @@ let timing_test_drawing_rope _ =
     (end' < 0.5)
 
 let tests =
-  "render tests" >::: [
-    (*"gl set up" >:: timing_test_opengl_works;*)
-    "rope drawing time" >:: timing_test_drawing_rope;
-  ]
+  "render tests"
+  >::: [
+         (*"gl set up" >:: timing_test_opengl_works;*)
+         "rope drawing time" >:: timing_test_drawing_rope;
+       ]
 
 let () = run_test_tt_main tests

@@ -15,6 +15,51 @@
 #include <caml/alloc.h>
 #include <caml/fail.h>
 #include <stdio.h>
+#include <stdbool.h>
+#include <string.h>
+
+CAMLprim value gl_buffer_data(value bigarray, value size) {
+  CAMLparam2(bigarray, size);
+  glBufferData(GL_ARRAY_BUFFER, Int_val(size), Caml_ba_data_val(bigarray), GL_DYNAMIC_DRAW);
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value gl_buffer_subdata(value bigarray, value offset, value size) {
+  CAMLparam3(bigarray, offset, size);
+  glBufferSubData(GL_ARRAY_BUFFER, Int_val(offset), Int_val(size), Caml_ba_data_val(bigarray));
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value gl_get_shader_compile_status(value shader) {
+  CAMLparam1(shader);
+  GLint params;
+  glGetShaderiv(Int_val(shader), GL_COMPILE_STATUS, &params);
+  if (!params) CAMLreturn(Val_bool(false));
+  CAMLreturn(Val_bool(true));
+}
+
+CAMLprim value gl_get_shader_info_log(value shader) {
+  CAMLparam1(shader);
+  CAMLlocal1(log);
+  GLsizei length = 5000;
+  char buffer[5000];
+  memset(buffer, 0, length);
+  glGetShaderInfoLog(Int_val(shader), 5000, &length, buffer);
+  log = caml_copy_string(buffer);
+  CAMLreturn(log);
+}
+
+CAMLprim value gl_linkprogram(value program) {
+  CAMLparam1(program);
+  glLinkProgram(Int_val(program));
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value gl_compileshader(value shader) {
+  CAMLparam1(shader);
+  glCompileShader(Int_val(shader));
+  CAMLreturn(Val_unit);
+}
 
 CAMLprim value gl_gen_buffers(value num) {
   CAMLparam1(num);

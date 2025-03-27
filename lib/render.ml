@@ -61,7 +61,8 @@ module Render = struct
       | Rope.Leaf l ->
           (* fold_right isn't tail_recursive and l is stored in reverse order *)
           List.fold_left
-            (fun acc (c, g) -> draw_letter_glyph bigarray acc g biggest_horiBearingY)
+            (fun acc (c, g) ->
+              draw_letter_glyph bigarray acc g biggest_horiBearingY)
             offset (List.rev l)
       | Rope.Node { left; right; _ } ->
           let left_offset = draw_rope' bigarray left offset in
@@ -71,7 +72,7 @@ module Render = struct
     ()
 
   let draw bigarray rope biggest_horiBearingY =
-    (match rope with
+    match rope with
     | Some r -> draw_rope bigarray r biggest_horiBearingY
-    | None -> ());
+    | None -> ()
 end
