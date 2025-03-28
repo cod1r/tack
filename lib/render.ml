@@ -1,8 +1,10 @@
 open Freetype
 open Sdl
+open Opengl
 
 module Render = struct
-  let vertex_shader = {|
+  let vertex_shader =
+    {|
   #version 120
   attribute vec3 point_vertex;
   varying float alpha;
@@ -11,13 +13,42 @@ module Render = struct
     alpha = point_vertex.z;
   }
   |}
-  let fragment_shader = {|
+
+  let fragment_shader =
+    {|
   #version 120
   varying float alpha;
   void main() {
     gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
   }
   |}
+
+  let fragment =
+    match gl_create_fragment_shader () with Ok f -> f | Error e -> failwith e
+
+  let vertex =
+    match gl_create_vertex_shader () with Ok v -> v | Error e -> failwith e
+
+  let program =
+    gl_shader_source fragment fragment_shader;
+    gl_shader_source vertex vertex_shader;
+    gl_compileshader fragment;
+    if not (gl_get_shader_compile_status fragment) then
+      failwith (gl_get_shader_info_log fragment);
+    gl_compileshader vertex;
+    if not (gl_get_shader_compile_status vertex) then
+      failwith (gl_get_shader_info_log vertex);
+    let p =
+      match gl_createprogram () with Ok p -> p | Error e -> failwith e
+    in
+    gl_attach_shader p fragment;
+    gl_attach_shader p vertex;
+    p
+  ;;
+
+  Printf.printf "%d %d %d" program vertex fragment;
+  print_newline ()
+
   let draw_cursor w (x, y) biggest_horiBearingY =
     Sdl.sdl_set_render_draw_color w 0l 0l 0l 255l;
     let r =

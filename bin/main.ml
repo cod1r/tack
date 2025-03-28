@@ -3,9 +3,7 @@ open Limitless.Freetype
 open Limitless.Editor
 open Limitless.Rope
 open Limitless.Render
-open Limitless.Opengl;;
-
-match Sdl.init_sdl () with Ok () -> () | Error e -> failwith e
+open Limitless.Opengl
 
 let () = FreeType.freetype_init ()
 let () = FreeType.freetype_load_font ()
@@ -27,18 +25,6 @@ let biggest_horiBearingY =
   List.fold_left
     (fun acc (_, g) -> max g.FreeType.metrics.horiBearingY acc)
     0 glyph_infos
-
-let w =
-  match Sdl.sdl_create_window "limitless" 0 0 800 800 sdl_window_opengl with
-  | Some (Window { width; height; title; _ } as w) ->
-      Printf.printf "Created window: %s %d %d" title width height;
-      print_newline ();
-      w
-  | None -> failwith "unable to create window"
-;;
-
-match Sdl.sdl_gl_create_context w with Ok () -> () | Error e -> failwith e;;
-match Sdl.sdl_gl_make_current w with Ok () -> () | Error e -> failwith e
 
 let bigarray = Bigarray.Array1.create Float32 C_layout 10_000
 
@@ -77,7 +63,7 @@ let rec loop editor_info =
                 in
                 Printf.printf "closest: %f %f" (fst closest) (snd closest);
                 print_newline ();
-                Render.draw_cursor w closest biggest_horiBearingY
+                Render.draw_cursor Sdl.w closest biggest_horiBearingY
             | None -> ())
         | Mouseup ->
             Printf.printf "Mouseup";

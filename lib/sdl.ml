@@ -5,6 +5,14 @@ module Sdl = struct
   type mouseEvtState = Pressed | Released
   type windowEvtType = WindowClose | WindowResize
 
+  let sdl_window_resizable = 0x00000020
+  let sdl_window_opengl = 0x00000002
+  let sdl_window_shown = 0x00000004
+  let sdl_window_allow_highdpi = 0x00002000
+  let sdl_blendmode_blend = 0x00000001
+  let sdl_renderer_software = 0x00000001
+  let sdl_renderer_accelerated = 0x00000002
+
   type event =
     | KeyboardEvt of {
         kbd_evt_type : keyboardEvtType;
@@ -124,12 +132,20 @@ module Sdl = struct
 
   external sdl_create_renderer : window -> int -> unit
     = "sdl_create_renderer" "sdl_create_renderer"
-end
 
-let sdl_window_resizable = 0x00000020
-let sdl_window_opengl = 0x00000002
-let sdl_window_shown = 0x00000004
-let sdl_window_allow_highdpi = 0x00002000
-let sdl_blendmode_blend = 0x00000001
-let sdl_renderer_software = 0x00000001
-let sdl_renderer_accelerated = 0x00000002
+  let actually_init_sdl () =
+    (match init_sdl () with Ok () -> () | Error e -> failwith e);
+    let w =
+      match sdl_create_window "limitless" 0 0 800 800 sdl_window_opengl with
+      | Some (Window { width; height; title; _ } as w) ->
+          Printf.printf "Created window: %s %d %d" title width height;
+          print_newline ();
+          w
+      | None -> failwith "unable to create window"
+    in
+    (match sdl_gl_create_context w with Ok () -> () | Error e -> failwith e);
+    (match sdl_gl_make_current w with Ok () -> () | Error e -> failwith e);
+    w
+
+  let w = actually_init_sdl ()
+end
