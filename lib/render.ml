@@ -140,11 +140,11 @@ module Render = struct
     (*| Some r -> draw_rope bigarray r biggest_horiBearingY; *)
     (*gl_buffer_subdata bigarray 0 (Bigarray.Array1.size_in_bytes bigarray)*)
     (*| None -> ());*)
-    bigarray.{0} <- -1.;
+    bigarray.{0} <- 0.;
     bigarray.{1} <- 0.;
     bigarray.{2} <- 1.;
-    bigarray.{3} <- 1.;
-    bigarray.{4} <- 0.;
+    bigarray.{3} <- 0.5;
+    bigarray.{4} <- 0.5;
     bigarray.{5} <- 1.;
     gl_buffer_subdata bigarray 0 24;
     gl_clear_color 1. 1. 1. 1.;
