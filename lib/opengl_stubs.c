@@ -40,6 +40,13 @@ case GL_TABLE_TOO_LARGE:
   }
 }
 
+CAMLprim value gl_enable_blending(value unit) {
+  CAMLparam1(unit);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value gl_enable_vertex_attrib_array(value location) {
   CAMLparam1(location);
   glEnableVertexAttribArray(Int_val(location));

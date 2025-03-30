@@ -1,3 +1,4 @@
+external gl_enable_blending : unit -> unit = "gl_enable_blending" "gl_enable_blending"
 external gl_clear_color :
   (float[@unboxed]) ->
   (float[@unboxed]) ->

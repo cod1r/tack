@@ -21,9 +21,11 @@ module Render = struct
   #version 120
   varying float alpha;
   void main() {
-    gl_FragColor = vec4(0.0, 1.0, 0.0, alpha);
+    gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
   }
   |}
+
+  let _ = gl_enable_blending ();;
 
   let fragment =
     match gl_create_fragment_shader () with Ok f -> f | Error e -> failwith e
@@ -72,18 +74,21 @@ module Render = struct
           Bytes.get glyph_info.FreeType.bitmap.buffer
             ((y * glyph_info.FreeType.bitmap.pitch) + x)
         in
-        let int_byte = Char.code byte in
-        let window_width, window_height = (0, 0) in
+        let alpha = Char.code byte |> Int.to_float |> (fun x -> x /. 255.) in
+        let window_width, window_height = Sdl.sdl_gl_getdrawablesize () in
         (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
-        bigarray.{idx} <- ((Int.to_float x /. 3.) +. fst offset) /. (Int.to_float window_width) -. 1.;
-        bigarray.{idx + 1} <- (Int.to_float y +. snd offset) /. (Int.to_float window_height) -. 1.;
-        bigarray.{idx + 2} <- Int.to_float int_byte;
+        let drawn_x = ((Int.to_float x /. 3.) +. fst offset) /. (Int.to_float window_width /. 2.) in
+        let drawn_y = Float.neg (Int.to_float y +. snd offset) /. (Int.to_float window_height /. 2.) in
+        (*Printf.printf "LENGTH: %d %f %f %f" length drawn_x drawn_y alpha; print_newline ();*)
+        bigarray.{idx} <- drawn_x;
+        bigarray.{idx + 1} <- drawn_y;
+        bigarray.{idx + 2} <- alpha;
         loop (idx + 3) end_val
     in
     loop 0 length
 
   let draw_letter_glyph bigarray (x, y) g biggest_horiBearingY =
-    let width_screen, _ = (0, 0) in
+    let width_screen, _ = Sdl.sdl_gl_getdrawablesize () in
     let next_x = x + g.FreeType.metrics.horiBearingX in
     let used_x, used_y =
       if next_x >= width_screen then
@@ -136,22 +141,19 @@ module Render = struct
   let _ = init_gl_buffers ()
 
   let draw rope biggest_horiBearingY =
-    (*(match rope with*)
-    (*| Some r -> draw_rope bigarray r biggest_horiBearingY; *)
-    (*gl_buffer_subdata bigarray 0 (Bigarray.Array1.size_in_bytes bigarray)*)
-    (*| None -> ());*)
+    (match rope with
+    | Some r -> draw_rope bigarray r biggest_horiBearingY; 
+    gl_buffer_subdata bigarray 0 (Bigarray.Array1.size_in_bytes bigarray)
+    | None -> ());
     bigarray.{0} <- 0.;
     bigarray.{1} <- 0.;
-    bigarray.{2} <- 1.;
-    bigarray.{3} <- 0.5;
-    bigarray.{4} <- 0.5;
-    bigarray.{5} <- 1.;
+    bigarray.{2} <- 0.;
     gl_buffer_subdata bigarray 0 24;
     gl_clear_color 1. 1. 1. 1.;
     gl_clear ();
     gl_use_program program;
     gl_bind_buffer ba_buffer;
     gl_vertex_attrib_pointer_float_type location 3 false;
-    gl_draw_arrays 2;
+    gl_draw_arrays 2_000;
     match Sdl.sdl_gl_swapwindow Sdl.w with Ok () -> () | Error e -> failwith e
 end
