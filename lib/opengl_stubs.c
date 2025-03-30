@@ -18,6 +18,40 @@
 #include <stdbool.h>
 #include <string.h>
 
+void check_error() {
+  GLenum err = glGetError();
+  switch (err) {
+case GL_NO_ERROR:
+     printf("No error has been recorded. The value of this symbolic constant is guaranteed to be 0.\n"); break;
+case GL_INVALID_ENUM:
+     caml_failwith("An unacceptable value is specified for an enumerated argument. The offending command is ignored and has no other side effect than to set the error flag."); break;
+case GL_INVALID_VALUE:
+     caml_failwith("A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag."); break;
+case GL_INVALID_OPERATION:
+     caml_failwith("The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag."); break;
+case GL_STACK_OVERFLOW:
+     caml_failwith("This command would cause a stack overflow. The offending command is ignored and has no other side effect than to set the error flag."); break;
+case GL_STACK_UNDERFLOW:
+     caml_failwith("This command would cause a stack underflow. The offending command is ignored and has no other side effect than to set the error flag."); break;
+case GL_OUT_OF_MEMORY:
+     caml_failwith("There is not enough memory left to execute the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded."); break;
+case GL_TABLE_TOO_LARGE:
+    caml_failwith("GL ERROR"); break;
+  }
+}
+
+CAMLprim value gl_enable_vertex_attrib_array(value location) {
+  CAMLparam1(location);
+  glEnableVertexAttribArray(Int_val(location));
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value gl_use_program(value program) {
+  CAMLparam1(program);
+  glUseProgram(Int_val(program));
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value gl_attach_shader(value program, value shader) {
   CAMLparam2(program, shader);
   glAttachShader(Int_val(program), Int_val(shader));
@@ -34,6 +68,7 @@ CAMLprim value gl_shader_source(value shader, value source) {
 
 CAMLprim value gl_buffer_data(value bigarray, value size) {
   CAMLparam2(bigarray, size);
+  // sizeof(CAML_BA_FLOAT32) can be used to determine size of bigarray
   glBufferData(GL_ARRAY_BUFFER, Int_val(size), Caml_ba_data_val(bigarray), GL_DYNAMIC_DRAW);
   CAMLreturn(Val_unit);
 }
@@ -75,11 +110,11 @@ CAMLprim value gl_compileshader(value shader) {
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value gl_gen_buffers(value num) {
-  CAMLparam1(num);
+CAMLprim value gl_gen_one_buffer() {
+  CAMLparam0();
   GLuint buffer;
-  glGenBuffers(num, &buffer);
-  CAMLreturn(buffer);
+  glGenBuffers(1, &buffer);
+  CAMLreturn(Val_int(buffer));
 }
 
 CAMLprim value gl_vertex_attrib_pointer_float_type(value location, value size, value normalized) {

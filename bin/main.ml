@@ -26,10 +26,8 @@ let biggest_horiBearingY =
     (fun acc (_, g) -> max g.FreeType.metrics.horiBearingY acc)
     0 glyph_infos
 
-let bigarray = Bigarray.Array1.create Float32 C_layout 10_000
-
 let rec loop editor_info =
-  Render.draw bigarray editor_info.Editor.rope biggest_horiBearingY;
+  Render.draw editor_info.Editor.rope biggest_horiBearingY;
   let evt = Sdl.sdl_pollevent () in
   let new_editor, continue =
     match evt with

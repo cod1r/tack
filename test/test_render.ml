@@ -21,7 +21,7 @@ let glyph_infos =
 
 let timing_test_opengl_works _ =
   let w =
-    match Sdl.sdl_create_window "limitless" 0 0 800 800 sdl_window_opengl with
+    match Sdl.sdl_create_window "limitless" 0 0 800 800 Sdl.sdl_window_opengl with
     | Some (Window { width; height; title; _ } as w) ->
         Printf.printf "Created window: %s %d %d" title width height;
         print_newline ();
@@ -52,20 +52,6 @@ let timing_test_drawing_rope _ =
   let new_gj = (Char.chr (fst gj), snd gj) in
   let ropes = 1 in
   let all_j = List.init ropes (fun _ -> new_gj) in
-  let w =
-    match Sdl.sdl_create_window "limitless" 0 0 800 800 sdl_window_opengl with
-    | Some (Window { width; height; title; _ } as w) ->
-        Printf.printf "Created window: %s %d %d" title width height;
-        print_newline ();
-        w
-    | None -> failwith "unable to create window"
-  in
-  let _ =
-    match Sdl.sdl_gl_create_context w with Ok () -> () | Error e -> failwith e
-  in
-  let _ =
-    match Sdl.sdl_gl_make_current w with Ok () -> () | Error e -> failwith e
-  in
   let biggest_horiBearingY =
     List.fold_left
       (fun acc (_, g) -> max g.FreeType.metrics.horiBearingY acc)

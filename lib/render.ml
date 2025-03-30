@@ -9,6 +9,8 @@ module Render = struct
   attribute vec3 point_vertex;
   varying float alpha;
   void main() {
+    // in our ocaml code, we put a buffer object that has 3 components consecutively.
+    // X,Y,Alpha value,X,Y,Alpha value,...
     gl_Position = vec4(point_vertex.x, point_vertex.y, 0.0, 1.0);
     alpha = point_vertex.z;
   }
@@ -43,11 +45,9 @@ module Render = struct
     in
     gl_attach_shader p fragment;
     gl_attach_shader p vertex;
+    gl_linkprogram p;
     p
   ;;
-
-  Printf.printf "%d %d %d" program vertex fragment;
-  print_newline ()
 
   let draw_cursor w (x, y) biggest_horiBearingY =
     Sdl.sdl_set_render_draw_color w 0l 0l 0l 255l;
@@ -118,8 +118,35 @@ module Render = struct
     let _ = draw_rope' bigarray rope (0, 0) in
     ()
 
-  let draw bigarray rope biggest_horiBearingY =
-    match rope with
+  let bigarray = Bigarray.Array1.create Float32 C_layout 10_000
+  ;;
+
+  let ba_buffer = gl_gen_one_buffer ();;
+
+  let location =
+    match gl_getattriblocation program "point_vertex" with
+  | Ok(l) -> l
+  | Error e -> failwith e
+
+  let init_gl_buffers () =
+    gl_enable_vertex_attrib_array location ;
+    gl_bind_buffer ba_buffer;
+    gl_buffer_data bigarray (Bigarray.Array1.size_in_bytes bigarray);
+    gl_vertex_attrib_pointer_float_type location 3 false
+
+  let _ = init_gl_buffers ();;
+
+  let draw rope biggest_horiBearingY =
+    (match rope with
     | Some r -> draw_rope bigarray r biggest_horiBearingY
-    | None -> ()
+    | None -> ());
+    gl_clear_color 1. 1. 1. 1.;
+    gl_clear ();
+    gl_use_program program;
+    gl_bind_buffer ba_buffer;
+    gl_vertex_attrib_pointer_float_type location 3 false;
+    gl_draw_arrays 10_000;
+    (match Sdl.sdl_gl_swapwindow Sdl.w with
+    | Ok(()) -> ()
+    | Error e -> failwith e);
 end
