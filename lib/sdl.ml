@@ -132,6 +132,7 @@ module Sdl = struct
 
   external sdl_create_renderer : window -> int -> unit
     = "sdl_create_renderer" "sdl_create_renderer"
+  external sdl_gl_getdrawablesize : unit -> int * int = "sdl_gl_getdrawablesize" "sdl_gl_getdrawablesize"
 
   let actually_init_sdl () =
     (match init_sdl () with Ok () -> () | Error e -> failwith e);

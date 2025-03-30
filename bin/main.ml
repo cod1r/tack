@@ -60,8 +60,7 @@ let rec loop editor_info =
                   Editor.search_closest (Int.to_float x, Int.to_float y) r
                 in
                 Printf.printf "closest: %f %f" (fst closest) (snd closest);
-                print_newline ();
-                Render.draw_cursor Sdl.w closest biggest_horiBearingY
+                print_newline ()
             | None -> ())
         | Mouseup ->
             Printf.printf "Mouseup";
@@ -71,8 +70,8 @@ let rec loop editor_info =
         match event with
         | WindowClose -> (editor_info, false)
         | WindowResize -> (editor_info, true))
-    | Some (MouseMotionEvt { x; y; _ }) ->
-        Printf.printf "Mousemotion %d %d" x y;
+    | Some (MouseMotionEvt { x; y; timestamp; _ }) ->
+        Printf.printf "Mousemotion %d %d %d" x y timestamp;
         print_newline ();
         (editor_info, true)
     | Some (TextInputEvt { text; _ }) -> (

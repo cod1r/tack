@@ -4,10 +4,15 @@ external gl_clear_color :
   (float[@unboxed]) ->
   (float[@unboxed]) ->
   unit = "gl_clear_color" "gl_clear_color"
-external gl_enable_vertex_attrib_array : int -> unit = "gl_enable_vertex_attrib_array" "gl_enable_vertex_attrib_array"
+
+external gl_enable_vertex_attrib_array : int -> unit
+  = "gl_enable_vertex_attrib_array" "gl_enable_vertex_attrib_array"
+
 external gl_use_program : int -> unit = "gl_use_program" "gl_use_program"
 external gl_clear : unit -> unit = "gl_clear" "gl_clear"
-external gl_gen_one_buffer : unit -> int = "gl_gen_one_buffer" "gl_gen_one_buffer"
+
+external gl_gen_one_buffer : unit -> int
+  = "gl_gen_one_buffer" "gl_gen_one_buffer"
 
 external gl_vertex_attrib_pointer_float_type : int -> int -> bool -> unit
   = "gl_vertex_attrib_pointer_float_type" "gl_vertex_attrib_pointer_float_type"

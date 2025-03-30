@@ -199,6 +199,18 @@ CAMLprim value custom_render(value window, value lst) {
   CAMLreturn(Val_unit);
 }
 
+CAMLprim value sdl_gl_getdrawablesize(value unit) {
+  CAMLparam1(unit);
+  CAMLlocal1(tuple);
+  SDL_Window* window = SDL_GL_GetCurrentWindow();
+  int w, h;
+  SDL_GL_GetDrawableSize(window, &w, &h);
+  tuple = caml_alloc(2, 0);
+  Store_field(tuple, 0, Val_int(w));
+  Store_field(tuple, 1, Val_int(h));
+  CAMLreturn(tuple);
+}
+
 CAMLprim value sdl_get_renderer_size(value window) {
   CAMLparam1(window);
   CAMLlocal1(size_tuple);

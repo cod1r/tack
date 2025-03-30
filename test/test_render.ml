@@ -21,7 +21,9 @@ let glyph_infos =
 
 let timing_test_opengl_works _ =
   let w =
-    match Sdl.sdl_create_window "limitless" 0 0 800 800 Sdl.sdl_window_opengl with
+    match
+      Sdl.sdl_create_window "limitless" 0 0 800 800 Sdl.sdl_window_opengl
+    with
     | Some (Window { width; height; title; _ } as w) ->
         Printf.printf "Created window: %s %d %d" title width height;
         print_newline ();
@@ -79,11 +81,16 @@ let timing_test_drawing_rope _ =
    ^ Int.to_string times ^ " times")
     (end' < 0.5)
 
+let gl_gen_one_buffer_test _ =
+  let buffer = Limitless.Opengl.gl_gen_one_buffer () in
+  assert_bool "buffer should not equal 0 or be less than 0" (buffer != 0);;
+
 let tests =
   "render tests"
   >::: [
          (*"gl set up" >:: timing_test_opengl_works;*)
          "rope drawing time" >:: timing_test_drawing_rope;
+         "gl_gen_one_buffer test" >:: gl_gen_one_buffer_test;
        ]
 
 let () = run_test_tt_main tests
