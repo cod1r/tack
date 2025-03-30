@@ -53,7 +53,9 @@ let timing_test_concatenation _ =
   let end' = Unix.gettimeofday () -. start in
   Printf.printf "timing_test took: %f. Rope length: %d\n" end'
     (Limitless.Rope.length rope);
-  assert_bool ("time it takes to append " ^ (Int.to_string j_amt) ^ " ropes/leaves") (end' < 0.00005)
+  assert_bool
+    ("time it takes to append " ^ Int.to_string j_amt ^ " ropes/leaves")
+    (end' < 0.00005)
 
 let timing_test_traverse_rope _ =
   let gj = List.find (fun (c, _) -> Char.chr c = 'j') glyph_infos in
@@ -76,11 +78,13 @@ let timing_test_traverse_rope _ =
     | Limitless.Rope.Leaf _ -> ()
     | Node { left; right; _ } ->
         traverse_rope left;
-        traverse_rope right;
+        traverse_rope right
   in
   traverse_rope rope;
-  let end' = Unix.gettimeofday () -.start in
-  assert_bool ("time it takes to traverse " ^ (Int.to_string j_amt) ^ " rope/leaves") (end' < 0.5)
+  let end' = Unix.gettimeofday () -. start in
+  assert_bool
+    ("time it takes to traverse " ^ Int.to_string j_amt ^ " rope/leaves")
+    (end' < 0.5)
 
 let tests =
   "rope tests"

@@ -132,12 +132,17 @@ module Sdl = struct
 
   external sdl_create_renderer : window -> int -> unit
     = "sdl_create_renderer" "sdl_create_renderer"
-  external sdl_gl_getdrawablesize : (unit[@untagged]) -> int * int = "sdl_gl_getdrawablesize" "sdl_gl_getdrawablesize"
+
+  external sdl_gl_getdrawablesize : (unit[@untagged]) -> int * int
+    = "sdl_gl_getdrawablesize" "sdl_gl_getdrawablesize"
 
   let actually_init_sdl () =
     (match init_sdl () with Ok () -> () | Error e -> failwith e);
     let w =
-      match sdl_create_window "limitless" 0 0 800 800 (sdl_window_allow_highdpi lor sdl_window_opengl) with
+      match
+        sdl_create_window "limitless" 0 0 800 800
+          (sdl_window_allow_highdpi lor sdl_window_opengl)
+      with
       | Some (Window { width; height; title; _ } as w) ->
           Printf.printf "Created window: %s %d %d" title width height;
           print_newline ();

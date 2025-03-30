@@ -25,7 +25,7 @@ module Render = struct
   }
   |}
 
-  let _ = gl_enable_blending ();;
+  let _ = gl_enable_blending ()
 
   let fragment =
     match gl_create_fragment_shader () with Ok f -> f | Error e -> failwith e
@@ -58,30 +58,41 @@ module Render = struct
   (*  Sdl.sdl_renderer_draw_rect_float w r;*)
   (*  Sdl.sdl_renderer_fill_rect_float w r*)
 
-  let draw_bmp_points (bigarray: (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t) glyph_info offset (window_width, window_height) =
+  let draw_bmp_points
+      (bigarray :
+        (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t)
+      glyph_info offset (window_width, window_height) =
     let length =
       glyph_info.FreeType.bitmap.width * glyph_info.FreeType.bitmap.rows * 3
     in
     let idx = ref 0 in
     while !idx < length do
-        let i = !idx / 3 in
-        let x, y =
-          ( i mod glyph_info.FreeType.bitmap.width,
-            i / glyph_info.FreeType.bitmap.width )
-        in
-        let byte =
-          Bytes.get glyph_info.FreeType.bitmap.buffer
-            ((y * glyph_info.FreeType.bitmap.pitch) + x)
-        in
-        let alpha = Char.code byte |> Int.to_float |> (fun x -> x /. 255.) in
-        (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
-        let drawn_x = ((Int.to_float x /. 3.) +. fst offset) /. (Int.to_float window_width /. 2.) -. 1.0 in
-        let drawn_y = Float.neg (Int.to_float y +. snd offset) /. (Int.to_float window_height /. 2.) +. 1. in
-        (*Printf.printf "LENGTH: %d %f %f %f" length drawn_x drawn_y alpha; print_newline ();*)
-        bigarray.{!idx} <- drawn_x;
-        bigarray.{!idx + 1} <- drawn_y;
-        bigarray.{!idx + 2} <- alpha;
-        idx := !idx + 3
+      let i = !idx / 3 in
+      let x, y =
+        ( i mod glyph_info.FreeType.bitmap.width,
+          i / glyph_info.FreeType.bitmap.width )
+      in
+      let byte =
+        Bytes.get glyph_info.FreeType.bitmap.buffer
+          ((y * glyph_info.FreeType.bitmap.pitch) + x)
+      in
+      let alpha = Char.code byte |> Int.to_float |> fun x -> x /. 255. in
+      (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
+      let drawn_x =
+        ((Int.to_float x /. 3.) +. fst offset)
+        /. (Int.to_float window_width /. 2.)
+        -. 1.0
+      in
+      let drawn_y =
+        Float.neg (Int.to_float y +. snd offset)
+        /. (Int.to_float window_height /. 2.)
+        +. 1.
+      in
+      (*Printf.printf "LENGTH: %d %f %f %f" length drawn_x drawn_y alpha; print_newline ();*)
+      bigarray.{!idx} <- drawn_x;
+      bigarray.{!idx + 1} <- drawn_y;
+      bigarray.{!idx + 2} <- alpha;
+      idx := !idx + 3
     done
 
   let draw_letter_glyph bigarray (x, y) g biggest_horiBearingY =
@@ -101,7 +112,8 @@ module Render = struct
       ( Int.to_float used_x,
         Int.to_float used_y
         +. Int.to_float biggest_horiBearingY
-        -. Int.to_float g.FreeType.metrics.horiBearingY ) (width_screen,height_screen);
+        -. Int.to_float g.FreeType.metrics.horiBearingY )
+      (width_screen, height_screen);
     (accx, accy)
 
   let rec draw_rope' bigarray rope offset biggest_horiBearingY =
@@ -110,11 +122,12 @@ module Render = struct
         (* fold_right isn't tail_recursive and l is stored in reverse order *)
         List.fold_left
           (fun acc (c, g) ->
-            draw_letter_glyph bigarray acc g biggest_horiBearingY
-          )
+            draw_letter_glyph bigarray acc g biggest_horiBearingY)
           offset (List.rev l)
     | Rope.Node { left; right; _ } ->
-        let left_offset = draw_rope' bigarray left offset biggest_horiBearingY in
+        let left_offset =
+          draw_rope' bigarray left offset biggest_horiBearingY
+        in
         draw_rope' bigarray right left_offset biggest_horiBearingY
 
   let draw_rope bigarray rope biggest_horiBearingY =
@@ -140,8 +153,9 @@ module Render = struct
 
   let draw rope biggest_horiBearingY =
     (match rope with
-    | Some r -> draw_rope bigarray r biggest_horiBearingY; 
-    gl_buffer_subdata bigarray 0 (Bigarray.Array1.size_in_bytes bigarray)
+    | Some r ->
+        draw_rope bigarray r biggest_horiBearingY;
+        gl_buffer_subdata bigarray 0 (Bigarray.Array1.size_in_bytes bigarray)
     | None -> ());
     gl_clear_color 1. 1. 1. 1.;
     gl_clear ();
