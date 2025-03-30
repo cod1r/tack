@@ -37,7 +37,8 @@ let length_test _ =
 let timing_test_concatenation _ =
   let gj = List.find (fun (c, _) -> Char.chr c = 'j') glyph_infos in
   let new_gj = (Char.chr (fst gj), snd gj) in
-  let all_j = List.init 4_000 (fun _ -> new_gj) in
+  let j_amt = 4_000_000 in
+  let all_j = List.init j_amt (fun _ -> new_gj) in
   let start = Unix.gettimeofday () in
   let rope =
     List.fold_left
@@ -52,7 +53,34 @@ let timing_test_concatenation _ =
   let end' = Unix.gettimeofday () -. start in
   Printf.printf "timing_test took: %f. Rope length: %d\n" end'
     (Limitless.Rope.length rope);
-  assert_bool "time it takes to append 4_000 ropes/leaves" (end' < 0.00005)
+  assert_bool ("time it takes to append " ^ (Int.to_string j_amt) ^ " ropes/leaves") (end' < 0.00005)
+
+let timing_test_traverse_rope _ =
+  let gj = List.find (fun (c, _) -> Char.chr c = 'j') glyph_infos in
+  let new_gj = (Char.chr (fst gj), snd gj) in
+  let j_amt = 4_000_000 in
+  let all_j = List.init j_amt (fun _ -> new_gj) in
+  let start = Unix.gettimeofday () in
+  let rope =
+    List.fold_left
+      (fun acc gj ->
+        match acc with
+        | Some a -> Some (Limitless.Rope.concat a (Leaf [ gj ]))
+        | None -> Some (Leaf [ gj ]))
+      None all_j
+    |> Option.get
+  in
+  ();
+  let rec traverse_rope r =
+    match r with
+    | Limitless.Rope.Leaf _ -> ()
+    | Node { left; right; _ } ->
+        traverse_rope left;
+        traverse_rope right;
+  in
+  traverse_rope rope;
+  let end' = Unix.gettimeofday () -.start in
+  assert_bool ("time it takes to traverse " ^ (Int.to_string j_amt) ^ " rope/leaves") (end' < 0.5)
 
 let tests =
   "rope tests"
@@ -61,6 +89,7 @@ let tests =
          "delete test" >:: delete_test;
          "length test" >:: length_test;
          "rope concatenation time" >:: timing_test_concatenation;
+         "traversing rope tree time" >:: timing_test_traverse_rope;
        ]
 
 let () = run_test_tt_main tests

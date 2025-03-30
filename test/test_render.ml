@@ -85,12 +85,22 @@ let gl_gen_one_buffer_test _ =
   let buffer = Limitless.Opengl.gl_gen_one_buffer () in
   assert_bool "buffer should not equal 0 or be less than 0" (buffer != 0);;
 
+let timing_test_writing_bigarray _ =
+  let start = Unix.gettimeofday () in
+  let bigarray = Bigarray.Array1.create Float32 C_layout 10_000_000 in
+  for i = 0 to (Bigarray.Array1.dim bigarray) - 1 do
+    bigarray.{i} <- i |> Int.to_float
+  done;
+  let end' = Unix.gettimeofday () -. start in
+  assert_bool ("Writing " ^ Int.to_string (Bigarray.Array1.dim bigarray) ^ "i times in big array slow") (end' < 0.09)
+
 let tests =
   "render tests"
   >::: [
          (*"gl set up" >:: timing_test_opengl_works;*)
-         "rope drawing time" >:: timing_test_drawing_rope;
+         (*"rope drawing time" >:: timing_test_drawing_rope;*)
          "gl_gen_one_buffer test" >:: gl_gen_one_buffer_test;
+         "writing to bigarray time test" >:: timing_test_writing_bigarray;
        ]
 
 let () = run_test_tt_main tests

@@ -47,7 +47,7 @@ module Sdl = struct
   external sdl_delay : int -> unit = "SDL_Delay" "SDL_Delay"
   external init_sdl : unit -> (unit, string) result = "init_sdl" "init_sdl"
 
-  external sdl_pollevent : unit -> event option
+  external sdl_pollevent : (unit[@untagged]) -> event option
     = "sdl_pollevent" "sdl_pollevent"
 
   type window =
@@ -132,7 +132,7 @@ module Sdl = struct
 
   external sdl_create_renderer : window -> int -> unit
     = "sdl_create_renderer" "sdl_create_renderer"
-  external sdl_gl_getdrawablesize : unit -> int * int = "sdl_gl_getdrawablesize" "sdl_gl_getdrawablesize"
+  external sdl_gl_getdrawablesize : (unit[@untagged]) -> int * int = "sdl_gl_getdrawablesize" "sdl_gl_getdrawablesize"
 
   let actually_init_sdl () =
     (match init_sdl () with Ok () -> () | Error e -> failwith e);

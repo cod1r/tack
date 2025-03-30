@@ -1,7 +1,8 @@
 (executable
  (public_name limitless)
  (name main)
- (libraries limitless))
+ (libraries limitless)
+ (modes exe))
 
 (env
  (dev
