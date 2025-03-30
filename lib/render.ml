@@ -154,6 +154,6 @@ module Render = struct
     gl_use_program program;
     gl_bind_buffer ba_buffer;
     gl_vertex_attrib_pointer_float_type location 3 false;
-    gl_draw_arrays 2_000;
+    gl_draw_arrays 20_000;
     match Sdl.sdl_gl_swapwindow Sdl.w with Ok () -> () | Error e -> failwith e
 end
