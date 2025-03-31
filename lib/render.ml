@@ -60,6 +60,7 @@ module Render = struct
 
   let draw_bmp_points
       (bigarray :
+        (* this type annotation is required so that the ocaml compiler can optimize and not use generic bigarray functions which are slow *)
         (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t)
       glyph_info offset (window_width, window_height) =
     let length =
