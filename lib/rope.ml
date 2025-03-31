@@ -5,9 +5,7 @@ type rope =
   | Node of { left : rope; right : rope; length : int }
 
 let length = function Leaf l -> String.length l | Node { length; _ } -> length
-
-let of_string s =
-  Leaf s
+let of_string s = Leaf s
 
 let concat r1 r2 =
   Node { left = r1; right = r2; length = length r1 + length r2 }
@@ -18,8 +16,7 @@ let rec to_string = function
 
 let rec substring r start len =
   match r with
-  | Leaf l ->
-      Leaf (String.sub l start len)
+  | Leaf l -> Leaf (String.sub l start len)
   | Node { left; right; _ } ->
       if start + len <= length left then substring left start len
       else if start >= length left then

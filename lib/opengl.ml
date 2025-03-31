@@ -44,13 +44,10 @@ external gl_get_shader_info_log : int -> string
 external gl_get_shader_compile_status : int -> bool
   = "gl_get_shader_compile_status" "gl_get_shader_compile_status"
 
-external gl_buffer_data :
-  buffer ->
-  unit = "gl_buffer_data" "gl_buffer_data"
+external gl_buffer_data : buffer -> unit = "gl_buffer_data" "gl_buffer_data"
 
-external gl_buffer_subdata :
-  buffer ->
-  unit = "gl_buffer_subdata" "gl_buffer_subdata"
+external gl_buffer_subdata : buffer -> unit
+  = "gl_buffer_subdata" "gl_buffer_subdata"
 
 external gl_shader_source : int -> string -> unit
   = "gl_shader_source" "gl_shader_source"

@@ -32,10 +32,7 @@ let rec loop editor_info =
             Printf.printf "Mousedown %d, %d, %d, %d, %d, %d" x y windowID button
               clicks timestamp;
             print_newline ();
-            match editor_info.rope with
-            | Some r ->
-                ()
-            | None -> ())
+            match editor_info.rope with Some r -> () | None -> ())
         | Mouseup ->
             Printf.printf "Mouseup";
             print_newline ());
@@ -48,9 +45,9 @@ let rec loop editor_info =
         Printf.printf "Mousemotion %d %d %d" x y timestamp;
         print_newline ();
         (editor_info, true)
-    | Some (TextInputEvt { text; _ }) -> (
+    | Some (TextInputEvt { text; _ }) ->
         let char_list = String.fold_left (fun acc c -> c :: acc) [] text in
-        (editor_info, true))
+        (editor_info, true)
     | Some Quit -> (editor_info, false)
     | None -> (editor_info, true)
   in

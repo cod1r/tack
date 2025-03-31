@@ -3,9 +3,12 @@ open Sdl
 open Opengl
 
 module Render = struct
-
   external init_buffer : unit -> Opengl.buffer = "init_buffer" "init_buffer"
-  external write_to_buffer : Opengl.buffer -> FreeType.ft_face -> char -> int -> unit = "write_to_buffer" "write_to_buffer"
+
+  external write_to_buffer :
+    Opengl.buffer -> FreeType.ft_face -> char -> int -> unit
+    = "write_to_buffer" "write_to_buffer"
+
   external reset_buffer : Opengl.buffer -> unit = "reset_buffer" "reset_buffer"
 
   let vertex_shader =
@@ -31,8 +34,7 @@ module Render = struct
   |}
 
   let _ = gl_enable_blending ()
-
-  let b = init_buffer ();;
+  let b = init_buffer ()
 
   let fragment =
     match gl_create_fragment_shader () with Ok f -> f | Error e -> failwith e
@@ -61,14 +63,14 @@ module Render = struct
     let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
     match rope with
     | Rope.Leaf l ->
-        String.iter (fun c -> write_to_buffer buffer FreeType.face c window_width) l
+        String.iter
+          (fun c -> write_to_buffer buffer FreeType.face c window_width)
+          l
     | Rope.Node { left; right; length } ->
         draw_rope' buffer left offset;
         draw_rope' buffer right length
 
-  let draw_rope (buffer: buffer) rope =
-    draw_rope' buffer rope 0
-
+  let draw_rope (buffer : buffer) rope = draw_rope' buffer rope 0
   let gl_buffer_obj = gl_gen_one_buffer ()
 
   let location =
