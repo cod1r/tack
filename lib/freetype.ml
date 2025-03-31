@@ -11,6 +11,8 @@ module FreeType = struct
   external freetype_set_pixel_sizes : int -> unit
     = "freetype_set_pixel_sizes" "freetype_set_pixel_sizes"
 
+  external freetype_load_glyph_letter : ft_face -> char -> ft_glyphslot = "freetype_load_glyph_letter" "freetype_load_glyph_letter"
+
   let face, library = freetype_init "/System/Library/Fonts/Menlo.ttc"
   let () = freetype_set_pixel_sizes 6
 end

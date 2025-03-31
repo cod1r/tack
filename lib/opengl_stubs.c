@@ -9,6 +9,8 @@
 #include <gl/GL.h>
 #endif
 
+#include <ft2build.h>
+#include FT_FREETYPE_H
 #include <caml/bigarray.h>
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
@@ -39,6 +41,39 @@ case GL_OUT_OF_MEMORY:
 case GL_TABLE_TOO_LARGE:
     caml_failwith("GL ERROR"); break;
   }
+}
+
+void push_to_buffer(struct Buffer* b, FT_Bitmap bitmap) {
+  if (bitmap.rows * bitmap.width + b->size > b->capacity) caml_failwith("NEED TO HANDLE RESIZE BUFFER CASE");
+  b->size += bitmap.rows * bitmap.width;
+  for (int y = 0; y < bitmap.rows; ++y) {
+    for (int x = 0; x < bitmap.width; ++x) {
+
+    }
+  }
+}
+
+CAMLprim value write_to_buffer(value buffer, value face, value letter, value idx_in_rope, value window_width) {
+  CAMLparam5(buffer, face, letter, idx_in_rope, window_width);
+  CAMLlocal1(tuple);
+  struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
+  FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
+  char letter_c = Int_val(letter);
+
+  FT_UInt glyph_index = FT_Get_Char_Index(*face_c, letter_c);
+  if (glyph_index == 0) caml_failwith("FT_Get_Char_Index returned undefined character code");
+  int result = FT_Load_Glyph(*face_c, glyph_index, FT_LOAD_DEFAULT);
+  if (result) {
+    caml_failwith("FT_Load_Glyph failed");
+  }
+  int render_result = FT_Render_Glyph((*face_c)->glyph, FT_RENDER_MODE_LCD);
+  if (render_result) caml_failwith("FT_Render_Glyph failed");
+
+  FT_GlyphSlot glyph = (*face_c)->glyph;
+
+  int idx_in_buffer = Int_val(idx_in_rope);
+
+  CAMLreturn(tuple);
 }
 
 CAMLprim value gl_enable_blending(value unit) {

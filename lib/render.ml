@@ -56,26 +56,18 @@ module Render = struct
     p
 
   let rec draw_rope' buffer rope offset =
+    let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
     match rope with
     | Rope.Leaf l ->
-        (* fold_right isn't tail_recursive and l is stored in reverse order *)
-        String.fold_left
-          (fun acc c ->
-            (0, 0)
-          )
-          offset l
-    | Rope.Node { left; right; _ } ->
-        let left_offset =
-          draw_rope' buffer left offset
-        in
-        draw_rope' buffer right left_offset
+        ()
+    | Rope.Node { left; right; length } ->
+        draw_rope' buffer left offset;
+        draw_rope' buffer right length
 
   let draw_rope (buffer: buffer) rope =
-    (* this assumes that the top left is the origin *)
-    let _ = draw_rope' buffer rope (0, 0) in
-    ()
+    draw_rope' buffer rope 0
 
-  let ba_buffer = gl_gen_one_buffer ()
+  let gl_buffer_obj = gl_gen_one_buffer ()
 
   let location =
     match gl_getattriblocation program "point_vertex" with
@@ -84,7 +76,7 @@ module Render = struct
 
   let init_gl_buffers () =
     gl_enable_vertex_attrib_array location;
-    gl_bind_buffer ba_buffer;
+    gl_bind_buffer gl_buffer_obj;
     gl_buffer_data b;
     gl_vertex_attrib_pointer_float_type location 3 false
 
@@ -99,7 +91,7 @@ module Render = struct
     gl_clear_color 1. 1. 1. 1.;
     gl_clear ();
     gl_use_program program;
-    gl_bind_buffer ba_buffer;
+    gl_bind_buffer gl_buffer_obj;
     gl_vertex_attrib_pointer_float_type location 3 false;
     gl_draw_arrays 20_000;
     match Sdl.sdl_gl_swapwindow Sdl.w with Ok () -> () | Error e -> failwith e
