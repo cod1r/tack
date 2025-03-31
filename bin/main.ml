@@ -5,29 +5,7 @@ open Limitless.Rope
 open Limitless.Render
 open Limitless.Opengl
 
-let () = FreeType.freetype_init ()
-let () = FreeType.freetype_load_font ()
-let () = FreeType.freetype_set_pixel_sizes 6
-
-let glyph_infos =
-  let startcode, endcode = (32, 126) in
-  let rec get_glyph_info char_code acc =
-    if char_code > endcode then acc
-    else
-      let new_glyph_info =
-        FreeType.freetype_load_glyph_letter (Char.chr char_code)
-      in
-      get_glyph_info (succ char_code) ((char_code, new_glyph_info) :: acc)
-  in
-  get_glyph_info startcode []
-
-let biggest_horiBearingY =
-  List.fold_left
-    (fun acc (_, g) -> max g.FreeType.metrics.horiBearingY acc)
-    0 glyph_infos
-
 let rec loop editor_info =
-  Render.draw editor_info.Editor.rope biggest_horiBearingY;
   let evt = Sdl.sdl_pollevent () in
   let new_editor, continue =
     match evt with
@@ -56,11 +34,7 @@ let rec loop editor_info =
             print_newline ();
             match editor_info.rope with
             | Some r ->
-                let closest =
-                  Editor.search_closest (Int.to_float x, Int.to_float y) r
-                in
-                Printf.printf "closest: %f %f" (fst closest) (snd closest);
-                print_newline ()
+                ()
             | None -> ())
         | Mouseup ->
             Printf.printf "Mouseup";
@@ -76,25 +50,7 @@ let rec loop editor_info =
         (editor_info, true)
     | Some (TextInputEvt { text; _ }) -> (
         let char_list = String.fold_left (fun acc c -> c :: acc) [] text in
-        let zipped =
-          List.map
-            (fun c ->
-              let _, gi =
-                List.find (fun (c', _) -> c = Char.chr c') glyph_infos
-              in
-              (c, gi))
-            char_list
-        in
-        match editor_info.rope with
-        | Some r ->
-            ( {
-                rope = Some (concat r (Leaf zipped));
-                cursor_pos = editor_info.cursor_pos;
-              },
-              true )
-        | None ->
-            ( { rope = Some (Leaf zipped); cursor_pos = editor_info.cursor_pos },
-              true ))
+        (editor_info, true))
     | Some Quit -> (editor_info, false)
     | None -> (editor_info, true)
   in

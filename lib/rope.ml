@@ -1,39 +1,25 @@
 open Freetype
 
 type rope =
-  | Leaf of (char * FreeType.freetype_glyph_info) list
+  | Leaf of string
   | Node of { left : rope; right : rope; length : int }
 
-let length = function Leaf l -> List.length l | Node { length; _ } -> length
+let length = function Leaf l -> String.length l | Node { length; _ } -> length
 
-let of_string s glyph_infos =
-  let list_chars = String.fold_left (fun acc c -> c :: acc) [] s in
-  Leaf
-    (List.map
-       (fun c ->
-         (c, List.find (fun (c', _) -> Char.chr c' = c) glyph_infos |> snd))
-       list_chars)
+let of_string s =
+  Leaf s
 
 let concat r1 r2 =
   Node { left = r1; right = r2; length = length r1 + length r2 }
 
 let rec to_string = function
-  | Leaf l -> List.fold_left (fun acc (c, _) -> String.make 1 c ^ acc) "" l
+  | Leaf l -> l
   | Node { left; right; _ } -> to_string left ^ to_string right
 
 let rec substring r start len =
   match r with
   | Leaf l ->
-      let rec sublist lst endIdx startIdx idx acc =
-        if idx = endIdx then acc
-        else
-          match lst with
-          | [] -> acc
-          | h :: t ->
-              let newlist = if idx >= startIdx then h :: acc else acc in
-              sublist t endIdx startIdx (succ idx) newlist
-      in
-      Leaf (sublist (List.rev l) (start + len) start 0 [])
+      Leaf (String.sub l start len)
   | Node { left; right; _ } ->
       if start + len <= length left then substring left start len
       else if start >= length left then

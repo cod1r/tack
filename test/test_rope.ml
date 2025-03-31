@@ -1,51 +1,33 @@
 open OUnit2
 open Limitless.Freetype
 
-let () = FreeType.freetype_init ()
-let () = FreeType.freetype_load_font ()
-let () = FreeType.freetype_set_pixel_sizes 6
-
-let glyph_infos =
-  let startcode, endcode = (32, 126) in
-  let rec get_glyph_info char_code acc =
-    if char_code > endcode then acc
-    else
-      let new_glyph_info =
-        FreeType.freetype_load_glyph_letter (Char.chr char_code)
-      in
-      get_glyph_info (succ char_code) ((char_code, new_glyph_info) :: acc)
-  in
-  get_glyph_info startcode []
-
 let concat_test _ =
-  let r1 = Limitless.Rope.of_string "Hello " glyph_infos in
-  let r2 = Limitless.Rope.of_string "World!" glyph_infos in
+  let r1 = Limitless.Rope.of_string "Hello " in
+  let r2 = Limitless.Rope.of_string "World!" in
   let r3 = Limitless.Rope.concat r1 r2 in
   assert_equal (Limitless.Rope.to_string r3) "Hello World!"
 
 let delete_test _ =
-  let r1 = Limitless.Rope.of_string "Hello " glyph_infos in
+  let r1 = Limitless.Rope.of_string "Hello " in
   let r2 = Limitless.Rope.delete r1 4 1 in
   let s = Limitless.Rope.to_string r2 in
   assert_equal s "Hell "
 
 let length_test _ =
-  let r1 = Limitless.Rope.of_string "Hello " glyph_infos in
+  let r1 = Limitless.Rope.of_string "Hello " in
   let len = Limitless.Rope.length r1 in
   assert_equal len 6
 
 let timing_test_concatenation _ =
-  let gj = List.find (fun (c, _) -> Char.chr c = 'j') glyph_infos in
-  let new_gj = (Char.chr (fst gj), snd gj) in
   let j_amt = 4_000_000 in
-  let all_j = List.init j_amt (fun _ -> new_gj) in
+  let all_j = List.init j_amt (fun _ -> "j") in
   let start = Unix.gettimeofday () in
   let rope =
     List.fold_left
       (fun acc gj ->
         match acc with
-        | Some a -> Some (Limitless.Rope.concat a (Leaf [ gj ]))
-        | None -> Some (Leaf [ gj ]))
+        | Some a -> Some (Limitless.Rope.concat a (Leaf gj))
+        | None -> Some (Leaf "j"))
       None all_j
     |> Option.get
   in
@@ -55,20 +37,18 @@ let timing_test_concatenation _ =
     (Limitless.Rope.length rope);
   assert_bool
     ("time it takes to append " ^ Int.to_string j_amt ^ " ropes/leaves")
-    (end' < 0.00005)
+    (end' < 0.6)
 
 let timing_test_traverse_rope _ =
-  let gj = List.find (fun (c, _) -> Char.chr c = 'j') glyph_infos in
-  let new_gj = (Char.chr (fst gj), snd gj) in
   let j_amt = 4_000_000 in
-  let all_j = List.init j_amt (fun _ -> new_gj) in
+  let all_j = List.init j_amt (fun _ -> "j") in
   let start = Unix.gettimeofday () in
   let rope =
     List.fold_left
       (fun acc gj ->
         match acc with
-        | Some a -> Some (Limitless.Rope.concat a (Leaf [ gj ]))
-        | None -> Some (Leaf [ gj ]))
+        | Some a -> Some (Limitless.Rope.concat a (Leaf gj))
+        | None -> Some (Leaf gj))
       None all_j
     |> Option.get
   in

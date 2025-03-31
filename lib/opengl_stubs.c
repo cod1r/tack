@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include "stubs.h"
 
 void check_error() {
   GLenum err = glGetError();
@@ -73,16 +74,17 @@ CAMLprim value gl_shader_source(value shader, value source) {
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value gl_buffer_data(value bigarray, value size) {
-  CAMLparam2(bigarray, size);
-  // sizeof(CAML_BA_FLOAT32) can be used to determine size of bigarray
-  glBufferData(GL_ARRAY_BUFFER, Int_val(size), Caml_ba_data_val(bigarray), GL_DYNAMIC_DRAW);
+CAMLprim value gl_buffer_data(value buffer) {
+  CAMLparam1(buffer);
+  struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
+  glBufferData(GL_ARRAY_BUFFER, b->size, b->contents, GL_DYNAMIC_DRAW);
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value gl_buffer_subdata(value bigarray, value offset, value size) {
-  CAMLparam3(bigarray, offset, size);
-  glBufferSubData(GL_ARRAY_BUFFER, Int_val(offset), Int_val(size), Caml_ba_data_val(bigarray));
+CAMLprim value gl_buffer_subdata(value buffer) {
+  CAMLparam1(buffer);
+  struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
+  glBufferSubData(GL_ARRAY_BUFFER, 0, b->size, b->contents);
   CAMLreturn(Val_unit);
 }
 

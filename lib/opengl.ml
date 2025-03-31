@@ -1,3 +1,6 @@
+(* abstract data type for a float32 array in c *)
+type buffer
+
 external gl_enable_blending : unit -> unit
   = "gl_enable_blending" "gl_enable_blending"
 
@@ -42,14 +45,11 @@ external gl_get_shader_compile_status : int -> bool
   = "gl_get_shader_compile_status" "gl_get_shader_compile_status"
 
 external gl_buffer_data :
-  (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t ->
-  int ->
+  buffer ->
   unit = "gl_buffer_data" "gl_buffer_data"
 
 external gl_buffer_subdata :
-  (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t ->
-  int ->
-  int ->
+  buffer ->
   unit = "gl_buffer_subdata" "gl_buffer_subdata"
 
 external gl_shader_source : int -> string -> unit

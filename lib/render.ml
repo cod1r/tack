@@ -3,6 +3,9 @@ open Sdl
 open Opengl
 
 module Render = struct
+
+  external init_buffer : unit -> Opengl.buffer = "init_buffer" "init_buffer"
+
   let vertex_shader =
     {|
   #version 120
@@ -27,6 +30,8 @@ module Render = struct
 
   let _ = gl_enable_blending ()
 
+  let b = init_buffer ();;
+
   let fragment =
     match gl_create_fragment_shader () with Ok f -> f | Error e -> failwith e
 
@@ -50,93 +55,26 @@ module Render = struct
     gl_linkprogram p;
     p
 
-  (*let draw_cursor w (x, y) biggest_horiBearingY =*)
-  (*  Sdl.sdl_set_render_draw_color w 0l 0l 0l 255l;*)
-  (*  let r =*)
-  (*    Sdl.RectF { x; y; width = 3.; height = Int.to_float biggest_horiBearingY }*)
-  (*  in*)
-  (*  Sdl.sdl_renderer_draw_rect_float w r;*)
-  (*  Sdl.sdl_renderer_fill_rect_float w r*)
-
-  let draw_bmp_points
-      (bigarray :
-        (* this type annotation is required so that the ocaml compiler can optimize and not use generic bigarray functions which are slow *)
-        (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t)
-      glyph_info offset (window_width, window_height) =
-    let length =
-      glyph_info.FreeType.bitmap.width * glyph_info.FreeType.bitmap.rows * 3
-    in
-    let idx = ref 0 in
-    while !idx < length do
-      let i = !idx / 3 in
-      let x, y =
-        ( i mod glyph_info.FreeType.bitmap.width,
-          i / glyph_info.FreeType.bitmap.width )
-      in
-      let byte =
-        Bytes.get glyph_info.FreeType.bitmap.buffer
-          ((y * glyph_info.FreeType.bitmap.pitch) + x)
-      in
-      let alpha = Char.code byte |> Int.to_float |> fun x -> x /. 255. in
-      (* we are dividing by 3 here because of FT_RENDER_MODE_LCD *)
-      let drawn_x =
-        ((Int.to_float x /. 3.) +. fst offset)
-        /. (Int.to_float window_width /. 2.)
-        -. 1.0
-      in
-      let drawn_y =
-        Float.neg (Int.to_float y +. snd offset)
-        /. (Int.to_float window_height /. 2.)
-        +. 1.
-      in
-      (*Printf.printf "LENGTH: %d %f %f %f" length drawn_x drawn_y alpha; print_newline ();*)
-      bigarray.{!idx} <- drawn_x;
-      bigarray.{!idx + 1} <- drawn_y;
-      bigarray.{!idx + 2} <- alpha;
-      idx := !idx + 3
-    done
-
-  let draw_letter_glyph bigarray (x, y) g biggest_horiBearingY =
-    let width_screen, height_screen = Sdl.sdl_gl_getdrawablesize () in
-    let next_x = x + g.FreeType.metrics.horiBearingX in
-    let used_x, used_y =
-      if next_x >= width_screen then
-        (g.FreeType.metrics.horiBearingX, y + biggest_horiBearingY)
-      else (next_x, y)
-    in
-    let accx, accy =
-      if next_x >= width_screen then
-        (fst g.FreeType.advance, y + biggest_horiBearingY)
-      else (x + fst g.FreeType.advance, y + snd g.FreeType.advance)
-    in
-    draw_bmp_points bigarray g
-      ( Int.to_float used_x,
-        Int.to_float used_y
-        +. Int.to_float biggest_horiBearingY
-        -. Int.to_float g.FreeType.metrics.horiBearingY )
-      (width_screen, height_screen);
-    (accx, accy)
-
-  let rec draw_rope' bigarray rope offset biggest_horiBearingY =
+  let rec draw_rope' buffer rope offset =
     match rope with
     | Rope.Leaf l ->
         (* fold_right isn't tail_recursive and l is stored in reverse order *)
-        List.fold_left
-          (fun acc (c, g) ->
-            draw_letter_glyph bigarray acc g biggest_horiBearingY)
-          offset (List.rev l)
+        String.fold_left
+          (fun acc c ->
+            (0, 0)
+          )
+          offset l
     | Rope.Node { left; right; _ } ->
         let left_offset =
-          draw_rope' bigarray left offset biggest_horiBearingY
+          draw_rope' buffer left offset
         in
-        draw_rope' bigarray right left_offset biggest_horiBearingY
+        draw_rope' buffer right left_offset
 
-  let draw_rope bigarray rope biggest_horiBearingY =
+  let draw_rope (buffer: buffer) rope =
     (* this assumes that the top left is the origin *)
-    let _ = draw_rope' bigarray rope (0, 0) biggest_horiBearingY in
+    let _ = draw_rope' buffer rope (0, 0) in
     ()
 
-  let bigarray = Bigarray.Array1.create Float32 C_layout 10_000
   let ba_buffer = gl_gen_one_buffer ()
 
   let location =
@@ -147,16 +85,16 @@ module Render = struct
   let init_gl_buffers () =
     gl_enable_vertex_attrib_array location;
     gl_bind_buffer ba_buffer;
-    gl_buffer_data bigarray (Bigarray.Array1.size_in_bytes bigarray);
+    gl_buffer_data b;
     gl_vertex_attrib_pointer_float_type location 3 false
 
   let _ = init_gl_buffers ()
 
-  let draw rope biggest_horiBearingY =
+  let draw rope =
     (match rope with
     | Some r ->
-        draw_rope bigarray r biggest_horiBearingY;
-        gl_buffer_subdata bigarray 0 (Bigarray.Array1.size_in_bytes bigarray)
+        draw_rope b r;
+        gl_buffer_subdata b
     | None -> ());
     gl_clear_color 1. 1. 1. 1.;
     gl_clear ();

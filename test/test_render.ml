@@ -3,22 +3,6 @@ open Limitless.Freetype
 open Limitless.Sdl
 open Limitless.Render
 
-let () = FreeType.freetype_init ()
-let () = FreeType.freetype_load_font ()
-let () = FreeType.freetype_set_pixel_sizes 6
-
-let glyph_infos =
-  let startcode, endcode = (32, 126) in
-  let rec get_glyph_info char_code acc =
-    if char_code > endcode then acc
-    else
-      let new_glyph_info =
-        FreeType.freetype_load_glyph_letter (Char.chr char_code)
-      in
-      get_glyph_info (succ char_code) ((char_code, new_glyph_info) :: acc)
-  in
-  get_glyph_info startcode []
-
 let timing_test_opengl_works _ =
   let w =
     match
@@ -50,30 +34,23 @@ let timing_test_opengl_works _ =
   done
 
 let timing_test_drawing_rope _ =
-  let gj = List.find (fun (c, _) -> Char.chr c = 'j') glyph_infos in
-  let new_gj = (Char.chr (fst gj), snd gj) in
   let ropes = 1 in
-  let all_j = List.init ropes (fun _ -> new_gj) in
-  let biggest_horiBearingY =
-    List.fold_left
-      (fun acc (_, g) -> max g.FreeType.metrics.horiBearingY acc)
-      0 glyph_infos
-  in
+  let all_j = List.init ropes (fun _ -> "j") in
   let rope =
     List.fold_left
       (fun acc gj ->
         match acc with
-        | Some a -> Some (Limitless.Rope.concat a (Leaf [ gj ]))
-        | None -> Some (Leaf [ gj ]))
+        | Some a -> Some (Limitless.Rope.concat a (Leaf gj))
+        | None -> Some (Leaf gj))
       None all_j
     |> Option.get
   in
   ();
-  let bigarray = Bigarray.Array1.create Float32 C_layout 1_000_000 in
+  let b = Render.init_buffer () in
   let start = Unix.gettimeofday () in
   let times = 500_000 in
   for _ = 0 to times do
-    Render.draw_rope bigarray rope biggest_horiBearingY
+    Render.draw_rope b rope
   done;
   let end' = Unix.gettimeofday () -. start in
   assert_bool
