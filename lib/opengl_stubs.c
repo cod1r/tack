@@ -77,7 +77,7 @@ CAMLprim value gl_shader_source(value shader, value source) {
 CAMLprim value gl_buffer_data(value buffer) {
   CAMLparam1(buffer);
   struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
-  glBufferData(GL_ARRAY_BUFFER, b->size, b->contents, GL_DYNAMIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, b->capacity, b->contents, GL_DYNAMIC_DRAW);
   CAMLreturn(Val_unit);
 }
 

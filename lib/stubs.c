@@ -9,11 +9,13 @@
 CAMLprim value init_buffer(value unit) {
   CAMLparam1(unit);
   CAMLlocal1(buffer);
+  buffer = caml_alloc(1, Abstract_tag);
   size_t c = 10000000;
   float* contents = malloc(sizeof(float) * c);
   struct Buffer b = { .contents = contents, .size = 0, .capacity = c };
+  *((struct Buffer**)Data_abstract_val(buffer)) = malloc(sizeof(struct Buffer));
   **((struct Buffer**)Data_abstract_val(buffer)) = b;
-  CAMLreturn(Val_unit);
+  CAMLreturn(buffer);
 }
 
 void push_to_buffer(struct Buffer* b, FT_Bitmap bitmap) {

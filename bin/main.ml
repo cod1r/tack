@@ -6,6 +6,7 @@ open Limitless.Render
 open Limitless.Opengl
 
 let rec loop editor_info =
+  Render.draw editor_info.Editor.rope;
   let evt = Sdl.sdl_pollevent () in
   let new_editor, continue =
     match evt with

@@ -65,8 +65,11 @@ CAMLprim value freetype_init(value path_to_font) {
   } else if (result_face) {
     caml_failwith("could not open font file for unknown reasons");
   }
-  **(FT_Face**)Data_abstract_val(abstract_face) = face;
-  **(FT_Library**)Data_abstract_val(abstract_library) = library;
+
+  *((FT_Face**)Data_abstract_val(abstract_face)) = malloc(sizeof(FT_Face));
+  *((FT_Library**)Data_abstract_val(abstract_library)) = malloc(sizeof(FT_Library));
+  **((FT_Face**)Data_abstract_val(abstract_face)) = face;
+  **((FT_Library**)Data_abstract_val(abstract_library)) = library;
 
   tuple = caml_alloc(2, 0);
   Store_field(tuple, 0, abstract_face);

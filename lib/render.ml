@@ -59,7 +59,7 @@ module Render = struct
     gl_linkprogram p;
     p
 
-  let rec draw_rope' buffer rope offset =
+  let rec draw_rope' (buffer: buffer) rope offset =
     let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
     match rope with
     | Rope.Leaf l ->
