@@ -18,29 +18,33 @@ CAMLprim value init_buffer(value unit) {
   CAMLreturn(buffer);
 }
 
-void push_to_buffer(struct Buffer* b, FT_Bitmap bitmap) {
-  if (bitmap.rows * bitmap.width + b->size > b->capacity) caml_failwith("NEED TO HANDLE RESIZE BUFFER CASE");
+void push_to_buffer(struct Buffer* b, FT_Bitmap bitmap, int window_width, int window_height) {
+  if (bitmap.rows * bitmap.width + b->size * 3 > b->capacity) caml_failwith("NEED TO HANDLE RESIZE BUFFER CASE");
   int buffer_idx = b->size;
   for (int y = 0; y < bitmap.rows; ++y) {
     for (int x = 0; x < bitmap.width; ++x) {
-      uint8_t alpha = bitmap.buffer[y * bitmap.pitch + x];
-      b->contents[buffer_idx] = x;
-      b->contents[buffer_idx] = y;
-      b->contents[buffer_idx] = alpha;
+      float alpha = bitmap.buffer[y * bitmap.pitch + x];
+      float gl_x = ((x / 3.0) / (float)window_width) - 1.; // dividing by three because of FT_RENDER_MODE_LCD
+      float gl_y = -(y / (float)window_height) + 1.;
+      b->contents[buffer_idx] = gl_x;
+      b->contents[buffer_idx + 1] = gl_y;
+      b->contents[buffer_idx + 2] = alpha;
+      // three because x,y,z for opengl vertex attrib array stride
+      buffer_idx += 3;
     }
   }
-  b->size += bitmap.rows * bitmap.width;
+  b->size = buffer_idx;
 }
 
 CAMLprim value reset_buffer(value buffer) {
   CAMLparam1(buffer);
-  struct Buffer* b = *(struct Buffer**)Data_abstract_val(b);
+  struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
   b->size = 0;
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value write_to_buffer(value buffer, value face, value letter, value window_width) {
-  CAMLparam4(buffer, face, letter, window_width);
+CAMLprim value write_to_buffer(value buffer, value face, value letter, value window_width, value window_height) {
+  CAMLparam5(buffer, face, letter, window_width, window_height);
   struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
   FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
   char letter_c = Int_val(letter);
@@ -56,7 +60,7 @@ CAMLprim value write_to_buffer(value buffer, value face, value letter, value win
 
   FT_GlyphSlot glyph = (*face_c)->glyph;
 
-  push_to_buffer(b, glyph->bitmap);
+  push_to_buffer(b, glyph->bitmap, Int_val(window_width), Int_val(window_height));
 
   CAMLreturn(Val_unit);
 }

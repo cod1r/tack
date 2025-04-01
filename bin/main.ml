@@ -47,8 +47,14 @@ let rec loop editor_info =
         print_newline ();
         (editor_info, true)
     | Some (TextInputEvt { text; _ }) ->
-        let char_list = String.fold_left (fun acc c -> c :: acc) [] text in
-        (editor_info, true)
+        (match editor_info.Editor.rope with
+        | Some r ->
+              ( {
+                  Editor.rope = Some (concat r (Leaf text));
+                  cursor_pos = editor_info.cursor_pos;
+                },
+                true )
+        | None -> ({ Editor.rope = Some (Leaf text); cursor_pos = editor_info.cursor_pos }, true))
     | Some Quit -> (editor_info, false)
     | None -> (editor_info, true)
   in

@@ -84,7 +84,7 @@ CAMLprim value gl_buffer_data(value buffer) {
 CAMLprim value gl_buffer_subdata(value buffer) {
   CAMLparam1(buffer);
   struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
-  glBufferSubData(GL_ARRAY_BUFFER, 0, b->size, b->contents);
+  glBufferSubData(GL_ARRAY_BUFFER, 0, b->size * sizeof(float), b->contents);
   CAMLreturn(Val_unit);
 }
 

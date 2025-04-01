@@ -6,7 +6,7 @@ module Render = struct
   external init_buffer : unit -> Opengl.buffer = "init_buffer" "init_buffer"
 
   external write_to_buffer :
-    Opengl.buffer -> FreeType.ft_face -> char -> int -> unit
+    Opengl.buffer -> FreeType.ft_face -> char -> int -> int -> unit
     = "write_to_buffer" "write_to_buffer"
 
   external reset_buffer : Opengl.buffer -> unit = "reset_buffer" "reset_buffer"
@@ -60,12 +60,12 @@ module Render = struct
     p
 
   let rec draw_rope' (buffer: buffer) rope offset =
-    let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
+    let window_width, window_height = Sdl.sdl_gl_getdrawablesize () in
     match rope with
     | Rope.Leaf l ->
         String.iter
-          (fun c -> write_to_buffer buffer FreeType.face c window_width)
-          l
+          (fun c -> write_to_buffer buffer FreeType.face c window_width window_height)
+          l;
     | Rope.Node { left; right; length } ->
         draw_rope' buffer left offset;
         draw_rope' buffer right length
