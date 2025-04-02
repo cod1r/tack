@@ -10,7 +10,7 @@ CAMLprim value init_buffer(value unit) {
   CAMLparam1(unit);
   CAMLlocal1(buffer);
   buffer = caml_alloc(1, Abstract_tag);
-  size_t c = 10000000;
+  size_t c = 10000000000;
   float* contents = malloc(sizeof(float) * c);
   struct Buffer b = { .contents = contents, .size = 0, .capacity = c };
   *((struct Buffer**)Data_abstract_val(buffer)) = malloc(sizeof(struct Buffer));
@@ -51,12 +51,10 @@ CAMLprim value write_to_buffer(value buffer, value face, value letter, value win
 
   FT_UInt glyph_index = FT_Get_Char_Index(*face_c, letter_c);
   if (glyph_index == 0) caml_failwith("FT_Get_Char_Index returned undefined character code");
-  int result = FT_Load_Glyph(*face_c, glyph_index, FT_LOAD_DEFAULT);
+  int result = FT_Load_Glyph(*face_c, glyph_index, FT_LOAD_RENDER | FT_LOAD_TARGET_LCD);
   if (result) {
     caml_failwith("FT_Load_Glyph failed");
   }
-  int render_result = FT_Render_Glyph((*face_c)->glyph, FT_RENDER_MODE_LCD);
-  if (render_result) caml_failwith("FT_Render_Glyph failed");
 
   FT_GlyphSlot glyph = (*face_c)->glyph;
 
