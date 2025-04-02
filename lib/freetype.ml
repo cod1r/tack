@@ -1,7 +1,11 @@
+open Opengl
 module FreeType = struct
   type ft_face
   type ft_library
-  type ft_glyphslot
+  type ft_bitmap
+
+  external get_ascii_char_glyph : ft_face -> int -> char * Opengl.buffer
+    = "get_ascii_char_glyph" "get_ascii_char_glyph"
 
   external freetype_init : string -> ft_face * ft_library
     = "freetype_init" "freetype_init"
@@ -12,9 +16,6 @@ module FreeType = struct
   external freetype_set_pixel_sizes : ft_face -> int -> unit
     = "freetype_set_pixel_sizes" "freetype_set_pixel_sizes"
 
-  external freetype_load_glyph_letter : ft_face -> char -> ft_glyphslot
-    = "freetype_load_glyph_letter" "freetype_load_glyph_letter"
-
   let face, library = freetype_init "/System/Library/Fonts/Menlo.ttc"
-  let () = freetype_set_pixel_sizes face 6
+  let () = freetype_set_pixel_sizes face 13
 end

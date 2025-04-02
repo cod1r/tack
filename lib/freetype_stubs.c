@@ -8,6 +8,53 @@
 #include <hb.h>
 #include <stdio.h>
 #include <string.h>
+#include "stubs.h"
+
+CAMLprim value get_ascii_char_glyph(value face, value ascii) {
+  CAMLparam2(face, ascii);
+  CAMLlocal1(buffer);
+  CAMLlocal1(tuple);
+
+  int ascii_value = Int_val(ascii);
+  if (ascii_value < 32 || ascii_value > 126) caml_failwith("ascii value out of range");
+
+  FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
+
+  FT_UInt glyph_index = FT_Get_Char_Index(*face_c, ascii_value);
+  int result = FT_Load_Glyph(*face_c, glyph_index, FT_LOAD_RENDER | FT_LOAD_TARGET_LCD);
+  if (result) {
+    caml_failwith("ascii FT_Load_Glyph failed");
+  }
+
+  buffer = caml_alloc(1, Abstract_tag);
+  tuple = caml_alloc(2, 0);
+
+  FT_Bitmap bitmap = (*face_c)->glyph->bitmap;
+
+  int size = bitmap.rows * bitmap.width * 3;
+
+  struct Buffer buf = { .contents = malloc(sizeof(float) * size), .size = size, .capacity = size };
+
+  int buffer_idx = 0;
+  for (int y = 0; y < bitmap.rows; ++y) {
+    for (int x = 0; x < bitmap.width; ++x) {
+      float alpha = bitmap.buffer[y * bitmap.pitch + x];
+      buf.contents[buffer_idx] = x;
+      buf.contents[buffer_idx + 1] = y;
+      buf.contents[buffer_idx + 2] = alpha;
+      // three because x,y,z for opengl vertex attrib array stride
+      buffer_idx += 3;
+    }
+  }
+
+  *(struct Buffer**)Data_abstract_val(buffer) = malloc(sizeof(struct Buffer));
+  **(struct Buffer**)Data_abstract_val(buffer) = buf;
+
+  Store_field(tuple, 0, ascii);
+  Store_field(tuple, 1, buffer);
+
+  CAMLreturn(tuple);
+}
 
 CAMLprim value freetype_set_pixel_sizes(value face, value size) {
   CAMLparam2(face, size);
@@ -23,23 +70,6 @@ CAMLprim value freetype_set_char_size(value face, value unit) {
   int result = FT_Set_Char_Size(*face_c, 0, 1*72, 800, 800);
   if (result) caml_failwith("FT_Set_Char_Size failed");
   CAMLreturn(Val_unit);
-}
-
-CAMLprim value freetype_load_glyph_letter(value face, value letter) {
-  CAMLparam2(face, letter);
-  CAMLlocal1(glyph);
-  glyph = caml_alloc(1, Abstract_tag);
-  FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
-  FT_UInt glyph_index = FT_Get_Char_Index(*face_c, Int_val(letter));
-  if (glyph_index == 0) caml_failwith("FT_Get_Char_Index returned undefined character code");
-  int result = FT_Load_Glyph(*face_c, glyph_index, FT_LOAD_DEFAULT);
-  if (result) {
-    caml_failwith("FT_Load_Glyph failed");
-  }
-  int render_result = FT_Render_Glyph((*face_c)->glyph, FT_RENDER_MODE_LCD);
-  if (render_result) caml_failwith("FT_Render_Glyph failed");
-  **(FT_GlyphSlot**)Data_abstract_val(glyph) = (*face_c)->glyph;
-  CAMLreturn(glyph);
 }
 
 CAMLprim value freetype_init(value path_to_font) {

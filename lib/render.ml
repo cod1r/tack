@@ -6,8 +6,13 @@ module Render = struct
   external init_buffer : unit -> Opengl.buffer = "init_buffer" "init_buffer"
 
   external write_to_buffer :
-    Opengl.buffer -> FreeType.ft_face -> char -> int -> int -> unit
+    Opengl.buffer -> Opengl.buffer -> int -> int -> unit
     = "write_to_buffer" "write_to_buffer"
+
+  let bitmaps_with_char =
+    Array.init
+      (126 - 32 + 1)
+      (fun i -> FreeType.get_ascii_char_glyph FreeType.face (i + 32))
 
   external reset_buffer : Opengl.buffer -> unit = "reset_buffer" "reset_buffer"
 
@@ -59,13 +64,17 @@ module Render = struct
     gl_linkprogram p;
     p
 
-  let rec draw_rope' (buffer: buffer) rope offset =
+  let rec draw_rope' (buffer : buffer) rope offset =
     let window_width, window_height = Sdl.sdl_gl_getdrawablesize () in
     match rope with
     | Rope.Leaf l ->
         String.iter
-          (fun c -> write_to_buffer buffer FreeType.face c window_width window_height)
-          l;
+          (fun c ->
+               let bitmap_found = Array.find_opt (fun (c', _) -> c' = c) bitmaps_with_char in
+               match bitmap_found with
+               | Some((_, bm)) -> write_to_buffer buffer bm window_width window_height
+               | None -> Printf.printf "not found"; print_char c; print_newline ())
+          l
     | Rope.Node { left; right; length } ->
         draw_rope' buffer left offset;
         draw_rope' buffer right length

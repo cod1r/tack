@@ -18,22 +18,22 @@ CAMLprim value init_buffer(value unit) {
   CAMLreturn(buffer);
 }
 
-void push_to_buffer(struct Buffer* b, FT_Bitmap bitmap, int window_width, int window_height) {
-  if (bitmap.rows * bitmap.width + b->size * 3 > b->capacity) caml_failwith("NEED TO HANDLE RESIZE BUFFER CASE");
-  int buffer_idx = b->size;
-  for (int y = 0; y < bitmap.rows; ++y) {
-    for (int x = 0; x < bitmap.width; ++x) {
-      float alpha = bitmap.buffer[y * bitmap.pitch + x];
-      float gl_x = ((x / 3.0) / (float)window_width) - 1.; // dividing by three because of FT_RENDER_MODE_LCD
-      float gl_y = -(y / (float)window_height) + 1.;
-      b->contents[buffer_idx] = gl_x;
-      b->contents[buffer_idx + 1] = gl_y;
-      b->contents[buffer_idx + 2] = alpha;
-      // three because x,y,z for opengl vertex attrib array stride
-      buffer_idx += 3;
-    }
+void push_to_buffer(struct Buffer* b, struct Buffer bitmap_buf, int window_width, int window_height) {
+  for (int buffer_idx = b->size; buffer_idx < b->size + bitmap_buf.size; buffer_idx += 3) {
+
+    int first = buffer_idx;
+    int second = buffer_idx + 1;
+    int third = buffer_idx + 2;
+
+    // dividing by three because of FT_LOAD_TARGET_LCD
+    float altered_x = bitmap_buf.contents[first - b->size] / 3 / window_width;
+    float altered_y = -bitmap_buf.contents[second - b->size] / window_height;
+
+    b->contents[first] = altered_x;
+    b->contents[second] = altered_y;
+    b->contents[third] = bitmap_buf.contents[third - b->size] / 255.;
   }
-  b->size = buffer_idx;
+  b->size += bitmap_buf.size;
 }
 
 CAMLprim value reset_buffer(value buffer) {
@@ -43,22 +43,14 @@ CAMLprim value reset_buffer(value buffer) {
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value write_to_buffer(value buffer, value face, value letter, value window_width, value window_height) {
-  CAMLparam5(buffer, face, letter, window_width, window_height);
+CAMLprim value write_to_buffer(value buffer, value bitmap_buffer, value window_width, value window_height) {
+  CAMLparam4(buffer, bitmap_buffer, window_width, window_height);
+
+  struct Buffer* bitmap_buf = *(struct Buffer**)Data_abstract_val(bitmap_buffer);
+
   struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
-  FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
-  char letter_c = Int_val(letter);
 
-  FT_UInt glyph_index = FT_Get_Char_Index(*face_c, letter_c);
-  if (glyph_index == 0) caml_failwith("FT_Get_Char_Index returned undefined character code");
-  int result = FT_Load_Glyph(*face_c, glyph_index, FT_LOAD_RENDER | FT_LOAD_TARGET_LCD);
-  if (result) {
-    caml_failwith("FT_Load_Glyph failed");
-  }
-
-  FT_GlyphSlot glyph = (*face_c)->glyph;
-
-  push_to_buffer(b, glyph->bitmap, Int_val(window_width), Int_val(window_height));
+  push_to_buffer(b, *bitmap_buf, Int_val(window_width), Int_val(window_height));
 
   CAMLreturn(Val_unit);
 }

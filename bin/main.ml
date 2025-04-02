@@ -46,15 +46,20 @@ let rec loop editor_info =
         Printf.printf "Mousemotion %d %d %d" x y timestamp;
         print_newline ();
         (editor_info, true)
-    | Some (TextInputEvt { text; _ }) ->
-        (match editor_info.Editor.rope with
+    | Some (TextInputEvt { text; _ }) -> (
+        match editor_info.Editor.rope with
         | Some r ->
-              ( {
-                  Editor.rope = Some (concat r (Leaf text));
-                  cursor_pos = editor_info.cursor_pos;
-                },
-                true )
-        | None -> ({ Editor.rope = Some (Leaf text); cursor_pos = editor_info.cursor_pos }, true))
+            ( {
+                Editor.rope = Some (concat r (Leaf text));
+                cursor_pos = editor_info.cursor_pos;
+              },
+              true )
+        | None ->
+            ( {
+                Editor.rope = Some (Leaf text);
+                cursor_pos = editor_info.cursor_pos;
+              },
+              true ))
     | Some Quit -> (editor_info, false)
     | None -> (editor_info, true)
   in
