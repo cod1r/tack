@@ -44,7 +44,6 @@ CAMLprim value reset_buffer(value buffer) {
 }
 
 CAMLprim value write_to_buffer(value buffer, value bitmap_buffer, value window_width, value window_height) {
-  CAMLparam4(buffer, bitmap_buffer, window_width, window_height);
 
   struct Buffer* bitmap_buf = *(struct Buffer**)Data_abstract_val(bitmap_buffer);
 
@@ -52,5 +51,5 @@ CAMLprim value write_to_buffer(value buffer, value bitmap_buffer, value window_w
 
   push_to_buffer(b, *bitmap_buf, Int_val(window_width), Int_val(window_height));
 
-  CAMLreturn(Val_unit);
+  return Val_unit;
 }

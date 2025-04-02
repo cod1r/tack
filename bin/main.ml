@@ -6,13 +6,13 @@ open Limitless.Render
 open Limitless.Opengl
 
 let rec loop editor_info =
-  Render.draw editor_info.Editor.rope;
   let evt = Sdl.sdl_pollevent () in
   let new_editor, continue =
     match evt with
     | Some (KeyboardEvt { keysym; timestamp; _ }) -> (
         Printf.printf "KBD: %d, %d" (Char.code keysym) timestamp;
         print_newline ();
+        Render.draw editor_info.Editor.rope;
         let char_code = Char.code keysym in
         match editor_info.Editor.rope with
         | Some r ->

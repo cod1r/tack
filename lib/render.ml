@@ -7,7 +7,7 @@ module Render = struct
 
   external write_to_buffer :
     Opengl.buffer -> Opengl.buffer -> int -> int -> unit
-    = "write_to_buffer" "write_to_buffer"
+    = "write_to_buffer" "write_to_buffer" [@@noalloc]
 
   let bitmaps_with_char =
     Array.init
