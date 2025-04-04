@@ -12,3 +12,10 @@ think about text cursors
 gotta rewrite some of the stub code that errors with caml_failwith to use result types so that it's clear in the ocaml code that
 an error can occur and the error needs to be handled. using functions that only do side effects and dont tell the caller anything is
 messy.
+
+maybe use doxygen and ocamldoc for documentation generation.
+
+UI could potentially be simplified to an interface where everything is a "Box" and that box just resizes with it's parent container
+and contains text
+
+vim motions?

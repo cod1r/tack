@@ -12,7 +12,6 @@ let rec loop editor_info =
     | Some (KeyboardEvt { keysym; timestamp; _ }) -> (
         Printf.printf "KBD: %d, %d" (Char.code keysym) timestamp;
         print_newline ();
-        Render.draw editor_info.Editor.rope;
         let char_code = Char.code keysym in
         match editor_info.Editor.rope with
         | Some r ->
@@ -46,23 +45,20 @@ let rec loop editor_info =
         Printf.printf "Mousemotion %d %d %d" x y timestamp;
         print_newline ();
         (editor_info, true)
-    | Some (TextInputEvt { text; _ }) -> (
-        match editor_info.Editor.rope with
-        | Some r ->
-            ( {
-                Editor.rope = Some (concat r (Leaf text));
-                cursor_pos = editor_info.cursor_pos;
-              },
-              true )
-        | None ->
-            ( {
-                Editor.rope = Some (Leaf text);
-                cursor_pos = editor_info.cursor_pos;
-              },
-              true ))
+    | Some (TextInputEvt { text; _ }) ->
+        let new_rope =
+          match editor_info.Editor.rope with
+          | Some r -> Some (concat r (Leaf text))
+          | None -> Some (Leaf text)
+        in
+        Render.draw new_rope;
+        ({ Editor.rope = new_rope; cursor_pos = editor_info.cursor_pos }, true)
     | Some Quit -> (editor_info, false)
     | None -> (editor_info, true)
   in
   if continue then loop new_editor else ()
+;;
+
+Render.draw None
 
 let _ = loop { rope = None; cursor_pos = (0, 0) }

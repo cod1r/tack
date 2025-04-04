@@ -12,7 +12,7 @@
 
 CAMLprim value get_ascii_char_glyph(value face, value ascii) {
   CAMLparam2(face, ascii);
-  CAMLlocal1(buffer);
+  CAMLlocal1(glyph_info);
   CAMLlocal1(tuple);
 
   int ascii_value = Int_val(ascii);
@@ -26,7 +26,7 @@ CAMLprim value get_ascii_char_glyph(value face, value ascii) {
     caml_failwith("ascii FT_Load_Glyph failed");
   }
 
-  buffer = caml_alloc(1, Abstract_tag);
+  glyph_info = caml_alloc(1, Abstract_tag);
   tuple = caml_alloc(2, 0);
 
   FT_Bitmap bitmap = (*face_c)->glyph->bitmap;
@@ -47,11 +47,21 @@ CAMLprim value get_ascii_char_glyph(value face, value ascii) {
     }
   }
 
-  *(struct Buffer**)Data_abstract_val(buffer) = malloc(sizeof(struct Buffer));
-  **(struct Buffer**)Data_abstract_val(buffer) = buf;
+  // shifting right by 6 because freetype uses 26.6 fixed floating point numbers
+  struct GlyphInfo glyph_info_struct = {
+    .horiBearingX = (*face_c)->glyph->metrics.horiBearingX >> 6,
+    .horiBearingY = (*face_c)->glyph->metrics.horiBearingY >> 6,
+    .x_advance = (*face_c)->glyph->advance.x >> 6,
+    .y_advance = (*face_c)->glyph->advance.y >> 6
+  };
+
+  memcpy(&glyph_info_struct.buffer, &buf, sizeof(struct Buffer));
+
+  *(struct Buffer**)Data_abstract_val(glyph_info) = malloc(sizeof(struct GlyphInfo));
+  memcpy(*(struct Buffer**)Data_abstract_val(glyph_info), &glyph_info_struct, sizeof(struct GlyphInfo));
 
   Store_field(tuple, 0, ascii);
-  Store_field(tuple, 1, buffer);
+  Store_field(tuple, 1, glyph_info);
 
   CAMLreturn(tuple);
 }
@@ -61,14 +71,6 @@ CAMLprim value freetype_set_pixel_sizes(value face, value size) {
   FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
   int result = FT_Set_Pixel_Sizes(*face_c, 0, Val_int(size));
   if (result) caml_failwith("FT_Set_Pixel_Sizes failed");
-  CAMLreturn(Val_unit);
-}
-
-CAMLprim value freetype_set_char_size(value face, value unit) {
-  CAMLparam2(face, unit);
-  FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
-  int result = FT_Set_Char_Size(*face_c, 0, 1*72, 800, 800);
-  if (result) caml_failwith("FT_Set_Char_Size failed");
   CAMLreturn(Val_unit);
 }
 
@@ -98,8 +100,9 @@ CAMLprim value freetype_init(value path_to_font) {
 
   *((FT_Face**)Data_abstract_val(abstract_face)) = malloc(sizeof(FT_Face));
   *((FT_Library**)Data_abstract_val(abstract_library)) = malloc(sizeof(FT_Library));
-  **((FT_Face**)Data_abstract_val(abstract_face)) = face;
-  **((FT_Library**)Data_abstract_val(abstract_library)) = library;
+
+  memcpy(*((FT_Face**)Data_abstract_val(abstract_face)), &face, sizeof(FT_Face));
+  memcpy(*((FT_Library**)Data_abstract_val(abstract_library)), &library, sizeof(FT_Library));
 
   tuple = caml_alloc(2, 0);
   Store_field(tuple, 0, abstract_face);

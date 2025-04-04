@@ -6,8 +6,9 @@ module Render = struct
   external init_buffer : unit -> Opengl.buffer = "init_buffer" "init_buffer"
 
   external write_to_buffer :
-    Opengl.buffer -> Opengl.buffer -> int -> int -> unit
-    = "write_to_buffer" "write_to_buffer" [@@noalloc]
+    Opengl.buffer -> FreeType.glyph_info -> int -> int -> unit
+    = "write_to_buffer" "write_to_buffer"
+  [@@noalloc]
 
   let bitmaps_with_char =
     Array.init
@@ -70,10 +71,16 @@ module Render = struct
     | Rope.Leaf l ->
         String.iter
           (fun c ->
-               let bitmap_found = Array.find_opt (fun (c', _) -> c' = c) bitmaps_with_char in
-               match bitmap_found with
-               | Some((_, bm)) -> write_to_buffer buffer bm window_width window_height
-               | None -> Printf.printf "not found"; print_char c; print_newline ())
+            let bitmap_found =
+              Array.find_opt (fun (c', _) -> c' = c) bitmaps_with_char
+            in
+            match bitmap_found with
+            | Some (_, bm) ->
+                write_to_buffer buffer bm window_width window_height
+            | None ->
+                Printf.printf "not found";
+                print_char c;
+                print_newline ())
           l
     | Rope.Node { left; right; length } ->
         draw_rope' buffer left offset;

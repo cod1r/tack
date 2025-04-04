@@ -10,16 +10,17 @@ CAMLprim value init_buffer(value unit) {
   CAMLparam1(unit);
   CAMLlocal1(buffer);
   buffer = caml_alloc(1, Abstract_tag);
-  size_t c = 10000000000;
+  size_t c = 10000000; // 10MB roughly; this needs to be high enough so that no re-allocations are necessary
   float* contents = malloc(sizeof(float) * c);
   struct Buffer b = { .contents = contents, .size = 0, .capacity = c };
   *((struct Buffer**)Data_abstract_val(buffer)) = malloc(sizeof(struct Buffer));
-  **((struct Buffer**)Data_abstract_val(buffer)) = b;
+  memcpy(*((struct Buffer**)Data_abstract_val(buffer)), &b, sizeof(struct Buffer));
   CAMLreturn(buffer);
 }
 
-void push_to_buffer(struct Buffer* b, struct Buffer bitmap_buf, int window_width, int window_height) {
+void push_to_buffer(struct Buffer* b, const struct Buffer bitmap_buf, int window_width, int window_height) {
   for (int buffer_idx = b->size; buffer_idx < b->size + bitmap_buf.size; buffer_idx += 3) {
+    if (buffer_idx > b->capacity) caml_failwith("BUFFER TOO SMALL");
 
     int first = buffer_idx;
     int second = buffer_idx + 1;
@@ -36,6 +37,10 @@ void push_to_buffer(struct Buffer* b, struct Buffer bitmap_buf, int window_width
   b->size += bitmap_buf.size;
 }
 
+/*
+reset_buffer needs be called on the screen buffer when the screen needs to be redrawn
+or else the buffer_idx (the starting index for where push_to_buffer starts) will overflow
+*/
 CAMLprim value reset_buffer(value buffer) {
   CAMLparam1(buffer);
   struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
@@ -44,6 +49,7 @@ CAMLprim value reset_buffer(value buffer) {
 }
 
 CAMLprim value write_to_buffer(value buffer, value bitmap_buffer, value window_width, value window_height) {
+  CAMLparam4(buffer, bitmap_buffer, window_width, window_height);
 
   struct Buffer* bitmap_buf = *(struct Buffer**)Data_abstract_val(bitmap_buffer);
 
@@ -51,5 +57,5 @@ CAMLprim value write_to_buffer(value buffer, value bitmap_buffer, value window_w
 
   push_to_buffer(b, *bitmap_buf, Int_val(window_width), Int_val(window_height));
 
-  return Val_unit;
+  CAMLreturn(Val_unit);
 }
