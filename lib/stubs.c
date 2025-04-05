@@ -18,8 +18,14 @@ CAMLprim value init_buffer(value unit) {
   CAMLreturn(buffer);
 }
 
-void push_to_buffer(struct Buffer* b, const struct Buffer bitmap_buf, int window_width, int window_height) {
-  for (int buffer_idx = b->size; buffer_idx < b->size + bitmap_buf.size; buffer_idx += 3) {
+void push_to_buffer(struct Buffer* b, const struct GlyphInfo glyph_info, int window_width, int window_height, int x_offset) {
+
+  float horiBearingX = glyph_info.horiBearingX / (float)window_width;
+  float horiBearingY = glyph_info.horiBearingY / (float)window_height;
+  float x_advance = glyph_info.x_advance / (float)window_width;
+  float y_advance = glyph_info.y_advance / (float)window_height;
+
+  for (int buffer_idx = b->size; buffer_idx < b->size + glyph_info.buffer.size; buffer_idx += 3) {
     if (buffer_idx > b->capacity) caml_failwith("BUFFER TOO SMALL");
 
     int first = buffer_idx;
@@ -27,14 +33,14 @@ void push_to_buffer(struct Buffer* b, const struct Buffer bitmap_buf, int window
     int third = buffer_idx + 2;
 
     // dividing by three because of FT_LOAD_TARGET_LCD
-    float altered_x = bitmap_buf.contents[first - b->size] / 3 / window_width;
-    float altered_y = -bitmap_buf.contents[second - b->size] / window_height;
+    float altered_x = glyph_info.buffer.contents[first - b->size] / 3 / window_width;
+    float altered_y = -glyph_info.buffer.contents[second - b->size] / window_height;
 
     b->contents[first] = altered_x;
     b->contents[second] = altered_y;
-    b->contents[third] = bitmap_buf.contents[third - b->size] / 255.;
+    b->contents[third] = glyph_info.buffer.contents[third - b->size] / 255.;
   }
-  b->size += bitmap_buf.size;
+  b->size += glyph_info.buffer.size;
 }
 
 /*
@@ -47,15 +53,21 @@ CAMLprim value reset_buffer(value buffer) {
   b->size = 0;
   CAMLreturn(Val_unit);
 }
+/*
+previous_offset here is the summed x_advance of the glyphs up until this call.
+Currently I don't know if there is a use for the vertical offsets or y_advances.
+The x_advance sum is used to offset the new glyph correctly and draw on a new line if necessary.
+*/
+CAMLprim value write_to_buffer(value buffer, value glyph_info, value window_width, value window_height, value previous_offset) {
+  CAMLparam5(buffer, glyph_info, window_width, window_height, previous_offset);
 
-CAMLprim value write_to_buffer(value buffer, value bitmap_buffer, value window_width, value window_height) {
-  CAMLparam4(buffer, bitmap_buffer, window_width, window_height);
+  int x_offset = Int_val(previous_offset);
 
-  struct Buffer* bitmap_buf = *(struct Buffer**)Data_abstract_val(bitmap_buffer);
+  struct GlyphInfo* glyph_info_struct = *(struct GlyphInfo**)Data_abstract_val(glyph_info);
 
   struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
 
-  push_to_buffer(b, *bitmap_buf, Int_val(window_width), Int_val(window_height));
+  push_to_buffer(b, *glyph_info_struct, Int_val(window_width), Int_val(window_height), x_offset);
 
   CAMLreturn(Val_unit);
 }

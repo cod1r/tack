@@ -6,6 +6,11 @@ module FreeType = struct
   type ft_bitmap
   type glyph_info
 
+  external get_x_advance : glyph_info -> int = "get_x_advance" "get_x_advance"
+
+  external get_horiBearingX : glyph_info -> int
+    = "get_horiBearingX" "get_horiBearingX"
+
   external get_ascii_char_glyph : ft_face -> int -> char * glyph_info
     = "get_ascii_char_glyph" "get_ascii_char_glyph"
 

@@ -19,3 +19,9 @@ UI could potentially be simplified to an interface where everything is a "Box" a
 and contains text
 
 vim motions?
+
+basic features:
+  basic text manipulation like highlighting, deleting, copy/paste
+  multi cursors
+  LSP
+  text search

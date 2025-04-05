@@ -1,16 +1,16 @@
 open Freetype
 open Sdl
 open Opengl
+open Editor
 
 module Render = struct
   external init_buffer : unit -> Opengl.buffer = "init_buffer" "init_buffer"
 
   external write_to_buffer :
-    Opengl.buffer -> FreeType.glyph_info -> int -> int -> unit
+    Opengl.buffer -> FreeType.glyph_info -> int -> int -> int -> unit
     = "write_to_buffer" "write_to_buffer"
-  [@@noalloc]
 
-  let bitmaps_with_char =
+  let glyph_info_with_char =
     Array.init
       (126 - 32 + 1)
       (fun i -> FreeType.get_ascii_char_glyph FreeType.face (i + 32))
@@ -69,24 +69,31 @@ module Render = struct
     let window_width, window_height = Sdl.sdl_gl_getdrawablesize () in
     match rope with
     | Rope.Leaf l ->
-        String.iter
-          (fun c ->
-            let bitmap_found =
-              Array.find_opt (fun (c', _) -> c' = c) bitmaps_with_char
+        String.fold_right
+          (fun c acc ->
+            let glyph_info_found =
+              Array.find_opt (fun (c', _) -> c' = c) glyph_info_with_char
             in
-            match bitmap_found with
-            | Some (_, bm) ->
-                write_to_buffer buffer bm window_width window_height
+            match glyph_info_found with
+            | Some (_, gi) ->
+                let x_advance = FreeType.get_x_advance gi in
+                write_to_buffer buffer gi window_width window_height
+                  (offset + x_advance);
+                acc + x_advance
             | None ->
                 Printf.printf "not found";
                 print_char c;
-                print_newline ())
-          l
-    | Rope.Node { left; right; length } ->
-        draw_rope' buffer left offset;
-        draw_rope' buffer right length
+                print_newline ();
+                acc)
+          l offset
+    | Rope.Node { left; right; _ } ->
+        let left_offset = draw_rope' buffer left offset in
+        draw_rope' buffer right left_offset
 
-  let draw_rope (buffer : buffer) rope = draw_rope' buffer rope 0
+  let draw_rope (buffer : buffer) rope =
+    let _ = draw_rope' buffer rope 0 in
+    ()
+
   let gl_buffer_obj = gl_gen_one_buffer ()
 
   let location =

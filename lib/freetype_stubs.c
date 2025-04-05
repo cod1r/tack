@@ -10,6 +10,17 @@
 #include <string.h>
 #include "stubs.h"
 
+CAMLprim value get_horiBearingX(value glyph_info) {
+  CAMLparam1(glyph_info);
+  struct GlyphInfo* glyph_info_c = *(struct GlyphInfo**)Data_abstract_val(glyph_info);
+  CAMLreturn(Val_int(glyph_info_c->horiBearingX));
+}
+CAMLprim value get_x_advance(value glyph_info) {
+  CAMLparam1(glyph_info);
+  struct GlyphInfo* glyph_info_c = *(struct GlyphInfo**)Data_abstract_val(glyph_info);
+  CAMLreturn(Val_int(glyph_info_c->x_advance));
+}
+
 CAMLprim value get_ascii_char_glyph(value face, value ascii) {
   CAMLparam2(face, ascii);
   CAMLlocal1(glyph_info);
