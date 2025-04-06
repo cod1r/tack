@@ -10,6 +10,12 @@
 #include <string.h>
 #include "stubs.h"
 
+CAMLprim value get_y_ppem(value face) {
+  CAMLparam1(face);
+  FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
+  CAMLreturn(Int_val((*face_c)->size->metrics.y_ppem));
+}
+
 CAMLprim value get_horiBearingX(value glyph_info) {
   CAMLparam1(glyph_info);
   struct GlyphInfo* glyph_info_c = *(struct GlyphInfo**)Data_abstract_val(glyph_info);

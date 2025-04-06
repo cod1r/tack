@@ -7,7 +7,7 @@ module Render = struct
   external init_buffer : unit -> Opengl.buffer = "init_buffer" "init_buffer"
 
   external write_to_buffer :
-    Opengl.buffer -> FreeType.glyph_info -> int -> int -> int -> unit
+    Opengl.buffer -> FreeType.glyph_info -> int -> int -> int -> int -> unit
     = "write_to_buffer" "write_to_buffer"
 
   let glyph_info_with_char =
@@ -76,9 +76,9 @@ module Render = struct
             in
             match glyph_info_found with
             | Some (_, gi) ->
-                let x_advance = FreeType.get_x_advance gi in
-                write_to_buffer buffer gi window_width window_height
-                  (offset + x_advance);
+                let x_advance = FreeType.get_x_advance gi
+                and y_ppem = FreeType.get_y_ppem FreeType.face in
+                write_to_buffer buffer gi window_width window_height acc y_ppem;
                 acc + x_advance
             | None ->
                 Printf.printf "not found";
@@ -121,6 +121,6 @@ module Render = struct
     gl_use_program program;
     gl_bind_buffer gl_buffer_obj;
     gl_vertex_attrib_pointer_float_type location 3 false;
-    gl_draw_arrays 20_000;
+    gl_draw_arrays 200_000;
     match Sdl.sdl_gl_swapwindow Sdl.w with Ok () -> () | Error e -> failwith e
 end
