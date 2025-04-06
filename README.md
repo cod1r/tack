@@ -1,4 +1,4 @@
-# limitless - text editor written in ocaml bc fuck it
+# tack - text editor written in ocaml bc fuck it
 
 todo:
 

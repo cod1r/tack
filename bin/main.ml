@@ -1,9 +1,9 @@
-open Limitless.Sdl
-open Limitless.Freetype
-open Limitless.Editor
-open Limitless.Rope
-open Limitless.Render
-open Limitless.Opengl
+open Tack.Sdl
+open Tack.Freetype
+open Tack.Editor
+open Tack.Rope
+open Tack.Render
+open Tack.Opengl
 
 let rec loop editor_info =
   let evt = Sdl.sdl_pollevent () in

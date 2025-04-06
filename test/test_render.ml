@@ -1,12 +1,12 @@
 open OUnit2
-open Limitless.Freetype
-open Limitless.Sdl
-open Limitless.Render
+open Tack.Freetype
+open Tack.Sdl
+open Tack.Render
 
 let timing_test_opengl_works _ =
   let w =
     match
-      Sdl.sdl_create_window "limitless" 0 0 800 800 Sdl.sdl_window_opengl
+      Sdl.sdl_create_window "tack" 0 0 800 800 Sdl.sdl_window_opengl
     with
     | Some (Window { width; height; title; _ } as w) ->
         Printf.printf "Created window: %s %d %d" title width height;
@@ -22,14 +22,14 @@ let timing_test_opengl_works _ =
   in
   let _ = Sdl.sdl_pollevent () in
   for _ = 0 to 100_000 do
-    Limitless.Opengl.gl_clear_color 1. 0. 0. 1.;
-    Limitless.Opengl.gl_clear ();
+    Tack.Opengl.gl_clear_color 1. 0. 0. 1.;
+    Tack.Opengl.gl_clear ();
     (match Sdl.sdl_gl_swapwindow w with Ok () -> () | Error e -> failwith e);
-    Limitless.Opengl.gl_clear_color 0. 1. 0. 1.;
-    Limitless.Opengl.gl_clear ();
+    Tack.Opengl.gl_clear_color 0. 1. 0. 1.;
+    Tack.Opengl.gl_clear ();
     (match Sdl.sdl_gl_swapwindow w with Ok () -> () | Error e -> failwith e);
-    Limitless.Opengl.gl_clear_color 0. 0. 1. 1.;
-    Limitless.Opengl.gl_clear ();
+    Tack.Opengl.gl_clear_color 0. 0. 1. 1.;
+    Tack.Opengl.gl_clear ();
     match Sdl.sdl_gl_swapwindow w with Ok () -> () | Error e -> failwith e
   done
 
@@ -40,7 +40,7 @@ let timing_test_drawing_rope _ =
     List.fold_left
       (fun acc gj ->
         match acc with
-        | Some a -> Some (Limitless.Rope.concat a (Leaf gj))
+        | Some a -> Some (Tack.Rope.concat a (Leaf gj))
         | None -> Some (Leaf gj))
       None all_j
     |> Option.get
@@ -59,7 +59,7 @@ let timing_test_drawing_rope _ =
     (end' < 0.5)
 
 let gl_gen_one_buffer_test _ =
-  let buffer = Limitless.Opengl.gl_gen_one_buffer () in
+  let buffer = Tack.Opengl.gl_gen_one_buffer () in
   assert_bool "buffer should not equal 0 or be less than 0" (buffer != 0)
 
 let timing_test_writing_bigarray _ =

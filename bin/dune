@@ -1,7 +1,7 @@
 (executable
- (public_name limitless)
+ (public_name tack)
  (name main)
- (libraries limitless)
+ (libraries tack)
  (modes exe))
 
 (env

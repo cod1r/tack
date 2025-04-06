@@ -1,14 +1,14 @@
 (test
- (name test_limitless)
- (libraries limitless ounit2))
+ (name test_tack)
+ (libraries tack ounit2))
 
 (test
  (name test_rope)
- (libraries limitless ounit2))
+ (libraries tack ounit2))
 
 (test
  (name test_render)
- (libraries limitless ounit2))
+ (libraries tack ounit2))
 
 (env
  (dev

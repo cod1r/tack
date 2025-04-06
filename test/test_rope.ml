@@ -1,21 +1,21 @@
 open OUnit2
-open Limitless.Freetype
+open Tack.Freetype
 
 let concat_test _ =
-  let r1 = Limitless.Rope.of_string "Hello " in
-  let r2 = Limitless.Rope.of_string "World!" in
-  let r3 = Limitless.Rope.concat r1 r2 in
-  assert_equal (Limitless.Rope.to_string r3) "Hello World!"
+  let r1 = Tack.Rope.of_string "Hello " in
+  let r2 = Tack.Rope.of_string "World!" in
+  let r3 = Tack.Rope.concat r1 r2 in
+  assert_equal (Tack.Rope.to_string r3) "Hello World!"
 
 let delete_test _ =
-  let r1 = Limitless.Rope.of_string "Hello " in
-  let r2 = Limitless.Rope.delete r1 4 1 in
-  let s = Limitless.Rope.to_string r2 in
+  let r1 = Tack.Rope.of_string "Hello " in
+  let r2 = Tack.Rope.delete r1 4 1 in
+  let s = Tack.Rope.to_string r2 in
   assert_equal s "Hell "
 
 let length_test _ =
-  let r1 = Limitless.Rope.of_string "Hello " in
-  let len = Limitless.Rope.length r1 in
+  let r1 = Tack.Rope.of_string "Hello " in
+  let len = Tack.Rope.length r1 in
   assert_equal len 6
 
 let timing_test_concatenation _ =
@@ -26,7 +26,7 @@ let timing_test_concatenation _ =
     List.fold_left
       (fun acc gj ->
         match acc with
-        | Some a -> Some (Limitless.Rope.concat a (Leaf gj))
+        | Some a -> Some (Tack.Rope.concat a (Leaf gj))
         | None -> Some (Leaf "j"))
       None all_j
     |> Option.get
@@ -34,7 +34,7 @@ let timing_test_concatenation _ =
   ();
   let end' = Unix.gettimeofday () -. start in
   Printf.printf "timing_test took: %f. Rope length: %d\n" end'
-    (Limitless.Rope.length rope);
+    (Tack.Rope.length rope);
   assert_bool
     ("time it takes to append " ^ Int.to_string j_amt ^ " ropes/leaves")
     (end' < 0.6)
@@ -47,7 +47,7 @@ let timing_test_traverse_rope _ =
     List.fold_left
       (fun acc gj ->
         match acc with
-        | Some a -> Some (Limitless.Rope.concat a (Leaf gj))
+        | Some a -> Some (Tack.Rope.concat a (Leaf gj))
         | None -> Some (Leaf gj))
       None all_j
     |> Option.get
@@ -55,7 +55,7 @@ let timing_test_traverse_rope _ =
   ();
   let rec traverse_rope r =
     match r with
-    | Limitless.Rope.Leaf _ -> ()
+    | Tack.Rope.Leaf _ -> ()
     | Node { left; right; _ } ->
         traverse_rope left;
         traverse_rope right

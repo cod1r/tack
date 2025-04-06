@@ -1,11 +1,11 @@
 (lang dune 3.17)
 
-(name limitless)
+(name tack)
 
 (generate_opam_files true)
 
 (source
- (github cod1r/limitless))
+ (github cod1r/tack))
 
 (authors "Jason Ho jasonho353@gmail.com")
 
@@ -16,7 +16,7 @@
 (documentation https://url/to/documentation)
 
 (package
- (name limitless)
+ (name tack)
  (synopsis "a GUI text editor written in OCaml")
  (description "a GUI text editor written in OCaml")
  (depends ocaml ounit2)

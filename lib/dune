@@ -1,5 +1,5 @@
 (library
- (name limitless)
+ (name tack)
  (foreign_stubs
   (language c)
   (names stubs sdl_stubs opengl_stubs freetype_stubs)

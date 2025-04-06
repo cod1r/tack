@@ -140,7 +140,7 @@ module Sdl = struct
     (match init_sdl () with Ok () -> () | Error e -> failwith e);
     let w =
       match
-        sdl_create_window "limitless" 0 0 800 800
+        sdl_create_window "tack" 0 0 800 800
           (sdl_window_allow_highdpi lor sdl_window_opengl)
       with
       | Some (Window { width; height; title; _ } as w) ->
