@@ -10,10 +10,14 @@
 #include <string.h>
 #include "stubs.h"
 
-CAMLprim value get_y_ppem(value face) {
+CAMLprim value get_font_height(value face) {
   CAMLparam1(face);
   FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
-  CAMLreturn(Int_val((*face_c)->size->metrics.y_ppem));
+
+  // using FT_Size_Metrics.height because it is expressed in fractional units as
+  // opposed to font units so there isn't any conversion necessary besides just taking away
+  // the fractional parts (>> 6).
+  CAMLreturn(Val_int((*face_c)->size->metrics.height >> 6));
 }
 
 CAMLprim value get_horiBearingX(value glyph_info) {

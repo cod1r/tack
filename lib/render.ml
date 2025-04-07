@@ -4,6 +4,9 @@ open Opengl
 open Editor
 
 module Render = struct
+  external get_buffer_size : Opengl.buffer -> int
+    = "get_buffer_size" "get_buffer_size"
+
   external init_buffer : unit -> Opengl.buffer = "init_buffer" "init_buffer"
 
   external write_to_buffer :
@@ -77,8 +80,9 @@ module Render = struct
             match glyph_info_found with
             | Some (_, gi) ->
                 let x_advance = FreeType.get_x_advance gi
-                and y_ppem = FreeType.get_y_ppem FreeType.face in
-                write_to_buffer buffer gi window_width window_height acc y_ppem;
+                and font_height = FreeType.get_font_height FreeType.face in
+                write_to_buffer buffer gi window_width window_height acc
+                  font_height;
                 acc + x_advance
             | None ->
                 Printf.printf "not found";
@@ -113,14 +117,18 @@ module Render = struct
     (match rope with
     | Some r ->
         draw_rope b r;
-        gl_buffer_subdata b;
-        reset_buffer b
+        gl_buffer_subdata b
     | None -> ());
     gl_clear_color 1. 1. 1. 1.;
     gl_clear ();
     gl_use_program program;
     gl_bind_buffer gl_buffer_obj;
     gl_vertex_attrib_pointer_float_type location 3 false;
-    gl_draw_arrays 200_000;
+    let buffer_size = get_buffer_size b in
+    (* dividing by three here because each point has 3 components (x,y, alpha) *)
+    gl_draw_arrays (buffer_size / 3);
+    Printf.printf "%d" buffer_size;
+    print_newline ();
+    reset_buffer b;
     match Sdl.sdl_gl_swapwindow Sdl.w with Ok () -> () | Error e -> failwith e
 end
