@@ -90,7 +90,7 @@ CAMLprim value get_ascii_char_glyph(value face, value ascii) {
 CAMLprim value freetype_set_pixel_sizes(value face, value size) {
   CAMLparam2(face, size);
   FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
-  int result = FT_Set_Pixel_Sizes(*face_c, 0, Val_int(size));
+  int result = FT_Set_Pixel_Sizes(*face_c, 0, Int_val(size));
   if (result) caml_failwith("FT_Set_Pixel_Sizes failed");
   CAMLreturn(Val_unit);
 }
