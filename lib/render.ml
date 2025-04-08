@@ -127,8 +127,6 @@ module Render = struct
     let buffer_size = get_buffer_size b in
     (* dividing by three here because each point has 3 components (x,y, alpha) *)
     gl_draw_arrays (buffer_size / 3);
-    Printf.printf "%d" buffer_size;
-    print_newline ();
     reset_buffer b;
     match Sdl.sdl_gl_swapwindow Sdl.w with Ok () -> () | Error e -> failwith e
 end

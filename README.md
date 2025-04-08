@@ -25,3 +25,6 @@ basic features:
   multi cursors
   LSP
   text search
+
+current questions:
+  how to set proper point size if DPI isnt easily accessible?

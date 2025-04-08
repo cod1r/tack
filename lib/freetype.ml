@@ -20,9 +20,12 @@ module FreeType = struct
   external freetype_init : string -> ft_face * ft_library
     = "freetype_init" "freetype_init"
 
+  external freetype_set_char_size : ft_face -> int -> unit
+    = "freetype_set_char_size" "freetype_set_char_size"
+
   external freetype_set_pixel_sizes : ft_face -> int -> unit
     = "freetype_set_pixel_sizes" "freetype_set_pixel_sizes"
 
   let face, library = freetype_init "/System/Library/Fonts/Menlo.ttc"
-  let () = freetype_set_pixel_sizes face 13
+  let () = freetype_set_pixel_sizes face 45
 end
