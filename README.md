@@ -31,3 +31,5 @@ current questions:
 current problems:
   memory usage is too high
   text wrapping is dogshit
+    - write_to_buffer might have to return the x_offset value due to adjustments when wrapping
+      so that wrapped lines that occur after are consistent. (The adjusted values aren't kept so glyphs that are positioned after the wrapped line, behave as thought they didn't occur after a adjusted value).
