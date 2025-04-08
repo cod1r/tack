@@ -12,6 +12,7 @@ module Render = struct
   external write_to_buffer :
     Opengl.buffer -> FreeType.glyph_info -> int -> int -> int -> int -> unit
     = "write_to_buffer" "write_to_buffer"
+  [@@noalloc]
 
   let glyph_info_with_char =
     Array.init

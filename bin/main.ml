@@ -28,11 +28,10 @@ let rec loop editor_info =
         (MouseButtonEvt
            { mouse_evt_type; timestamp; x; y; windowID; button; clicks }) ->
         (match mouse_evt_type with
-        | Mousedown -> (
+        | Mousedown ->
             Printf.printf "Mousedown %d, %d, %d, %d, %d, %d" x y windowID button
               clicks timestamp;
-            print_newline ();
-            match editor_info.rope with Some r -> () | None -> ())
+            print_newline ()
         | Mouseup ->
             Printf.printf "Mouseup";
             print_newline ());
@@ -42,8 +41,8 @@ let rec loop editor_info =
         | WindowClose -> (editor_info, false)
         | WindowResize -> (editor_info, true))
     | Some (MouseMotionEvt { x; y; timestamp; _ }) ->
-        Printf.printf "Mousemotion %d %d %d" x y timestamp;
-        print_newline ();
+        (* Printf.printf "Mousemotion %d %d %d" x y timestamp;
+        print_newline (); *)
         (editor_info, true)
     | Some (TextInputEvt { text; _ }) ->
         let new_rope =

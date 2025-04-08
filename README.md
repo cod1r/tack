@@ -28,3 +28,6 @@ basic features:
 
 current questions:
   how to set proper point size if DPI isnt easily accessible?
+current problems:
+  memory usage is too high
+  text wrapping is dogshit

@@ -69,9 +69,6 @@ module Sdl = struct
   type point = Point of int * int
   type pointf = PointF of float * float
 
-  external custom_render : window -> (int * float * float) list -> unit
-    = "custom_render" "custom_render"
-
   external sdl_gl_swapwindow : window -> (unit, string) result
     = "sdl_gl_swapwindow" "sdl_gl_swapwindow"
 

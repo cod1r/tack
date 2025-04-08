@@ -80,23 +80,6 @@ SDL_Renderer* get_renderer_from_window(value window) {
   return renderer;
 }
 
-CAMLprim value custom_render(value window, value lst) {
-  CAMLparam2(window, lst);
-  CAMLlocal1(tail);
-  CAMLlocal1(tuple);
-  SDL_Renderer* renderer = get_renderer_from_window(window);
-  tail = lst;
-  while (tail != Val_emptylist) {
-    tuple = Field(tail, 0);
-    int res = SDL_SetRenderDrawColor(renderer, 0, 0, 0, Int_val(Field(tuple, 0)));
-    if (res < 0) caml_failwith(SDL_GetError());
-    res = SDL_RenderDrawPointF(renderer, Double_val(Field(tuple, 1)), Double_val(Field(tuple, 2)));
-    if (res < 0) caml_failwith(SDL_GetError());
-    tail = Field(tail, 1);
-  }
-  CAMLreturn(Val_unit);
-}
-
 CAMLprim value sdl_gl_getdrawablesize(value unit) {
   CAMLparam1(unit);
   CAMLlocal1(tuple);

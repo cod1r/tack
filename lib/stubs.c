@@ -26,20 +26,8 @@ CAMLprim value init_buffer(value unit) {
 
 void push_to_buffer(struct Buffer* b, const struct GlyphInfo glyph_info, int window_width, int window_height, int x_offset, int font_height) {
 
-  float horiBearingX = glyph_info.horiBearingX / (float)window_width;
-  float horiBearingY = glyph_info.horiBearingY / (float)window_height;
-
-  // wrapping logic
-  int next_advance = x_offset + glyph_info.x_advance;
-  int diff_to_next_window_width_multiple = window_width - x_offset % window_width;
-  int next_window_width_multiple = x_offset + diff_to_next_window_width_multiple;
-  // printf("%d %d\n", next_advance, next_window_width_multiple);
-  float x_offset_adjusted = next_advance > next_window_width_multiple ? (
-    0
-  ) : (x_offset % (next_window_width_multiple - window_width)) / (float)window_width;
-
   int row = (x_offset + glyph_info.x_advance) / window_width + 1;
-  float font_height_norm = font_height / (float)window_height;
+  float font_height_norm = font_height / ((float)window_height / 2);
   float y_offset = row * font_height_norm;
 
   for (int buffer_idx = b->size; buffer_idx < b->size + glyph_info.buffer.size; buffer_idx += 3) {
@@ -50,8 +38,20 @@ void push_to_buffer(struct Buffer* b, const struct GlyphInfo glyph_info, int win
     int third = buffer_idx + 2;
 
     // dividing by three because of FT_LOAD_TARGET_LCD
-    float altered_x = glyph_info.buffer.contents[first - b->size] / 3 / window_width - 1.0 + x_offset_adjusted + horiBearingX;
-    float altered_y = -glyph_info.buffer.contents[second - b->size] / window_height + 1.0 - y_offset + horiBearingY;
+    // and adding in necessary offsets
+    float altered_x = (glyph_info.buffer.contents[first - b->size] / 3 + x_offset + glyph_info.horiBearingX);
+    // 0 to 1 horizontally is half of the width of the screen due to 0 being in the center so I
+    // scale by half the width of the screen so that full text width will go from 0 to 2.
+    // Then subtract by 1 to offset x to position things to the furthest left position.
+    altered_x /= (window_width / 2);
+    altered_x -= 1.0;
+
+    // negating (y float value plus row * font_height) because y float value is positive for going down and so is row * font_height
+    // and our gl viewport is positive for going up.
+    float altered_y = -(glyph_info.buffer.contents[second - b->size] + row * font_height) + glyph_info.horiBearingY;
+    // scaling for the same reasons that altered_x is scaled.
+    altered_y /= (window_height / 2);
+    altered_y += 1.0;
 
     b->contents[first] = altered_x;
     b->contents[second] = altered_y;
