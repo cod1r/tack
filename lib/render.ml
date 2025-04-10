@@ -10,7 +10,7 @@ module Render = struct
   external init_buffer : unit -> Opengl.buffer = "init_buffer" "init_buffer"
 
   external write_to_buffer :
-    Opengl.buffer -> FreeType.glyph_info -> int -> int -> int -> int -> unit
+    Opengl.buffer -> FreeType.glyph_info -> int -> int -> int -> int -> int
     = "write_to_buffer" "write_to_buffer"
   [@@noalloc]
 
@@ -82,9 +82,9 @@ module Render = struct
             | Some (_, gi) ->
                 let x_advance = FreeType.get_x_advance gi
                 and font_height = FreeType.get_font_height FreeType.face in
-                write_to_buffer buffer gi window_width window_height acc
-                  font_height;
-                acc + x_advance
+                let processed_acc_x_offset = write_to_buffer buffer gi window_width window_height acc
+                  font_height in
+                processed_acc_x_offset + x_advance
             | None ->
                 Printf.printf "not found";
                 print_char c;
