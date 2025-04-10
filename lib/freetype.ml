@@ -27,5 +27,5 @@ module FreeType = struct
     = "freetype_set_pixel_sizes" "freetype_set_pixel_sizes"
 
   let face, library = freetype_init "/System/Library/Fonts/Menlo.ttc"
-  let () = freetype_set_pixel_sizes face 45
+  let () = freetype_set_pixel_sizes face 20
 end

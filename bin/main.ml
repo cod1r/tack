@@ -17,9 +17,11 @@ let rec loop editor_info =
         | Some r ->
             let rope_len = length r in
             if char_code = 8 && rope_len > 0 then
+              let new_rope = Some (delete r (length r - 1) 1) in
+              Render.draw new_rope;
               ( {
-                  Editor.rope = Some (delete r (length r - 1) 1);
-                  cursor_pos = editor_info.cursor_pos;
+                editor_info with
+                  Editor.rope = new_rope;
                 },
                 true )
             else (editor_info, true)
