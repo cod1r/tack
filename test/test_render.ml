@@ -79,9 +79,9 @@ let tests =
   "render tests"
   >::: [
          (*"gl set up" >:: timing_test_opengl_works;*)
-         (*"rope drawing time" >:: timing_test_drawing_rope;*)
-         "gl_gen_one_buffer test" >:: gl_gen_one_buffer_test;
-         "writing to bigarray time test" >:: timing_test_writing_bigarray;
+         "rope drawing time" >:: timing_test_drawing_rope;
+         (* "gl_gen_one_buffer test" >:: gl_gen_one_buffer_test; *)
+         (* "writing to bigarray time test" >:: timing_test_writing_bigarray; *)
        ]
 
 let () = run_test_tt_main tests

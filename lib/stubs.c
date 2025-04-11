@@ -16,8 +16,8 @@ CAMLprim value init_buffer(value unit) {
   CAMLparam1(unit);
   CAMLlocal1(buffer);
   buffer = caml_alloc(1, Abstract_tag);
-  size_t c = 10000000; // 10MB roughly; this needs to be high enough so that no re-allocations are necessary
-  float* contents = malloc(sizeof(float) * c);
+  size_t c = 5000000 * 3; // 60MB (bc times sizeof(float)) roughly; this needs to be high enough so that no re-allocations are necessary; times 3 bc each point/pixel has 3 components (x,y,alpha)
+  float* contents = malloc(c * sizeof(float));
   struct Buffer b = { .contents = contents, .size = 0, .capacity = c };
   *((struct Buffer**)Data_abstract_val(buffer)) = malloc(sizeof(struct Buffer));
   memcpy(*((struct Buffer**)Data_abstract_val(buffer)), &b, sizeof(struct Buffer));
