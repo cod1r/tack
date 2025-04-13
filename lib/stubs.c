@@ -24,19 +24,23 @@ CAMLprim value init_buffer(value unit) {
   CAMLreturn(buffer);
 }
 
+int get_proper_x_offset(int original_x_offset, const struct GlyphInfo gi, int window_width) {
+  int with_x_advance = (original_x_offset + gi.x_advance) / window_width;
+  if (with_x_advance > original_x_offset / window_width) {
+    int diff_from_lower_window_width_multiple = (original_x_offset + gi.x_advance) % window_width;
+    original_x_offset = (original_x_offset + gi.x_advance) - diff_from_lower_window_width_multiple;
+  }
+  return original_x_offset;
+}
+
 int push_to_buffer(struct Buffer* b, const struct GlyphInfo glyph_info, int window_width, int window_height, int x_offset, int font_height) {
 
   int row = (x_offset + glyph_info.x_advance) / window_width + 1;
   float font_height_norm = font_height / ((float)window_height / 2);
   float y_offset = row * font_height_norm;
 
-  int with_x_advance = (x_offset + glyph_info.x_advance) / window_width;
-  int used_x_offset = x_offset % window_width;
-  if (with_x_advance > x_offset / window_width) {
-    int diff_from_lower_window_width_multiple = (x_offset + glyph_info.x_advance) % window_width;
-    x_offset = (x_offset + glyph_info.x_advance) - diff_from_lower_window_width_multiple;
-    used_x_offset = x_offset % window_width;
-  }
+  int new_x_offset = get_proper_x_offset(x_offset, glyph_info, window_width);
+  int used_x_offset = new_x_offset % window_width;
 
   for (int buffer_idx = b->size; buffer_idx < b->size + glyph_info.buffer.size; buffer_idx += 3) {
     if (buffer_idx > b->capacity) caml_failwith("BUFFER TOO SMALL");
@@ -66,7 +70,7 @@ int push_to_buffer(struct Buffer* b, const struct GlyphInfo glyph_info, int wind
     b->contents[third] = glyph_info.buffer.contents[third - b->size] / 255.;
   }
   b->size += glyph_info.buffer.size;
-  return x_offset;
+  return new_x_offset;
 }
 
 /*
@@ -85,9 +89,11 @@ previous_offset here is the summed x_advance of the glyphs up until this call.
 Currently I don't know if there is a use for the vertical offsets or y_advances.
 The x_advance sum is used to offset the new glyph correctly and draw on a new line if necessary.
 */
-CAMLprim value write_to_buffer(value buffer, value glyph_info, value window_width, value window_height, value previous_offset, value font_height) {
-  CAMLparam5(buffer, glyph_info, window_width, window_height, previous_offset);
-  CAMLxparam1(font_height);
+CAMLprim value write_to_buffer(value buffer, value glyph_info, value window_dims, value previous_offset, value font_height) {
+  CAMLparam5(buffer, glyph_info, window_dims, previous_offset, font_height);
+
+  int window_width = Int_val(Field(window_dims, 0));
+  int window_height = Int_val(Field(window_dims, 1));
 
   int x_offset = Int_val(previous_offset);
 
@@ -97,7 +103,7 @@ CAMLprim value write_to_buffer(value buffer, value glyph_info, value window_widt
 
   struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
 
-  int processed_x_offset = push_to_buffer(b, *glyph_info_struct, Int_val(window_width), Int_val(window_height), x_offset, font_height_c);
+  int processed_x_offset = push_to_buffer(b, *glyph_info_struct, window_width, window_height, x_offset, font_height_c);
 
   CAMLreturn(Val_int(processed_x_offset));
 }

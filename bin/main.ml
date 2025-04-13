@@ -5,7 +5,7 @@ open Tack.Rope
 open Tack.Render
 open Tack.Opengl
 
-let rec loop editor_info =
+let rec loop (editor_info : Editor.editor) =
   let evt = Sdl.sdl_pollevent () in
   let new_editor, continue =
     match evt with
@@ -16,14 +16,13 @@ let rec loop editor_info =
         match editor_info.Editor.rope with
         | Some r ->
             let rope_len = length r in
-            if char_code = 8 && rope_len > 0 then
-              let new_rope = Some (delete r (length r - 1) 1) in
-              Render.draw new_rope;
-              ( {
-                editor_info with
-                  Editor.rope = new_rope;
-                },
-                true )
+            if char_code = 8 && rope_len > 0 then (
+              let new_rope = Some (delete r (editor_info.cursor_pos - 1) 1) in
+              let new_editor : Editor.editor =
+                { rope = new_rope; cursor_pos = editor_info.cursor_pos - 1 }
+              in
+              Render.draw new_editor;
+              (new_editor, true))
             else (editor_info, true)
         | None -> (editor_info, true))
     | Some
@@ -49,17 +48,19 @@ let rec loop editor_info =
     | Some (TextInputEvt { text; _ }) ->
         let new_rope =
           match editor_info.Editor.rope with
-          | Some r -> Some (concat r (Leaf text))
+          | Some r -> Some (insert r editor_info.cursor_pos text)
           | None -> Some (Leaf text)
         in
-        Render.draw new_rope;
-        ({ Editor.rope = new_rope; cursor_pos = editor_info.cursor_pos }, true)
+        let new_editor : Editor.editor =
+          { rope = new_rope; cursor_pos = editor_info.cursor_pos + 1 }
+        in
+        Render.draw new_editor;
+        (new_editor, true)
     | Some Quit -> (editor_info, false)
     | None -> (editor_info, true)
   in
   if continue then loop new_editor else ()
-;;
 
-Render.draw None
-
-let _ = loop { rope = None; cursor_pos = (0, 0) }
+let initial_editor : Editor.editor = { rope = None; cursor_pos = 0 }
+let () = Render.draw initial_editor
+let () = loop initial_editor

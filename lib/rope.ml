@@ -28,12 +28,14 @@ let rec substring r start len =
 
 let rec insert r pos s =
   match r with
-  | Leaf _ as ropeLeaf ->
+  | Leaf _ as ropeLeaf -> (
       let left = substring ropeLeaf 0 pos in
       let right = substring ropeLeaf pos (length ropeLeaf - pos) in
-      if length left = 0 || length right = 0 then
-        failwith "Leaf node cannot contain empty list"
-      else concat left (concat (Leaf s) right)
+      match (length left, length right) with
+      | 0, 0 -> Leaf s
+      | _, 0 -> concat left (Leaf s)
+      | 0, _ -> concat (Leaf s) right
+      | _ -> concat left (concat (Leaf s) right))
   | Node { left; right; _ } ->
       if pos <= length left then concat (insert left pos s) right
       else concat left (insert right (pos - length left) s)

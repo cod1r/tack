@@ -5,9 +5,7 @@ open Tack.Render
 
 let timing_test_opengl_works _ =
   let w =
-    match
-      Sdl.sdl_create_window "tack" 0 0 800 800 Sdl.sdl_window_opengl
-    with
+    match Sdl.sdl_create_window "tack" 0 0 800 800 Sdl.sdl_window_opengl with
     | Some (Window { width; height; title; _ } as w) ->
         Printf.printf "Created window: %s %d %d" title width height;
         print_newline ();
@@ -50,7 +48,7 @@ let timing_test_drawing_rope _ =
   let start = Unix.gettimeofday () in
   let times = 500_000 in
   for _ = 0 to times do
-    Render.draw_rope b rope
+    Render.draw_editor b rope
   done;
   let end' = Unix.gettimeofday () -. start in
   assert_bool

@@ -34,3 +34,9 @@ current problems:
   text wrapping is dogshit
     - write_to_buffer might have to return the x_offset value due to adjustments when wrapping
       so that wrapped lines that occur after are consistent. (The adjusted values aren't kept so glyphs that are positioned after the wrapped line, behave as thought they didn't occur after a adjusted value).
+
+thoughts about cursor related problems:
+    abstract away the logic for offsetting the x_offset so that it's easily known what glyph a cursor lands on when moving around.
+    a lot of logic will surround the rope data structure and traversing it for information (like what glyph the cursor lands on).
+
+maybe there should be colors (RGB) as well in our vertex attrib arrays
