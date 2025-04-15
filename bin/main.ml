@@ -1,9 +1,7 @@
 open Tack.Sdl
-open Tack.Freetype
 open Tack.Editor
 open Tack.Rope
 open Tack.Render
-open Tack.Opengl
 
 let rec loop (editor_info : Editor.editor) =
   let evt = Sdl.sdl_pollevent () in
@@ -41,7 +39,7 @@ let rec loop (editor_info : Editor.editor) =
         match event with
         | WindowClose -> (editor_info, false)
         | WindowResize -> (editor_info, true))
-    | Some (MouseMotionEvt { x; y; timestamp; _ }) ->
+    | Some (MouseMotionEvt { x = _; _ }) ->
         (* Printf.printf "Mousemotion %d %d %d" x y timestamp;
         print_newline (); *)
         (editor_info, true)

@@ -40,3 +40,9 @@ thoughts about cursor related problems:
     a lot of logic will surround the rope data structure and traversing it for information (like what glyph the cursor lands on).
 
 maybe there should be colors (RGB) as well in our vertex attrib arrays
+
+Using Int_val instead of Long_val might fuck me over in the future. idk...
+
+there needs to be a faster and better way to go from screen coords to a position in the rope data structure.
+
+maybe use ocaml callbacks and call them from c instead of having to pattern match on custom sdl event types?

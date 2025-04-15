@@ -9,14 +9,23 @@ let concat_test _ =
 
 let delete_test _ =
   let r1 = Tack.Rope.of_string "Hello " in
-  let r2 = Tack.Rope.delete r1 4 1 in
-  let s = Tack.Rope.to_string r2 in
-  assert_equal s "Hell "
+  let r2 = Tack.Rope.of_string "World" in
+  let r3 = Tack.Rope.concat r1 r2 in
+  let r4 = Tack.Rope.delete r3 4 1 in
+  let s = Tack.Rope.to_string r4 in
+  assert_equal ~msg:(s ^ " is not equal to 'Hell '") s "Hell World"
 
 let length_test _ =
   let r1 = Tack.Rope.of_string "Hello " in
   let len = Tack.Rope.length r1 in
   assert_equal len 6
+
+let substring_test _ =
+  let r1 = Tack.Rope.of_string "Hello" in
+  let r2 = Tack.Rope.of_string "World" in
+  let r3 = Tack.Rope.concat r1 r2 in
+  let r4 = Tack.Rope.substring r3 0 5 in
+  assert_bool "substring failed" (Tack.Rope.to_string r4 = "Hello")
 
 let timing_test_concatenation _ =
   let j_amt = 4_000_000 in
@@ -72,6 +81,7 @@ let tests =
          "concat test" >:: concat_test;
          "delete test" >:: delete_test;
          "length test" >:: length_test;
+         "substring test" >:: substring_test;
          "rope concatenation time" >:: timing_test_concatenation;
          "traversing rope tree time" >:: timing_test_traverse_rope;
        ]

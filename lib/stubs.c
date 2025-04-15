@@ -24,6 +24,18 @@ CAMLprim value init_buffer(value unit) {
   CAMLreturn(buffer);
 }
 
+CAMLprim value init_buffer_with_capacity(value size) {
+  CAMLparam1(size);
+  CAMLlocal1(buffer);
+  buffer = caml_alloc(1, Abstract_tag);
+  int size_c = Int_val(size);
+  float* contents = malloc(size_c * sizeof(float));
+  struct Buffer b = { .contents = contents, .size = 0, .capacity = size_c };
+  *((struct Buffer**)Data_abstract_val(buffer)) = malloc(sizeof(struct Buffer));
+  memcpy(*((struct Buffer**)Data_abstract_val(buffer)), &b, sizeof(struct Buffer));
+  CAMLreturn(buffer);
+}
+
 int get_proper_x_offset(int original_x_offset, const struct GlyphInfo gi, int window_width) {
   int with_x_advance = (original_x_offset + gi.x_advance) / window_width;
   if (with_x_advance > original_x_offset / window_width) {
@@ -33,11 +45,22 @@ int get_proper_x_offset(int original_x_offset, const struct GlyphInfo gi, int wi
   return original_x_offset;
 }
 
+CAMLprim value get_proper_x_offset_value(value original_x_offset_v, value gi, value window_width_v) {
+  CAMLparam3(original_x_offset_v, gi, window_width_v);
+  int window_width = Int_val(window_width_v);
+  int original_x_offset = Int_val(original_x_offset_v);
+  struct GlyphInfo* glyph_info_struct = *(struct GlyphInfo**)Data_abstract_val(gi);
+  int with_x_advance = (original_x_offset + glyph_info_struct->x_advance) / window_width;
+  if (with_x_advance > original_x_offset / window_width) {
+    int diff_from_lower_window_width_multiple = (original_x_offset + glyph_info_struct->x_advance) % window_width;
+    original_x_offset = (original_x_offset + glyph_info_struct->x_advance) - diff_from_lower_window_width_multiple;
+  }
+  CAMLreturn(Val_int(original_x_offset));
+}
+
 int push_to_buffer(struct Buffer* b, const struct GlyphInfo glyph_info, int window_width, int window_height, int x_offset, int font_height) {
 
   int row = (x_offset + glyph_info.x_advance) / window_width + 1;
-  float font_height_norm = font_height / ((float)window_height / 2);
-  float y_offset = row * font_height_norm;
 
   int new_x_offset = get_proper_x_offset(x_offset, glyph_info, window_width);
   int used_x_offset = new_x_offset % window_width;
@@ -93,6 +116,7 @@ CAMLprim value write_to_buffer(value buffer, value glyph_info, value window_dims
   CAMLparam5(buffer, glyph_info, window_dims, previous_offset, font_height);
 
   int window_width = Int_val(Field(window_dims, 0));
+
   int window_height = Int_val(Field(window_dims, 1));
 
   int x_offset = Int_val(previous_offset);
@@ -106,4 +130,37 @@ CAMLprim value write_to_buffer(value buffer, value glyph_info, value window_dims
   int processed_x_offset = push_to_buffer(b, *glyph_info_struct, window_width, window_height, x_offset, font_height_c);
 
   CAMLreturn(Val_int(processed_x_offset));
+}
+
+CAMLprim value write_cursor_to_buffer(value buffer, value glyph_info, value window_dims, value previous_offset, value font_height) {
+  CAMLparam5(buffer, glyph_info, window_dims, previous_offset, font_height);
+
+  struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
+
+  int window_width = Int_val(Field(window_dims, 0));
+  int window_height = Int_val(Field(window_dims, 1));
+
+  int x_offset = Int_val(previous_offset);
+  int used_x_offset = x_offset % window_width;
+
+  int font_height_c = Int_val(font_height);
+
+  struct GlyphInfo* glyph_info_struct = *(struct GlyphInfo**)Data_abstract_val(glyph_info);
+
+  int row = (x_offset + glyph_info_struct->x_advance) / window_width;
+
+  if (b->size != 0) {
+    caml_failwith("b->size should be zero for the cursor buffer");
+  }
+  for (int x = 0; x < 2; ++x) {
+    for (int y = 0; y < font_height_c; ++y) {
+    if (b->size > b->capacity) caml_failwith("BUFFER TOO SMALL");
+      b->contents[b->size++] = (x + used_x_offset + glyph_info_struct->x_advance) / ((float)window_width / 2) - 1;
+    if (b->size > b->capacity) caml_failwith("BUFFER TOO SMALL");
+      b->contents[b->size++] = -((y + row * font_height_c)) / ((float)window_height / 2) + 1;
+    if (b->size > b->capacity) caml_failwith("BUFFER TOO SMALL");
+      b->contents[b->size++] = 1;
+    }
+  }
+  CAMLreturn(Val_unit);
 }

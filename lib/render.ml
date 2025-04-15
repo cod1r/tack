@@ -7,7 +7,14 @@ module Render = struct
   external get_buffer_size : Opengl.buffer -> int
     = "get_buffer_size" "get_buffer_size"
 
+  external init_buffer_with_capacity : int -> Opengl.buffer
+    = "init_buffer_with_capacity" "init_buffer_with_capacity"
+
   external init_buffer : unit -> Opengl.buffer = "init_buffer" "init_buffer"
+
+  external write_cursor_to_buffer :
+    Opengl.buffer -> FreeType.glyph_info -> int * int -> int -> int -> unit
+    = "write_cursor_to_buffer" "write_cursor_to_buffer"
 
   external write_to_buffer :
     Opengl.buffer -> FreeType.glyph_info -> int * int -> int -> int -> int
@@ -62,6 +69,8 @@ module Render = struct
 
   let _ = gl_enable_blending ()
   let b = init_buffer ()
+  let font_height = FreeType.get_font_height FreeType.face
+  let cursor_buffer = init_buffer_with_capacity (2 * font_height * 3)
 
   let fragment =
     match gl_create_fragment_shader () with Ok f -> f | Error e -> failwith e
@@ -70,10 +79,14 @@ module Render = struct
     match gl_create_vertex_shader () with Ok v -> v | Error e -> failwith e
 
   let vertex_cursor =
-    match gl_create_vertex_shader () with Ok v -> v | Error e -> failwith (e ^ "_CURSOR")
+    match gl_create_vertex_shader () with
+    | Ok v -> v
+    | Error e -> failwith (e ^ "_CURSOR")
 
   let fragment_cursor =
-    match gl_create_fragment_shader () with Ok f -> f | Error e -> failwith (e ^ "_CURSOR")
+    match gl_create_fragment_shader () with
+    | Ok f -> f
+    | Error e -> failwith (e ^ "_CURSOR")
 
   let program =
     gl_shader_source fragment fragment_shader;
@@ -120,11 +133,9 @@ module Render = struct
             in
             match glyph_info_found with
             | Some (_, gi) ->
-                let x_advance = FreeType.get_x_advance gi
-                and font_height = FreeType.get_font_height FreeType.face in
+                let x_advance = FreeType.get_x_advance gi in
                 let processed_acc_x_offset =
-                  write_to_buffer buffer gi window_dims acc
-                    font_height
+                  write_to_buffer buffer gi window_dims acc font_height
                 in
                 processed_acc_x_offset + x_advance
             | None ->
@@ -137,7 +148,42 @@ module Render = struct
         let left_offset = draw_rope' buffer left offset in
         draw_rope' buffer right left_offset
 
-  let draw_editor (buffer : buffer) rope =
+  let draw_cursor (buffer : buffer) (editor : Editor.editor) =
+    let window_dims = Sdl.sdl_gl_getdrawablesize () in
+    (* this is used to check what glyph/letter matches with the cursor position in the rope *)
+    let rec traverse_rope (rope : Rope.rope) (offset : int)
+        (rope_position : int) =
+      match rope with
+      | Leaf l ->
+          String.fold_right
+            (fun c (curr_offset, rp) ->
+              let glyph_info_found =
+                Array.find_opt (fun (c', _) -> c' = c) glyph_info_with_char
+              in
+              match glyph_info_found with
+              | Some (_, gi) ->
+                  let x_advance = FreeType.get_x_advance gi in
+                  let processed_acc_x_offset =
+                    let window_width, _ = window_dims in
+                    let processed_x_offset =
+                      get_proper_x_offset_value curr_offset gi window_width
+                    in
+                    if rp = editor.cursor_pos - 1 then
+                      write_cursor_to_buffer buffer gi window_dims
+                        processed_x_offset font_height;
+                    processed_x_offset
+                  in
+                  (processed_acc_x_offset + x_advance, rp + 1)
+              | None -> failwith "not found")
+            l (offset, rope_position)
+      | Node { left; right; _ } ->
+          let left_offset, rp = traverse_rope left offset rope_position in
+          traverse_rope right left_offset rp
+    in
+    let _ = traverse_rope (Option.get editor.rope) 0 0 in
+    ()
+
+  let draw_rope (buffer : buffer) rope =
     let _ = draw_rope' buffer rope 0 in
     ()
 
@@ -152,24 +198,37 @@ module Render = struct
   let init_gl_buffers () =
     gl_enable_vertex_attrib_array location;
     gl_bind_buffer gl_buffer_obj;
-    gl_buffer_data b
+    gl_buffer_data b;
+    gl_bind_buffer gl_buffer_cursor;
+    gl_buffer_data cursor_buffer
 
   let _ = init_gl_buffers ()
 
   let draw (editor : Editor.editor) =
-    (match editor.rope with
-    | Some r ->
-        draw_editor b r;
-        gl_buffer_subdata b
-    | None -> ());
     gl_clear_color 1. 1. 1. 1.;
     gl_clear ();
     gl_use_program program;
-    gl_bind_buffer gl_buffer_obj;
-    gl_vertex_attrib_pointer_float_type location 3 false;
-    let buffer_size = get_buffer_size b in
-    (* dividing by three here because each point has 3 components (x,y, alpha) *)
-    gl_draw_arrays (buffer_size / 3);
-    reset_buffer b;
+    (match editor.rope with
+    | Some r ->
+        gl_bind_buffer gl_buffer_obj;
+        gl_vertex_attrib_pointer_float_type location 3 false;
+        draw_rope b r;
+        gl_buffer_subdata b;
+
+        let buffer_size = get_buffer_size b in
+        (* dividing by three here because each point has 3 components (x,y, alpha) *)
+        gl_draw_arrays (buffer_size / 3);
+        reset_buffer b;
+
+        gl_bind_buffer gl_buffer_cursor;
+        gl_vertex_attrib_pointer_float_type location 3 false;
+        draw_cursor cursor_buffer editor;
+        gl_buffer_subdata cursor_buffer;
+
+        let buffer_size = get_buffer_size cursor_buffer in
+        (* dividing by three here because each point has 3 components (x,y, alpha) *)
+        gl_draw_arrays (buffer_size / 3);
+        reset_buffer cursor_buffer
+    | None -> ());
     match Sdl.sdl_gl_swapwindow Sdl.w with Ok () -> () | Error e -> failwith e
 end
