@@ -25,12 +25,16 @@ let rec loop (editor_info : Editor.editor) =
         | None -> (editor_info, true))
     | Some
         (MouseButtonEvt
-           { mouse_evt_type; timestamp; x; y; windowID; button; clicks }) ->
-        (match mouse_evt_type with
+           { mouse_evt_type; timestamp; x; y; windowID; button; clicks }) -> (
+        match mouse_evt_type with
         | Mousedown ->
-            Printf.printf "Mousedown %d, %d, %d, %d, %d, %d\n" x y windowID button
-              clicks timestamp;
-            let crp = Editor.find_closest_rope_pos_to_coords (Option.get editor_info.rope) (x, y) in
+            Printf.printf "Mousedown %d, %d, %d, %d, %d, %d\n" x y windowID
+              button clicks timestamp;
+            let crp =
+              Editor.find_closest_rope_pos_to_coords
+                (Option.get editor_info.rope)
+                (x, y)
+            in
             Printf.printf "closest rp: %d" crp;
             print_newline ();
             let new_editor = { editor_info with cursor_pos = crp } in
@@ -38,7 +42,8 @@ let rec loop (editor_info : Editor.editor) =
             (new_editor, true)
         | Mouseup ->
             Printf.printf "Mouseup";
-            print_newline (); (editor_info, true))
+            print_newline ();
+            (editor_info, true))
     | Some (WindowEvt { event; _ }) -> (
         match event with
         | WindowClose -> (editor_info, false)

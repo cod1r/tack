@@ -15,6 +15,8 @@ module Editor = struct
 
   let find_closest_rope_pos_to_coords (rope : Rope.rope) ((x, y) : int * int) =
     let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
+    let window_width_without_high_dpi, _ = Sdl.sdl_get_window_size Sdl.w in
+    let ratio = window_width / window_width_without_high_dpi in
     let rec traverse_rope (rope : Rope.rope) (offset : int)
         (rope_position : int)
         ((closest_x, closest_y, closest_rope_pos) : int * int * int) =
@@ -39,10 +41,10 @@ module Editor = struct
                     (processed_x_offset + x_advance)
                     / window_width * FreeType.font_height
                   in
-                  let diff_x = abs (x - calculated_x)
-                  and diff_y = abs (y - calculated_y)
-                  and curr_diffx = abs (x - acc_closest_x)
-                  and curr_diffy = abs (y - acc_closest_y) in
+                  let diff_x = abs ((x * ratio) - calculated_x)
+                  and diff_y = abs ((y * ratio) - calculated_y)
+                  and curr_diffx = abs ((x * ratio) - acc_closest_x)
+                  and curr_diffy = abs ((y * ratio) - acc_closest_y) in
                   let new_closest =
                     if diff_x <= curr_diffx && diff_y <= curr_diffy then
                       (calculated_x, calculated_y, rp)

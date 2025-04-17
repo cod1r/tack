@@ -28,6 +28,7 @@ module FreeType = struct
 
   let face, library = freetype_init "/System/Library/Fonts/Menlo.ttc"
   let () = freetype_set_pixel_sizes face 20
+
   (* need to call font_height after set_pixel_sizes *)
   let font_height = get_font_height face
 end
