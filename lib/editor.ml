@@ -16,6 +16,7 @@ module Editor = struct
   let find_closest_rope_pos_to_coords (rope : Rope.rope) ((x, y) : int * int) =
     let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
     let window_width_without_high_dpi, _ = Sdl.sdl_get_window_size Sdl.w in
+    (* ratio is needed because the x,y coords given from MouseEvent is based on window without high dpi so scaling needs to happen *)
     let ratio = window_width / window_width_without_high_dpi in
     let rec traverse_rope (rope : Rope.rope) (offset : int)
         (rope_position : int)
