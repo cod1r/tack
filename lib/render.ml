@@ -21,11 +21,6 @@ module Render = struct
     = "write_to_buffer" "write_to_buffer"
   [@@noalloc]
 
-  let glyph_info_with_char =
-    Array.init
-      (126 - 32 + 1)
-      (fun i -> FreeType.get_ascii_char_glyph FreeType.face (i + 32))
-
   external reset_buffer : Opengl.buffer -> unit = "reset_buffer" "reset_buffer"
 
   let vertex_shader =
@@ -69,8 +64,7 @@ module Render = struct
 
   let _ = gl_enable_blending ()
   let b = init_buffer ()
-  let font_height = FreeType.get_font_height FreeType.face
-  let cursor_buffer = init_buffer_with_capacity (2 * font_height * 3)
+  let cursor_buffer = init_buffer_with_capacity (2 * FreeType.font_height * 3)
 
   let fragment =
     match gl_create_fragment_shader () with Ok f -> f | Error e -> failwith e
@@ -129,13 +123,13 @@ module Render = struct
         String.fold_right
           (fun c acc ->
             let glyph_info_found =
-              Array.find_opt (fun (c', _) -> c' = c) glyph_info_with_char
+              Array.find_opt (fun (c', _) -> c' = c) Editor.glyph_info_with_char
             in
             match glyph_info_found with
             | Some (_, gi) ->
                 let x_advance = FreeType.get_x_advance gi in
                 let processed_acc_x_offset =
-                  write_to_buffer buffer gi window_dims acc font_height
+                  write_to_buffer buffer gi window_dims acc FreeType.font_height
                 in
                 processed_acc_x_offset + x_advance
             | None ->
@@ -158,7 +152,9 @@ module Render = struct
           String.fold_right
             (fun c (curr_offset, rp) ->
               let glyph_info_found =
-                Array.find_opt (fun (c', _) -> c' = c) glyph_info_with_char
+                Array.find_opt
+                  (fun (c', _) -> c' = c)
+                  Editor.glyph_info_with_char
               in
               match glyph_info_found with
               | Some (_, gi) ->
@@ -166,11 +162,12 @@ module Render = struct
                   let processed_acc_x_offset =
                     let window_width, _ = window_dims in
                     let processed_x_offset =
-                      get_proper_x_offset_value curr_offset gi window_width
+                      Editor.get_proper_x_offset_value curr_offset gi
+                        window_width
                     in
-                    if rp = editor.cursor_pos - 1 then
+                    if rp = editor.Editor.cursor_pos - 1 then
                       write_cursor_to_buffer buffer gi window_dims
-                        processed_x_offset font_height;
+                        processed_x_offset FreeType.font_height;
                     processed_x_offset
                   in
                   (processed_acc_x_offset + x_advance, rp + 1)
@@ -180,7 +177,7 @@ module Render = struct
           let left_offset, rp = traverse_rope left offset rope_position in
           traverse_rope right left_offset rp
     in
-    let _ = traverse_rope (Option.get editor.rope) 0 0 in
+    let _ = traverse_rope (Option.get editor.Editor.rope) 0 0 in
     ()
 
   let draw_rope (buffer : buffer) rope =
@@ -208,7 +205,7 @@ module Render = struct
     gl_clear_color 1. 1. 1. 1.;
     gl_clear ();
     gl_use_program program;
-    (match editor.rope with
+    (match editor.Editor.rope with
     | Some r ->
         gl_bind_buffer gl_buffer_obj;
         gl_vertex_attrib_pointer_float_type location 3 false;

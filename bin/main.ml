@@ -28,13 +28,17 @@ let rec loop (editor_info : Editor.editor) =
            { mouse_evt_type; timestamp; x; y; windowID; button; clicks }) ->
         (match mouse_evt_type with
         | Mousedown ->
-            Printf.printf "Mousedown %d, %d, %d, %d, %d, %d" x y windowID button
+            Printf.printf "Mousedown %d, %d, %d, %d, %d, %d\n" x y windowID button
               clicks timestamp;
-            print_newline ()
+            let crp = Editor.find_closest_rope_pos_to_coords (Option.get editor_info.rope) (x, y) in
+            Printf.printf "closest rp: %d" crp;
+            print_newline ();
+            let new_editor = { editor_info with cursor_pos = crp } in
+            Render.draw new_editor;
+            (new_editor, true)
         | Mouseup ->
             Printf.printf "Mouseup";
-            print_newline ());
-        (editor_info, true)
+            print_newline (); (editor_info, true))
     | Some (WindowEvt { event; _ }) -> (
         match event with
         | WindowClose -> (editor_info, false)
