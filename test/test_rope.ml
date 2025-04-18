@@ -77,11 +77,21 @@ let timing_test_traverse_rope _ =
 
 let insertion_rope_test _ =
   let r1 = Tack.Rope.of_string "Hello, Ho" and name = " Jason" in
-  let r3 = Tack.Rope.insert r1 6 name in
-  let str_result = Tack.Rope.to_string r3 in
+  let r2 = Tack.Rope.insert r1 6 name in
+  let str_result = Tack.Rope.to_string r2 in
   assert_bool
     ("insertion rope result failed; got: " ^ str_result)
-    (str_result = "Hello, Jason Ho")
+    (str_result = "Hello, Jason Ho");
+  let r3 = Tack.Rope.insert r1 9 name in
+  let str_result = Tack.Rope.to_string r3 in
+  assert_bool
+    ("insertion rope result failed 2; got: " ^ str_result)
+    (str_result = "Hello, Ho Jason");
+  let r4 = Tack.Rope.insert r1 0 name in
+  let str_result = Tack.Rope.to_string r4 in
+  assert_bool
+    ("insertion rope result failed 3; got: " ^ str_result)
+    (str_result = " JasonHello, Ho")
 
 let tests =
   "rope tests"
