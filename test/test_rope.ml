@@ -75,6 +75,14 @@ let timing_test_traverse_rope _ =
     ("time it takes to traverse " ^ Int.to_string j_amt ^ " rope/leaves")
     (end' < 0.5)
 
+let insertion_rope_test _ =
+  let r1 = Tack.Rope.of_string "Hello, Ho" and name = " Jason" in
+  let r3 = Tack.Rope.insert r1 6 name in
+  let str_result = Tack.Rope.to_string r3 in
+  assert_bool
+    ("insertion rope result failed; got: " ^ str_result)
+    (str_result = "Hello, Jason Ho")
+
 let tests =
   "rope tests"
   >::: [
@@ -84,6 +92,7 @@ let tests =
          "substring test" >:: substring_test;
          "rope concatenation time" >:: timing_test_concatenation;
          "traversing rope tree time" >:: timing_test_traverse_rope;
+         "rope insertion test" >:: insertion_rope_test;
        ]
 
 let () = run_test_tt_main tests

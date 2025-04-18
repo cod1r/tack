@@ -50,8 +50,13 @@ module Editor = struct
                   and diff_y = abs ((y * ratio) - calculated_y)
                   and curr_diffx = abs ((x * ratio) - acc_closest_x)
                   and curr_diffy = abs ((y * ratio) - acc_closest_y) in
-                  let closer_diff_x = if diff_x <= diff_x_advance then diff_x else diff_x_advance in
-                  let used_calc_x = if closer_diff_x = diff_x then calculated_x else (processed_x_offset + x_advance) mod window_width in
+                  let closer_diff_x =
+                    if diff_x <= diff_x_advance then diff_x else diff_x_advance
+                  in
+                  let used_calc_x =
+                    if closer_diff_x = diff_x then calculated_x
+                    else (processed_x_offset + x_advance) mod window_width
+                  in
                   let used_rp = if closer_diff_x = diff_x then rp else rp + 1 in
                   let new_closest =
                     if closer_diff_x <= curr_diffx && diff_y <= curr_diffy then
