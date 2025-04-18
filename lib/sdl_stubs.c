@@ -9,6 +9,13 @@
 #include <stdio.h>
 #include <string.h>
 
+CAMLprim value sdl_create_and_set_system_cursor(value unit) {
+  CAMLparam1(unit);
+  SDL_Cursor* c = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
+  SDL_SetCursor(c);
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value sdl_gl_swapwindow(value window) {
   CAMLparam1(window);
   CAMLlocal1(result);

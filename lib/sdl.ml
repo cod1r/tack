@@ -133,6 +133,8 @@ module Sdl = struct
   external sdl_gl_getdrawablesize : (unit[@untagged]) -> int * int
     = "sdl_gl_getdrawablesize" "sdl_gl_getdrawablesize"
 
+  external sdl_create_and_set_system_cursor : unit -> unit = "sdl_create_and_set_system_cursor" "sdl_create_and_set_system_cursor"
+
   let actually_init_sdl () =
     (match init_sdl () with Ok () -> () | Error e -> failwith e);
     let w =

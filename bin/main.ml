@@ -70,4 +70,5 @@ let rec loop (editor_info : Editor.editor) =
 
 let initial_editor : Editor.editor = { rope = None; cursor_pos = 0 }
 let () = Render.draw initial_editor
+let () = Sdl.sdl_create_and_set_system_cursor ()
 let () = loop initial_editor
