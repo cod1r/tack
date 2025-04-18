@@ -42,7 +42,11 @@ module Editor = struct
                     (processed_x_offset + x_advance)
                     / window_width * FreeType.font_height
                   in
-                  let diff_x = abs ((x * ratio) - calculated_x)
+                  let diff_x, diff_x_advance =
+                    ( abs ((x * ratio) - calculated_x),
+                      abs
+                        ((x * ratio)
+                        - ((calculated_x + x_advance) mod window_width)) )
                   and diff_y = abs ((y * ratio) - calculated_y)
                   and curr_diffx = abs ((x * ratio) - acc_closest_x)
                   and curr_diffy = abs ((y * ratio) - acc_closest_y) in
@@ -51,7 +55,13 @@ module Editor = struct
                       (calculated_x, calculated_y, rp)
                     else (acc_closest_x, acc_closest_y, acc_closest_rp)
                   in
-                  (processed_x_offset + x_advance, rp + 1, new_closest)
+                  if diff_x_advance <= diff_x then
+                    ( processed_x_offset + x_advance,
+                      rp + 1,
+                      ( (calculated_x + x_advance) mod window_width,
+                        calculated_y,
+                        rp + 1 ) )
+                  else (processed_x_offset + x_advance, rp + 1, new_closest)
               | None -> failwith ("glyph_info not found for " ^ Char.escaped c))
             l
             (offset, rope_position, (closest_x, closest_y, closest_rope_pos))
