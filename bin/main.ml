@@ -31,9 +31,11 @@ let rec loop (editor_info : Editor.editor) =
             Printf.printf "Mousedown %d, %d, %d, %d, %d, %d\n" x y windowID
               button clicks timestamp;
             let crp =
+              if Option.is_some editor_info.rope then
               Editor.find_closest_rope_pos_to_coords
                 (Option.get editor_info.rope)
                 (x, y)
+              else 0
             in
             Printf.printf "closest rp: %d" crp;
             print_newline ();
