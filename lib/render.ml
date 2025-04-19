@@ -122,21 +122,29 @@ module Render = struct
     | Rope.Leaf l ->
         String.fold_right
           (fun c acc ->
-            let glyph_info_found =
-              Array.find_opt (fun (c', _) -> c' = c) Editor.glyph_info_with_char
-            in
-            match glyph_info_found with
-            | Some (_, gi) ->
-                let x_advance = FreeType.get_x_advance gi in
-                let processed_acc_x_offset =
-                  write_to_buffer buffer gi window_dims acc FreeType.font_height
-                in
-                processed_acc_x_offset + x_advance
-            | None ->
-                Printf.printf "not found";
-                print_char c;
-                print_newline ();
-                acc)
+            if c = '\n' then
+              let window_width, _ = window_dims in
+              let div_ans = (acc + window_width) / window_width in
+              div_ans * window_width
+            else
+              let glyph_info_found =
+                Array.find_opt
+                  (fun (c', _) -> c' = c)
+                  Editor.glyph_info_with_char
+              in
+              match glyph_info_found with
+              | Some (_, gi) ->
+                  let x_advance = FreeType.get_x_advance gi in
+                  let processed_acc_x_offset =
+                    write_to_buffer buffer gi window_dims acc
+                      FreeType.font_height
+                  in
+                  processed_acc_x_offset + x_advance
+              | None ->
+                  Printf.printf "not found";
+                  print_char c;
+                  print_newline ();
+                  acc)
           l offset
     | Rope.Node { left; right; _ } ->
         let left_offset = draw_rope' buffer left offset in
@@ -151,27 +159,32 @@ module Render = struct
       | Leaf l ->
           String.fold_right
             (fun c (curr_offset, rp) ->
-              let glyph_info_found =
-                Array.find_opt
-                  (fun (c', _) -> c' = c)
-                  Editor.glyph_info_with_char
-              in
-              match glyph_info_found with
-              | Some (_, gi) ->
-                  let x_advance = FreeType.get_x_advance gi in
-                  let processed_acc_x_offset =
-                    let window_width, _ = window_dims in
-                    let processed_x_offset =
-                      Editor.get_proper_x_offset_value curr_offset gi
-                        window_width
+              if c = '\n' then
+                let window_width, _ = window_dims in
+                let div_ans = (curr_offset + window_width) / window_width in
+                (div_ans * window_width, rp + 1)
+              else
+                let glyph_info_found =
+                  Array.find_opt
+                    (fun (c', _) -> c' = c)
+                    Editor.glyph_info_with_char
+                in
+                match glyph_info_found with
+                | Some (_, gi) ->
+                    let x_advance = FreeType.get_x_advance gi in
+                    let processed_acc_x_offset =
+                      let window_width, _ = window_dims in
+                      let processed_x_offset =
+                        Editor.get_proper_x_offset_value curr_offset gi
+                          window_width
+                      in
+                      if rp = editor.Editor.cursor_pos - 1 then
+                        write_cursor_to_buffer buffer gi window_dims
+                          processed_x_offset FreeType.font_height;
+                      processed_x_offset
                     in
-                    if rp = editor.Editor.cursor_pos - 1 then
-                      write_cursor_to_buffer buffer gi window_dims
-                        processed_x_offset FreeType.font_height;
-                    processed_x_offset
-                  in
-                  (processed_acc_x_offset + x_advance, rp + 1)
-              | None -> failwith "not found")
+                    (processed_acc_x_offset + x_advance, rp + 1)
+                | None -> failwith "not found")
             l (offset, rope_position)
       | Node { left; right; _ } ->
           let left_offset, rp = traverse_rope left offset rope_position in

@@ -8,20 +8,42 @@ let rec loop (editor_info : Editor.editor) =
   let new_editor, continue =
     match evt with
     | Some (KeyboardEvt { keysym; timestamp; _ }) -> (
-        Printf.printf "KBD: %d, %d" (Char.code keysym) timestamp;
+        Printf.printf "KBD: %d, %s, %d" (Char.code keysym) (Char.escaped keysym)
+          timestamp;
         print_newline ();
         let char_code = Char.code keysym in
         match editor_info.Editor.rope with
-        | Some r ->
-            let rope_len = length r in
-            if char_code = 8 && rope_len > 0 then (
-              let new_rope = Some (delete r (editor_info.cursor_pos - 1) 1) in
-              let new_editor : Editor.editor =
-                { rope = new_rope; cursor_pos = editor_info.cursor_pos - 1 }
-              in
-              Render.draw new_editor;
-              (new_editor, true))
-            else (editor_info, true)
+        | Some r -> (
+            match char_code with
+            | 8 ->
+                let rope_len = length r in
+                if rope_len > 0 then (
+                  let new_rope =
+                    Some (delete r (editor_info.cursor_pos - 1) 1)
+                  in
+                  let new_editor : Editor.editor =
+                    { rope = new_rope; cursor_pos = editor_info.cursor_pos - 1 }
+                  in
+                  Render.draw new_editor;
+                  (new_editor, true))
+                else (editor_info, true)
+            | 9 ->
+                (* horizontal tab will be two spaces *)
+                let new_rope = Some (insert r editor_info.cursor_pos "  ") in
+                let new_editor : Editor.editor =
+                  { rope = new_rope; cursor_pos = editor_info.cursor_pos + 1 }
+                in
+                Render.draw new_editor;
+                (new_editor, true)
+            | 13 | 10 ->
+                (* on macos, the return key gives \r instead of \n *)
+                let new_rope = Some (insert r editor_info.cursor_pos "\n") in
+                let new_editor : Editor.editor =
+                  { rope = new_rope; cursor_pos = editor_info.cursor_pos + 1 }
+                in
+                Render.draw new_editor;
+                (new_editor, true)
+            | _ -> (editor_info, true))
         | None -> (editor_info, true))
     | Some
         (MouseButtonEvt
