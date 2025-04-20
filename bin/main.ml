@@ -17,7 +17,7 @@ let rec loop (editor_info : Editor.editor) =
             match char_code with
             | 8 ->
                 let rope_len = length r in
-                if rope_len > 0 then (
+                if rope_len > 0 && editor_info.cursor_pos > 0 then (
                   let new_rope =
                     Some (delete r (editor_info.cursor_pos - 1) 1)
                   in
@@ -54,7 +54,7 @@ let rec loop (editor_info : Editor.editor) =
               button clicks timestamp;
             let crp =
               if Option.is_some editor_info.rope then
-                Editor.find_closest_rope_pos_to_coords
+                Editor.find_closest_rope_pos_for_cursor_on_mouse_down
                   (Option.get editor_info.rope)
                   (x, y)
               else 0
@@ -92,7 +92,22 @@ let rec loop (editor_info : Editor.editor) =
   in
   if continue then loop new_editor else ()
 
-let initial_editor : Editor.editor = { rope = None; cursor_pos = 0 }
+let cwd = Sys.getcwd ()
+and filename = Sys.argv.(1)
+
+let real_path = cwd ^ "/" ^ filename;;
+
+if not (real_path |> Sys.file_exists) then
+  failwith ("File doesn't exist: " ^ cwd ^ filename)
+
+let file_contents =
+  let lines =
+    In_channel.with_open_bin real_path (fun ic -> In_channel.input_lines ic)
+  in
+  List.fold_left (fun acc line -> acc ^ line ^ "\n") "" lines
+
+let file_rope = of_string file_contents |> rebalance
+let initial_editor : Editor.editor = { rope = Some file_rope; cursor_pos = 0 }
 let () = Render.draw initial_editor
 let () = Sdl.sdl_create_and_set_system_cursor ()
 let () = loop initial_editor

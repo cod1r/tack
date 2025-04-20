@@ -10,63 +10,93 @@ module Editor = struct
       (126 - 32 + 1)
       (fun i -> FreeType.get_ascii_char_glyph FreeType.face (i + 32))
 
-  external get_proper_x_offset_value : int -> FreeType.glyph_info -> int -> int
-    = "get_proper_x_offset_value" "get_proper_x_offset_value"
-
-  let find_closest_rope_pos_to_coords (rope : Rope.rope) ((x, y) : int * int) =
+  let find_closest_rope_pos_for_cursor_on_mouse_down (rope : Rope.rope)
+      ((x, y) : int * int) =
     let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
     let window_width_without_high_dpi, _ = Sdl.sdl_get_window_size Sdl.w in
     (* ratio is needed because the x,y coords given from MouseEvent is based on window without high dpi so scaling needs to happen *)
     let ratio = window_width / window_width_without_high_dpi in
+    let compare_and_pick target value1 value2 =
+      let diff1 = abs (target - value1) and diff2 = abs (target - value2) in
+      if diff1 < diff2 then value1 else value2
+    in
     let rec traverse_rope (rope : Rope.rope) (offset : int)
         (rope_position : int)
         ((closest_x, closest_y, closest_rope_pos) : int * int * int) =
       match rope with
       | Leaf l ->
-          String.fold_right
-            (fun c
-                 ( acc_x_offset,
+          String.fold_left
+            (fun ( acc_x_offset,
                    rp,
-                   (acc_closest_x, acc_closest_y, acc_closest_rp) ) ->
-              let glyph_info_found =
-                Array.find_opt (fun (c', _) -> c' = c) glyph_info_with_char
-              in
-              match glyph_info_found with
-              | Some (_, gi) ->
-                  let x_advance = FreeType.get_x_advance gi in
-                  let processed_x_offset =
-                    get_proper_x_offset_value acc_x_offset gi window_width
-                  in
-                  let calculated_x = processed_x_offset mod window_width in
-                  let calculated_y =
-                    (processed_x_offset + x_advance)
-                    / window_width * FreeType.font_height
-                  in
-                  let diff_x, diff_x_advance =
-                    ( abs ((x * ratio) - calculated_x),
-                      abs
-                        ((x * ratio)
-                        - ((calculated_x + x_advance) mod window_width)) )
-                  and diff_y = abs ((y * ratio) - calculated_y)
-                  and curr_diffx = abs ((x * ratio) - acc_closest_x)
-                  and curr_diffy = abs ((y * ratio) - acc_closest_y) in
-                  let closer_diff_x =
-                    if diff_x <= diff_x_advance then diff_x else diff_x_advance
-                  in
-                  let used_calc_x =
-                    if closer_diff_x = diff_x then calculated_x
-                    else (processed_x_offset + x_advance) mod window_width
-                  in
-                  let used_rp = if closer_diff_x = diff_x then rp else rp + 1 in
-                  let new_closest =
-                    if closer_diff_x <= curr_diffx && diff_y <= curr_diffy then
-                      (used_calc_x, calculated_y, used_rp)
-                    else (acc_closest_x, acc_closest_y, acc_closest_rp)
-                  in
-                  (processed_x_offset + x_advance, rp + 1, new_closest)
-              | None -> failwith ("glyph_info not found for " ^ Char.escaped c))
-            l
+                   (acc_closest_x, acc_closest_y, acc_closest_rp) ) c ->
+              if c = '\n' then (
+                let amt_window_widths = acc_x_offset / window_width in
+                let next_x_pos = (amt_window_widths + 1) * window_width in
+                let line_x_pos = acc_x_offset mod window_width in
+                let used_x =
+                  compare_and_pick (x * ratio) line_x_pos acc_closest_x
+                  |> min line_x_pos
+                in
+                let lower_y_height = amt_window_widths * FreeType.font_height in
+                let used_y =
+                  if
+                    lower_y_height <= y * ratio
+                    && y * ratio <= lower_y_height + FreeType.font_height
+                  then lower_y_height
+                  else acc_closest_y
+                in
+                print_newline ();
+                ( next_x_pos,
+                  rp + 1,
+                  ( used_x,
+                    used_y,
+                    if used_y = lower_y_height && used_x = line_x_pos then rp
+                    else acc_closest_rp ) ))
+              else
+                let glyph_info_found =
+                  Array.find_opt (fun (c', _) -> c' = c) glyph_info_with_char
+                in
+                match glyph_info_found with
+                | Some (_, gi) ->
+                    let x_advance = FreeType.get_x_advance gi in
+                    let amt_window_widths = acc_x_offset / window_width
+                    and amt_window_widths_plus_1 =
+                      (acc_x_offset + x_advance) / window_width
+                    in
+                    let processed_x_offset =
+                      if amt_window_widths_plus_1 > amt_window_widths then
+                        amt_window_widths_plus_1 * window_width
+                      else acc_x_offset
+                    in
+                    let calculated_x_offset =
+                      processed_x_offset mod window_width
+                    in
+                    let used_x =
+                      compare_and_pick (x * ratio) calculated_x_offset
+                        acc_closest_x
+                    in
+                    let row =
+                      processed_x_offset / window_width * FreeType.font_height
+                    in
+                    let lower_y_height =
+                      amt_window_widths * FreeType.font_height
+                    in
+                    let used_y =
+                      if
+                        lower_y_height <= y * ratio
+                        && y * ratio <= lower_y_height + FreeType.font_height
+                      then lower_y_height
+                      else acc_closest_y
+                    in
+                    ( processed_x_offset + x_advance,
+                      rp + 1,
+                      ( used_x,
+                        used_y,
+                        if used_y = row && used_x = calculated_x_offset then rp
+                        else acc_closest_rp ) )
+                | None -> failwith ("glyph_info not found for " ^ Char.escaped c))
             (offset, rope_position, (closest_x, closest_y, closest_rope_pos))
+            l
       | Node { left; right; _ } ->
           let left_offset, lrp, left_closest =
             traverse_rope left offset rope_position
@@ -74,8 +104,10 @@ module Editor = struct
           in
           traverse_rope right left_offset lrp left_closest
     in
-    let _, _, (_, _, crp) =
+    let _, _, (cx, cy, crp) =
       traverse_rope rope 0 0 (Int.max_int, Int.max_int, Int.max_int)
     in
-    crp
+    Printf.printf "%d %d %d" cx cy crp;
+    print_newline ();
+    min crp (length rope)
 end

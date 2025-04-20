@@ -13,7 +13,7 @@ module Render = struct
   external init_buffer : unit -> Opengl.buffer = "init_buffer" "init_buffer"
 
   external write_cursor_to_buffer :
-    Opengl.buffer -> FreeType.glyph_info -> int * int -> int -> int -> unit
+    Opengl.buffer -> int * int -> int -> int -> unit
     = "write_cursor_to_buffer" "write_cursor_to_buffer"
 
   external write_to_buffer :
@@ -120,8 +120,8 @@ module Render = struct
     let window_dims = Sdl.sdl_gl_getdrawablesize () in
     match rope with
     | Rope.Leaf l ->
-        String.fold_right
-          (fun c acc ->
+        String.fold_left
+          (fun acc c ->
             if c = '\n' then
               let window_width, _ = window_dims in
               let div_ans = (acc + window_width) / window_width in
@@ -145,7 +145,7 @@ module Render = struct
                   print_char c;
                   print_newline ();
                   acc)
-          l offset
+          offset l
     | Rope.Node { left; right; _ } ->
         let left_offset = draw_rope' buffer left offset in
         draw_rope' buffer right left_offset
@@ -157,12 +157,15 @@ module Render = struct
         (rope_position : int) =
       match rope with
       | Leaf l ->
-          String.fold_right
-            (fun c (curr_offset, rp) ->
-              if c = '\n' then
+          String.fold_left
+            (fun (curr_offset, rp) c ->
+              if c = '\n' then (
                 let window_width, _ = window_dims in
                 let div_ans = (curr_offset + window_width) / window_width in
-                (div_ans * window_width, rp + 1)
+                if rp = editor.Editor.cursor_pos then
+                  write_cursor_to_buffer buffer window_dims curr_offset
+                    FreeType.font_height;
+                (div_ans * window_width, rp + 1))
               else
                 let glyph_info_found =
                   Array.find_opt
@@ -172,25 +175,30 @@ module Render = struct
                 match glyph_info_found with
                 | Some (_, gi) ->
                     let x_advance = FreeType.get_x_advance gi in
-                    let processed_acc_x_offset =
-                      let window_width, _ = window_dims in
-                      let processed_x_offset =
-                        Editor.get_proper_x_offset_value curr_offset gi
-                          window_width
-                      in
-                      if rp = editor.Editor.cursor_pos - 1 then
-                        write_cursor_to_buffer buffer gi window_dims
-                          processed_x_offset FreeType.font_height;
-                      processed_x_offset
+                    let window_width, _ = window_dims in
+                    let amt_window_widths = curr_offset / window_width
+                    and amt_window_widths_plus_1 =
+                      (curr_offset + x_advance) / window_width
                     in
-                    (processed_acc_x_offset + x_advance, rp + 1)
+                    let processed_x_offset =
+                      if amt_window_widths_plus_1 > amt_window_widths then
+                        amt_window_widths_plus_1 * window_width
+                      else curr_offset
+                    in
+                    if rp = editor.Editor.cursor_pos then
+                      write_cursor_to_buffer buffer window_dims
+                        processed_x_offset FreeType.font_height;
+                    (processed_x_offset + x_advance, rp + 1)
                 | None -> failwith "not found")
-            l (offset, rope_position)
+            (offset, rope_position) l
       | Node { left; right; _ } ->
           let left_offset, rp = traverse_rope left offset rope_position in
           traverse_rope right left_offset rp
     in
-    let _ = traverse_rope (Option.get editor.Editor.rope) 0 0 in
+    let last_x_offset, _ = traverse_rope (Option.get editor.Editor.rope) 0 0 in
+    if editor.cursor_pos = Rope.length (editor.rope |> Option.get) then
+      write_cursor_to_buffer buffer window_dims last_x_offset
+        FreeType.font_height;
     ()
 
   let draw_rope (buffer : buffer) rope =
