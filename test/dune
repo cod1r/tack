@@ -10,6 +10,10 @@
  (name test_render)
  (libraries tack ounit2))
 
+(test
+ (name test_editor)
+ (libraries tack ounit2))
+
 (env
  (dev
   (flags

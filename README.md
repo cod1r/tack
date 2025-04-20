@@ -46,3 +46,7 @@ Using Int_val instead of Long_val might fuck me over in the future. idk...
 there needs to be a faster and better way to go from screen coords to a position in the rope data structure.
 
 maybe use ocaml callbacks and call them from c instead of having to pattern match on custom sdl event types?
+
+CLEAN UP CODE!!
+
+scrolling needs to be implemented
