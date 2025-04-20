@@ -29,28 +29,28 @@ module Editor = struct
             (fun ( acc_x_offset,
                    rp,
                    (acc_closest_x, acc_closest_y, acc_closest_rp) ) c ->
-              if c = '\n' then (
-                let amt_window_widths = acc_x_offset / window_width in
+              let amt_window_widths = acc_x_offset / window_width in
+              let lower_y_height = amt_window_widths * FreeType.font_height in
+              let used_y =
+                if
+                  lower_y_height <= y * ratio
+                  && y * ratio <= lower_y_height + FreeType.font_height
+                then lower_y_height
+                else acc_closest_y
+              in
+              if c = '\n' then
                 let next_x_pos = (amt_window_widths + 1) * window_width in
                 let line_x_pos = acc_x_offset mod window_width in
                 let used_x =
                   compare_and_pick (x * ratio) line_x_pos acc_closest_x
                   |> min line_x_pos
                 in
-                let lower_y_height = amt_window_widths * FreeType.font_height in
-                let used_y =
-                  if
-                    lower_y_height <= y * ratio
-                    && y * ratio <= lower_y_height + FreeType.font_height
-                  then lower_y_height
-                  else acc_closest_y
-                in
                 ( next_x_pos,
                   rp + 1,
                   ( used_x,
                     used_y,
                     if used_y = lower_y_height && used_x = line_x_pos then rp
-                    else acc_closest_rp ) ))
+                    else acc_closest_rp ) )
               else
                 let glyph_info_found =
                   Array.find_opt (fun (c', _) -> c' = c) glyph_info_with_char
@@ -58,13 +58,12 @@ module Editor = struct
                 match glyph_info_found with
                 | Some (_, gi) ->
                     let x_advance = FreeType.get_x_advance gi in
-                    let amt_window_widths = acc_x_offset / window_width
-                    and amt_window_widths_plus_1 =
+                    let amt_window_widths_plus_x_advance =
                       (acc_x_offset + x_advance) / window_width
                     in
                     let processed_x_offset =
-                      if amt_window_widths_plus_1 > amt_window_widths then
-                        amt_window_widths_plus_1 * window_width
+                      if amt_window_widths_plus_x_advance > amt_window_widths then
+                        amt_window_widths_plus_x_advance * window_width
                       else acc_x_offset
                     in
                     let calculated_x_offset =
@@ -73,19 +72,10 @@ module Editor = struct
                     let used_x =
                       compare_and_pick (x * ratio) calculated_x_offset
                         acc_closest_x
+                      |> min calculated_x_offset
                     in
                     let row =
                       processed_x_offset / window_width * FreeType.font_height
-                    in
-                    let lower_y_height =
-                      amt_window_widths * FreeType.font_height
-                    in
-                    let used_y =
-                      if
-                        lower_y_height <= y * ratio
-                        && y * ratio <= lower_y_height + FreeType.font_height
-                      then lower_y_height
-                      else acc_closest_y
                     in
                     ( processed_x_offset + x_advance,
                       rp + 1,
