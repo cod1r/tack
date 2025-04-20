@@ -45,7 +45,6 @@ module Editor = struct
                   then lower_y_height
                   else acc_closest_y
                 in
-                print_newline ();
                 ( next_x_pos,
                   rp + 1,
                   ( used_x,
@@ -107,7 +106,5 @@ module Editor = struct
     let _, _, (cx, cy, crp) =
       traverse_rope rope 0 0 (Int.max_int, Int.max_int, Int.max_int)
     in
-    Printf.printf "%d %d %d" cx cy crp;
-    print_newline ();
     min crp (length rope)
 end
