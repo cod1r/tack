@@ -3,7 +3,7 @@ open Tack.Editor
 open Tack.Rope
 open Tack.Render
 
-let _ = "URMOM"
+let _ = "URMOMS HAHA"
 
 let cwd = Sys.getcwd ()
 and filename = Sys.argv.(1)
@@ -22,7 +22,7 @@ let rec loop (editor_info : Editor.editor) =
         match editor_info.Editor.rope with
         | Some r -> (
             match char_code with
-            | 8 ->
+            | 8 when kbd_evt_type = Keydown ->
                 let rope_len = length r in
                 if rope_len > 0 && editor_info.cursor_pos > 0 then (
                   let new_rope =
