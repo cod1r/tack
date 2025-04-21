@@ -3,7 +3,11 @@ open Rope
 open Sdl
 
 module Editor = struct
-  type editor = { rope : Rope.rope option; cursor_pos : int }
+  type editor = {
+    rope : Rope.rope option;
+    cursor_pos : int;
+    holding_ctrl : bool;
+  }
 
   let glyph_info_with_char =
     Array.init

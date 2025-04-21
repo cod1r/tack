@@ -3,11 +3,18 @@ open Tack.Editor
 open Tack.Rope
 open Tack.Render
 
+let _ = "URMOM"
+
+let cwd = Sys.getcwd ()
+and filename = Sys.argv.(1)
+
+let real_path = cwd ^ "/" ^ filename
+
 let rec loop (editor_info : Editor.editor) =
   let evt = Sdl.sdl_pollevent () in
   let new_editor, continue =
     match evt with
-    | Some (KeyboardEvt { keysym; timestamp; _ }) -> (
+    | Some (KeyboardEvt { keysym; timestamp; kbd_evt_type; _ }) -> (
         Printf.printf "KBD: %d, %s, %d" (Char.code keysym) (Char.escaped keysym)
           timestamp;
         print_newline ();
@@ -22,7 +29,11 @@ let rec loop (editor_info : Editor.editor) =
                     Some (delete r (editor_info.cursor_pos - 1) 1)
                   in
                   let new_editor : Editor.editor =
-                    { rope = new_rope; cursor_pos = editor_info.cursor_pos - 1 }
+                    {
+                      editor_info with
+                      rope = new_rope;
+                      cursor_pos = editor_info.cursor_pos - 1;
+                    }
                   in
                   Render.draw new_editor;
                   (new_editor, true))
@@ -31,7 +42,11 @@ let rec loop (editor_info : Editor.editor) =
                 (* horizontal tab will be two spaces *)
                 let new_rope = Some (insert r editor_info.cursor_pos "  ") in
                 let new_editor : Editor.editor =
-                  { rope = new_rope; cursor_pos = editor_info.cursor_pos + 1 }
+                  {
+                    editor_info with
+                    rope = new_rope;
+                    cursor_pos = editor_info.cursor_pos + 1;
+                  }
                 in
                 Render.draw new_editor;
                 (new_editor, true)
@@ -39,10 +54,32 @@ let rec loop (editor_info : Editor.editor) =
                 (* on macos, the return key gives \r instead of \n *)
                 let new_rope = Some (insert r editor_info.cursor_pos "\n") in
                 let new_editor : Editor.editor =
-                  { rope = new_rope; cursor_pos = editor_info.cursor_pos + 1 }
+                  {
+                    editor_info with
+                    rope = new_rope;
+                    cursor_pos = editor_info.cursor_pos + 1;
+                  }
                 in
                 Render.draw new_editor;
                 (new_editor, true)
+            | 1073742048 ->
+                (* this is the integer encoding for ctrl in SDL *)
+                let new_editor =
+                  match kbd_evt_type with
+                  | Keydown -> { editor_info with holding_ctrl = true }
+                  | Keyup -> { editor_info with holding_ctrl = false }
+                in
+                (new_editor, true)
+            | 115 ->
+                (match editor_info.holding_ctrl with
+                | true -> (
+                    match editor_info.rope with
+                    | Some r ->
+                        Out_channel.with_open_bin real_path (fun oc ->
+                            Out_channel.output_string oc (to_string r))
+                    | None -> ())
+                | false -> ());
+                (editor_info, true)
             | _ -> (editor_info, true))
         | None -> (editor_info, true))
     | Some
@@ -83,7 +120,11 @@ let rec loop (editor_info : Editor.editor) =
           | None -> Some (Leaf text)
         in
         let new_editor : Editor.editor =
-          { rope = new_rope; cursor_pos = editor_info.cursor_pos + 1 }
+          {
+            editor_info with
+            rope = new_rope;
+            cursor_pos = editor_info.cursor_pos + 1;
+          }
         in
         Render.draw new_editor;
         (new_editor, true)
@@ -92,13 +133,9 @@ let rec loop (editor_info : Editor.editor) =
   in
   if continue then loop new_editor else ()
 
-let cwd = Sys.getcwd ()
-and filename = Sys.argv.(1)
-
-let real_path = cwd ^ "/" ^ filename;;
-
-if not (real_path |> Sys.file_exists) then
-  failwith ("File doesn't exist: " ^ cwd ^ filename)
+let () =
+  if not (real_path |> Sys.file_exists) then
+    failwith ("File doesn't exist: " ^ cwd ^ filename)
 
 let file_contents =
   let lines =
@@ -107,7 +144,10 @@ let file_contents =
   List.fold_left (fun acc line -> acc ^ line ^ "\n") "" lines
 
 let file_rope = of_string file_contents |> rebalance
-let initial_editor : Editor.editor = { rope = Some file_rope; cursor_pos = 0 }
+
+let initial_editor : Editor.editor =
+  { rope = Some file_rope; cursor_pos = 0; holding_ctrl = false }
+
 let () = Render.draw initial_editor
 let () = Sdl.sdl_create_and_set_system_cursor ()
 let () = loop initial_editor
