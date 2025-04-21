@@ -320,10 +320,11 @@ CAMLprim value sdl_pollevent(value unit) {
   int poll_event_value = SDL_PollEvent(&e);
   if (poll_event_value == 1) {
     switch (e.type) {
+      case SDL_KEYUP:
       case SDL_KEYDOWN: {
         // tag type is 0 because first variant
         evt_type = caml_alloc(6, 0);
-        Store_field(evt_type, 0, Val_int(0));
+        Store_field(evt_type, 0, Val_int(e.type == SDL_KEYDOWN ? 0 : 1));
         Store_field(evt_type, 1, Val_int(e.key.timestamp));
         Store_field(evt_type, 2, Val_int(e.key.windowID));
         Store_field(evt_type, 3, e.key.state == SDL_PRESSED ? Val_int(0) : Val_int(1));

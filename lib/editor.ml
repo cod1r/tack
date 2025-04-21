@@ -62,8 +62,8 @@ module Editor = struct
                       (acc_x_offset + x_advance) / window_width
                     in
                     let processed_x_offset =
-                      if amt_window_widths_plus_x_advance > amt_window_widths then
-                        amt_window_widths_plus_x_advance * window_width
+                      if amt_window_widths_plus_x_advance > amt_window_widths
+                      then amt_window_widths_plus_x_advance * window_width
                       else acc_x_offset
                     in
                     let calculated_x_offset =
