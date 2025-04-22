@@ -136,7 +136,7 @@ module Render = struct
               | Some (_, gi) ->
                   let x_advance = FreeType.get_x_advance gi in
                   let processed_acc_x_offset =
-                    write_to_buffer buffer gi window_dims acc
+                    write_to_buffer buffer gi window_dims (acc)
                       FreeType.font_height
                   in
                   processed_acc_x_offset + x_advance
@@ -150,7 +150,7 @@ module Render = struct
         let left_offset = draw_rope' buffer left offset in
         draw_rope' buffer right left_offset
 
-  let draw_cursor (buffer : buffer) (editor : Editor.editor) =
+  let draw_cursor (buffer : buffer) (editor : Editor.editor) vertical_scroll_y_offset =
     let window_dims = Sdl.sdl_gl_getdrawablesize () in
     (* this is used to check what glyph/letter matches with the cursor position in the rope *)
     let rec traverse_rope (rope : Rope.rope) (offset : int)
@@ -195,14 +195,16 @@ module Render = struct
           let left_offset, rp = traverse_rope left offset rope_position in
           traverse_rope right left_offset rp
     in
-    let last_x_offset, _ = traverse_rope (Option.get editor.Editor.rope) 0 0 in
+    let last_x_offset, _ = traverse_rope (Option.get editor.Editor.rope) (vertical_scroll_y_offset * fst window_dims) 0 in
     if editor.cursor_pos = Rope.length (editor.rope |> Option.get) then
       write_cursor_to_buffer buffer window_dims last_x_offset
         FreeType.font_height;
     ()
 
-  let draw_rope (buffer : buffer) rope =
-    let _ = draw_rope' buffer rope 0 in
+  let draw_rope (buffer : buffer) rope vertical_scroll_y_offset =
+    Printf.printf "%d" vertical_scroll_y_offset; print_newline();
+    let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
+    let _ = draw_rope' buffer rope (vertical_scroll_y_offset * window_width) in
     ()
 
   let gl_buffer_obj = gl_gen_one_buffer ()
@@ -230,7 +232,7 @@ module Render = struct
     | Some r ->
         gl_bind_buffer gl_buffer_obj;
         gl_vertex_attrib_pointer_float_type location 3 false;
-        draw_rope b r;
+        draw_rope b r editor.vertical_scroll_y_offset;
         gl_buffer_subdata b;
 
         let buffer_size = get_buffer_size b in
@@ -240,7 +242,7 @@ module Render = struct
 
         gl_bind_buffer gl_buffer_cursor;
         gl_vertex_attrib_pointer_float_type location 3 false;
-        draw_cursor cursor_buffer editor;
+        draw_cursor cursor_buffer editor editor.vertical_scroll_y_offset;
         gl_buffer_subdata cursor_buffer;
 
         let buffer_size = get_buffer_size cursor_buffer in

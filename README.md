@@ -50,3 +50,5 @@ maybe use ocaml callbacks and call them from c instead of having to pattern matc
 CLEAN UP CODE!!
 
 scrolling needs to be implemented
+
+displaying line numbers

@@ -39,8 +39,7 @@ CAMLprim value init_buffer_with_capacity(value size) {
 int get_proper_x_offset(int original_x_offset, const struct GlyphInfo gi, int window_width) {
   int with_x_advance = (original_x_offset + gi.x_advance) / window_width;
   if (with_x_advance > original_x_offset / window_width) {
-    int diff_from_lower_window_width_multiple = (original_x_offset + gi.x_advance) % window_width;
-    original_x_offset = (original_x_offset + gi.x_advance) - diff_from_lower_window_width_multiple;
+    original_x_offset = with_x_advance * window_width;
   }
   return original_x_offset;
 }
