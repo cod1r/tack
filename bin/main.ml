@@ -92,8 +92,7 @@ let rec loop (editor_info : Editor.editor) =
             let crp =
               if Option.is_some editor_info.rope then
                 Editor.find_closest_rope_pos_for_cursor_on_mouse_down
-                  (Option.get editor_info.rope)
-                  (x, y)
+                  editor_info (x, y)
               else 0
             in
             Printf.printf "closest rp: %d" crp;
@@ -113,11 +112,15 @@ let rec loop (editor_info : Editor.editor) =
         (* Printf.printf "Mousemotion %d %d %d" x y timestamp;
         print_newline (); *)
         (editor_info, true)
-    | Some (MouseWheelEvt { y; _ }) -> (
-      let new_editor = { editor_info with vertical_scroll_y_offset = editor_info.vertical_scroll_y_offset + y } in
-      Render.draw new_editor;
-      (new_editor, true)
-    )
+    | Some (MouseWheelEvt { y; _ }) ->
+        let new_editor =
+          {
+            editor_info with
+            vertical_scroll_y_offset = editor_info.vertical_scroll_y_offset + y;
+          }
+        in
+        Render.draw new_editor;
+        (new_editor, true)
     | Some (TextInputEvt { text; _ }) ->
         let new_rope =
           match editor_info.Editor.rope with
@@ -151,7 +154,12 @@ let file_contents =
 let file_rope = of_string file_contents |> rebalance
 
 let initial_editor : Editor.editor =
-  { rope = Some file_rope; cursor_pos = 0; holding_ctrl = false; vertical_scroll_y_offset = 0 }
+  {
+    rope = Some file_rope;
+    cursor_pos = 0;
+    holding_ctrl = false;
+    vertical_scroll_y_offset = 0;
+  }
 
 let () = Render.draw initial_editor
 let () = Sdl.sdl_create_and_set_system_cursor ()

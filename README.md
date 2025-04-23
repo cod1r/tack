@@ -52,3 +52,8 @@ CLEAN UP CODE!!
 scrolling needs to be implemented
 
 displaying line numbers
+
+Things to note and remember:
+  text is positioned by taking it's relative horizontal position in the rope and wrapping the value around the window width.
+
+font rendering still sucks. characters aren't aligned vertically on the baseline. maybe I'm missing something.

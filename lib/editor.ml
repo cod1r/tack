@@ -15,7 +15,7 @@ module Editor = struct
       (126 - 32 + 1)
       (fun i -> FreeType.get_ascii_char_glyph FreeType.face (i + 32))
 
-  let find_closest_rope_pos_for_cursor_on_mouse_down (rope : Rope.rope)
+  let find_closest_rope_pos_for_cursor_on_mouse_down (editor : editor)
       ((x, y) : int * int) =
     let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
     let window_width_without_high_dpi, _ = Sdl.sdl_get_window_size Sdl.w in
@@ -99,7 +99,11 @@ module Editor = struct
           traverse_rope right left_offset lrp left_closest
     in
     let _, _, (cx, cy, crp) =
-      traverse_rope rope 0 0 (Int.max_int, Int.max_int, Int.max_int)
+      traverse_rope
+        (editor.rope |> Option.get)
+        (editor.vertical_scroll_y_offset * window_width)
+        0
+        (Int.max_int, Int.max_int, Int.max_int)
     in
-    min crp (length rope)
+    min crp (length (editor.rope |> Option.get))
 end
