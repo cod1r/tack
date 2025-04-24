@@ -141,7 +141,7 @@ CAMLprim value write_cursor_to_buffer(value buffer, value window_dims, value pre
     if (b->size > b->capacity) caml_failwith("BUFFER TOO SMALL");
       b->contents[b->size++] = (x + used_x_offset) / ((float)window_width / 2) - 1;
     if (b->size > b->capacity) caml_failwith("BUFFER TOO SMALL");
-      b->contents[b->size++] = -((y + row * font_height_c)) / ((float)window_height / 2) + 1;
+      b->contents[b->size++] = -(y + row * font_height_c + 0.30 * font_height_c) / ((float)window_height / 2) + 1;
     if (b->size > b->capacity) caml_failwith("BUFFER TOO SMALL");
       b->contents[b->size++] = 1;
     }

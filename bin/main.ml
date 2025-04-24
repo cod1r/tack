@@ -107,7 +107,9 @@ let rec loop (editor_info : Editor.editor) =
     | Some (WindowEvt { event; _ }) -> (
         match event with
         | WindowClose -> (editor_info, false)
-        | WindowResize -> (editor_info, true))
+        | WindowResize ->
+            Render.draw editor_info;
+            (editor_info, true))
     | Some (MouseMotionEvt { x = _; _ }) ->
         (* Printf.printf "Mousemotion %d %d %d" x y timestamp;
         print_newline (); *)

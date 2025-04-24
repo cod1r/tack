@@ -345,14 +345,18 @@ CAMLprim value sdl_pollevent(value unit) {
         option_val = caml_alloc_some(evt_type);
       } break;
       case SDL_WINDOWEVENT: {
+        int window_evt_type;
         if (e.window.event == SDL_WINDOWEVENT_CLOSE) {
+          window_evt_type = 0;
+        } else if (e.window.event == SDL_WINDOWEVENT_RESIZED) {
+          window_evt_type = 1;
+        }
           // tag type is 2 because third variant
           evt_type = caml_alloc(3, 2);
           Store_field(evt_type, 0, Val_int(e.window.timestamp));
           Store_field(evt_type, 1, Val_int(e.window.windowID));
-          Store_field(evt_type, 2, Val_int(0));
+          Store_field(evt_type, 2, Val_int(window_evt_type));
           option_val = caml_alloc_some(evt_type);
-        }
       } break;
       case SDL_MOUSEMOTION: {
         evt_type = caml_alloc(7, 3);

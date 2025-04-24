@@ -142,7 +142,8 @@ module Sdl = struct
     let w =
       match
         sdl_create_window "tack" 0 0 1000 1000
-          (sdl_window_allow_highdpi lor sdl_window_opengl)
+          (sdl_window_allow_highdpi lor sdl_window_opengl
+         lor sdl_window_resizable)
       with
       | Some (Window { width; height; title; _ } as w) ->
           Printf.printf "Created window: %s %d %d" title width height;
