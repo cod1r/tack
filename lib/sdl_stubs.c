@@ -345,7 +345,7 @@ CAMLprim value sdl_pollevent(value unit) {
         option_val = caml_alloc_some(evt_type);
       } break;
       case SDL_WINDOWEVENT: {
-        int window_evt_type;
+        int window_evt_type = 2;
         if (e.window.event == SDL_WINDOWEVENT_CLOSE) {
           window_evt_type = 0;
         } else if (e.window.event == SDL_WINDOWEVENT_RESIZED) {

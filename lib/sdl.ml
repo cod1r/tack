@@ -3,7 +3,7 @@ module Sdl = struct
   type keyboardEvtState = Pressed | Released
   type mouseEvtType = Mousedown | Mouseup
   type mouseEvtState = Pressed | Released
-  type windowEvtType = WindowClose | WindowResize
+  type windowEvtType = WindowClose | WindowResize | Unhandled
 
   let sdl_window_resizable = 0x00000020
   let sdl_window_opengl = 0x00000002

@@ -116,91 +116,46 @@ module Render = struct
     gl_linkprogram p;
     p
 
-  let rec draw_rope' (buffer : buffer) rope offset =
-    let window_dims = Sdl.sdl_gl_getdrawablesize () in
-    match rope with
-    | Rope.Leaf l ->
-        String.fold_left
-          (fun acc c ->
-            if c = '\n' then
-              let window_width, _ = window_dims in
-              let div_ans = (acc + window_width) / window_width in
-              div_ans * window_width
-            else
-              let glyph_info_found =
-                Array.find_opt
-                  (fun (c', _) -> c' = c)
-                  Editor.glyph_info_with_char
-              in
-              match glyph_info_found with
-              | Some (_, gi) ->
-                  let x_advance = FreeType.get_x_advance gi in
-                  let processed_acc_x_offset =
-                    write_to_buffer buffer gi window_dims acc
-                      FreeType.font_height
-                  in
-                  processed_acc_x_offset + x_advance
-              | None ->
-                  Printf.printf "not found";
-                  print_char c;
-                  print_newline ();
-                  acc)
-          offset l
-    | Rope.Node { left; right; _ } ->
-        let left_offset = draw_rope' buffer left offset in
-        draw_rope' buffer right left_offset
-
   let draw_cursor (buffer : buffer) (editor : Editor.editor)
       vertical_scroll_y_offset =
     let window_dims = Sdl.sdl_gl_getdrawablesize () in
     (* this is used to check what glyph/letter matches with the cursor position in the rope *)
-    let rec traverse_rope (rope : Rope.rope) (offset : int)
-        (rope_position : int) =
-      match rope with
-      | Leaf l ->
-          String.fold_left
-            (fun (curr_offset, rp) c ->
-              if c = '\n' then (
-                let window_width, _ = window_dims in
-                let div_ans = (curr_offset + window_width) / window_width in
-                if rp = editor.Editor.cursor_pos then
-                  write_cursor_to_buffer buffer window_dims curr_offset
-                    FreeType.font_height;
-                (div_ans * window_width, rp + 1))
-              else
-                let glyph_info_found =
-                  Array.find_opt
-                    (fun (c', _) -> c' = c)
-                    Editor.glyph_info_with_char
-                in
-                match glyph_info_found with
-                | Some (_, gi) ->
-                    let x_advance = FreeType.get_x_advance gi in
-                    let window_width, _ = window_dims in
-                    let amt_window_widths = curr_offset / window_width
-                    and amt_window_widths_plus_1 =
-                      (curr_offset + x_advance) / window_width
-                    in
-                    let processed_x_offset =
-                      if amt_window_widths_plus_1 > amt_window_widths then
-                        amt_window_widths_plus_1 * window_width
-                      else curr_offset
-                    in
-                    if rp = editor.Editor.cursor_pos then
-                      write_cursor_to_buffer buffer window_dims
-                        processed_x_offset FreeType.font_height;
-                    (processed_x_offset + x_advance, rp + 1)
-                | None -> failwith "not found")
-            (offset, rope_position) l
-      | Node { left; right; _ } ->
-          let left_offset, rp = traverse_rope left offset rope_position in
-          traverse_rope right left_offset rp
+    let fold_fn (curr_offset, rp) c =
+      if c = '\n' then (
+        let window_width, _ = window_dims in
+        let div_ans = (curr_offset + window_width) / window_width in
+        if rp = editor.Editor.cursor_pos then
+          write_cursor_to_buffer buffer window_dims curr_offset
+            FreeType.font_height;
+        (div_ans * window_width, rp + 1))
+      else
+        let glyph_info_found =
+          Array.find_opt (fun (c', _) -> c' = c) Editor.glyph_info_with_char
+        in
+        match glyph_info_found with
+        | Some (_, gi) ->
+            let x_advance = FreeType.get_x_advance gi in
+            let window_width, _ = window_dims in
+            let amt_window_widths = curr_offset / window_width
+            and amt_window_widths_plus_1 =
+              (curr_offset + x_advance) / window_width
+            in
+            let processed_x_offset =
+              if amt_window_widths_plus_1 > amt_window_widths then
+                amt_window_widths_plus_1 * window_width
+              else curr_offset
+            in
+            if rp = editor.Editor.cursor_pos then
+              write_cursor_to_buffer buffer window_dims processed_x_offset
+                FreeType.font_height;
+            (processed_x_offset + x_advance, rp + 1)
+        | None -> failwith "not found"
     in
     let last_x_offset, _ =
-      traverse_rope
+      Editor.traverse_rope
         (Option.get editor.Editor.rope)
-        (vertical_scroll_y_offset * fst window_dims)
-        0
+        fold_fn
+        (vertical_scroll_y_offset * fst window_dims, 0)
     in
     if editor.cursor_pos = Rope.length (editor.rope |> Option.get) then
       write_cursor_to_buffer buffer window_dims last_x_offset
@@ -208,8 +163,32 @@ module Render = struct
     ()
 
   let draw_rope (buffer : buffer) rope vertical_scroll_y_offset =
-    let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
-    let _ = draw_rope' buffer rope (vertical_scroll_y_offset * window_width) in
+    let window_dims = Sdl.sdl_gl_getdrawablesize () in
+    let window_width, _ = window_dims in
+    let fold_fn acc c =
+      if c = '\n' then
+        let div_ans = (acc + window_width) / window_width in
+        div_ans * window_width
+      else
+        let glyph_info_found =
+          Array.find_opt (fun (c', _) -> c' = c) Editor.glyph_info_with_char
+        in
+        match glyph_info_found with
+        | Some (_, gi) ->
+            let x_advance = FreeType.get_x_advance gi in
+            let processed_acc_x_offset =
+              write_to_buffer buffer gi window_dims acc FreeType.font_height
+            in
+            processed_acc_x_offset + x_advance
+        | None ->
+            Printf.printf "not found";
+            print_char c;
+            print_newline ();
+            acc
+    in
+    let _ =
+      Editor.traverse_rope rope fold_fn (vertical_scroll_y_offset * window_width)
+    in
     ()
 
   let gl_buffer_obj = gl_gen_one_buffer ()
