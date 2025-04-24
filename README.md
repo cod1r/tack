@@ -48,6 +48,9 @@ there needs to be a faster and better way to go from screen coords to a position
 maybe use ocaml callbacks and call them from c instead of having to pattern match on custom sdl event types?
 
 CLEAN UP CODE!!
+ - this includes cleaning up the logic for rendering the rope, rendering the cursor and finding the closest cursor position to where the user clicked. Lots of repeated rope/tree traversal.
+  - might be able to clean up by writing a `traverse_rope` function that accepts a function and some 'a. That
+    function argument will handle rope leafs and returns some 'a which will then be passed into `traverse_rope`.
 
 scrolling needs to be implemented
 
@@ -55,5 +58,3 @@ displaying line numbers
 
 Things to note and remember:
   text is positioned by taking it's relative horizontal position in the rope and wrapping the value around the window width.
-
-font rendering still sucks. characters aren't aligned vertically on the baseline. maybe I'm missing something.

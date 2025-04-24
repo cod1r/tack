@@ -121,7 +121,8 @@ CAMLprim value freetype_init(value path_to_font) {
   int result_init = FT_Init_FreeType(&library);
   if (result_init) caml_failwith("failed to initialize freetype");
 
-  int result_face = FT_New_Face(library, "/System/Library/Fonts/Menlo.ttc", 0, &face);
+  printf("opening font file: %s\n", String_val(path_to_font));
+  int result_face = FT_New_Face(library, String_val(path_to_font), 0, &face);
   if (result_face == FT_Err_Unknown_File_Format) {
     caml_failwith("unknown font file format");
   } else if (result_face) {

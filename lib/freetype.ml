@@ -26,8 +26,10 @@ module FreeType = struct
   external freetype_set_pixel_sizes : ft_face -> int -> unit
     = "freetype_set_pixel_sizes" "freetype_set_pixel_sizes"
 
-  let face, library = freetype_init "/System/Library/Fonts/Menlo.ttc"
-  let () = freetype_set_pixel_sizes face 20
+  let face, library =
+    freetype_init "/Users/cod1r/Library/Fonts/JetBrainsMono[wght].ttf"
+
+  let () = freetype_set_pixel_sizes face 40
 
   (* need to call font_height after set_pixel_sizes *)
   let font_height = get_font_height face
