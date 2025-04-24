@@ -164,7 +164,7 @@ module Render = struct
 
   let draw_rope (buffer : buffer) rope vertical_scroll_y_offset =
     let window_dims = Sdl.sdl_gl_getdrawablesize () in
-    let window_width, _ = window_dims in
+    let window_width, window_height = window_dims in
     let fold_fn acc c =
       if c = '\n' then
         let div_ans = (acc + window_width) / window_width in
@@ -176,8 +176,11 @@ module Render = struct
         match glyph_info_found with
         | Some (_, gi) ->
             let x_advance = FreeType.get_x_advance gi in
+            let y_pos = acc / window_width * FreeType.font_height in
             let processed_acc_x_offset =
-              write_to_buffer buffer gi window_dims acc FreeType.font_height
+              if y_pos <= window_height && y_pos >= 0 then
+                write_to_buffer buffer gi window_dims acc FreeType.font_height
+              else acc
             in
             processed_acc_x_offset + x_advance
         | None ->
