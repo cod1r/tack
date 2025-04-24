@@ -17,7 +17,7 @@ module Render = struct
     = "write_cursor_to_buffer" "write_cursor_to_buffer"
 
   external write_to_buffer :
-    Opengl.buffer -> FreeType.glyph_info -> int * int -> int -> int -> int
+    Opengl.buffer -> FreeType.glyph_info -> int * int -> int -> int -> unit
     = "write_to_buffer" "write_to_buffer"
   [@@noalloc]
 
@@ -116,59 +116,24 @@ module Render = struct
     gl_linkprogram p;
     p
 
-  let draw_cursor (buffer : buffer) (editor : Editor.editor)
-      vertical_scroll_y_offset =
-    let window_dims = Sdl.sdl_gl_getdrawablesize () in
-    (* this is used to check what glyph/letter matches with the cursor position in the rope *)
-    let fold_fn (curr_offset, rp) c =
-      if c = '\n' then (
-        let window_width, _ = window_dims in
-        let div_ans = (curr_offset + window_width) / window_width in
-        if rp = editor.Editor.cursor_pos then
-          write_cursor_to_buffer buffer window_dims curr_offset
-            FreeType.font_height;
-        (div_ans * window_width, rp + 1))
-      else
-        let glyph_info_found =
-          Array.find_opt (fun (c', _) -> c' = c) Editor.glyph_info_with_char
-        in
-        match glyph_info_found with
-        | Some (_, gi) ->
-            let x_advance = FreeType.get_x_advance gi in
-            let window_width, _ = window_dims in
-            let amt_window_widths = curr_offset / window_width
-            and amt_window_widths_plus_1 =
-              (curr_offset + x_advance) / window_width
-            in
-            let processed_x_offset =
-              if amt_window_widths_plus_1 > amt_window_widths then
-                amt_window_widths_plus_1 * window_width
-              else curr_offset
-            in
-            if rp = editor.Editor.cursor_pos then
-              write_cursor_to_buffer buffer window_dims processed_x_offset
-                FreeType.font_height;
-            (processed_x_offset + x_advance, rp + 1)
-        | None -> failwith "not found"
-    in
-    let last_x_offset, _ =
-      Editor.traverse_rope
-        (Option.get editor.Editor.rope)
-        fold_fn
-        (vertical_scroll_y_offset * fst window_dims, 0)
-    in
-    if editor.cursor_pos = Rope.length (editor.rope |> Option.get) then
-      write_cursor_to_buffer buffer window_dims last_x_offset
-        FreeType.font_height;
-    ()
-
-  let draw_rope (buffer : buffer) rope vertical_scroll_y_offset =
+  let draw_editor (text_buffer : buffer) (cursor_buffer : buffer)
+      (editor : Editor.editor) =
     let window_dims = Sdl.sdl_gl_getdrawablesize () in
     let window_width, window_height = window_dims in
-    let fold_fn acc c =
-      if c = '\n' then
-        let div_ans = (acc + window_width) / window_width in
-        div_ans * window_width
+    let fold_fn (acc : unit Editor.rope_traversal_info) c =
+      if c = '\n' then (
+        let div_ans =
+          (acc.acc_horizontal_x_pos + window_width) / window_width
+        in
+        if acc.rope_pos = editor.Editor.cursor_pos then
+          write_cursor_to_buffer cursor_buffer window_dims
+            acc.acc_horizontal_x_pos FreeType.font_height;
+        ({
+           acc_horizontal_x_pos = div_ans * window_width;
+           rope_pos = acc.rope_pos + 1;
+           accumulation = ();
+         }
+          : unit Editor.rope_traversal_info))
       else
         let glyph_info_found =
           Array.find_opt (fun (c', _) -> c' = c) Editor.glyph_info_with_char
@@ -176,22 +141,47 @@ module Render = struct
         match glyph_info_found with
         | Some (_, gi) ->
             let x_advance = FreeType.get_x_advance gi in
-            let y_pos = acc / window_width * FreeType.font_height in
+            let plus_x_advance =
+              (acc.acc_horizontal_x_pos + x_advance) / window_width
+            and without_x_advance = acc.acc_horizontal_x_pos / window_width in
+            let y_pos = without_x_advance * FreeType.font_height in
+            if y_pos <= window_height && y_pos >= 0 then
+              write_to_buffer text_buffer gi window_dims
+                acc.acc_horizontal_x_pos FreeType.font_height;
             let processed_acc_x_offset =
-              if y_pos <= window_height && y_pos >= 0 then
-                write_to_buffer buffer gi window_dims acc FreeType.font_height
-              else acc
+              if plus_x_advance > without_x_advance then
+                plus_x_advance * window_width
+              else acc.acc_horizontal_x_pos
             in
-            processed_acc_x_offset + x_advance
+            if acc.rope_pos = editor.Editor.cursor_pos then
+              write_cursor_to_buffer cursor_buffer window_dims
+                processed_acc_x_offset FreeType.font_height;
+            ({
+               acc_horizontal_x_pos = processed_acc_x_offset + x_advance;
+               rope_pos = acc.rope_pos + 1;
+               accumulation = ();
+             }
+              : unit Editor.rope_traversal_info)
         | None ->
             Printf.printf "not found";
             print_char c;
             print_newline ();
             acc
     in
-    let _ =
-      Editor.traverse_rope rope fold_fn (vertical_scroll_y_offset * window_width)
+    let { Editor.acc_horizontal_x_pos; _ } =
+      Editor.traverse_rope
+        (editor.rope |> Option.get)
+        fold_fn
+        ({
+           acc_horizontal_x_pos = editor.vertical_scroll_y_offset * window_width;
+           rope_pos = 0;
+           accumulation = ();
+         }
+          : unit Editor.rope_traversal_info)
     in
+    if editor.cursor_pos = Rope.length (editor.rope |> Option.get) then
+      write_cursor_to_buffer cursor_buffer window_dims acc_horizontal_x_pos
+        FreeType.font_height;
     ()
 
   let gl_buffer_obj = gl_gen_one_buffer ()
@@ -215,27 +205,24 @@ module Render = struct
     gl_clear_color 1. 1. 1. 1.;
     gl_clear ();
     gl_use_program program;
-    (match editor.Editor.rope with
-    | Some r ->
-        gl_bind_buffer gl_buffer_obj;
-        gl_vertex_attrib_pointer_float_type location 3 false;
-        draw_rope b r editor.vertical_scroll_y_offset;
-        gl_buffer_subdata b;
+    draw_editor b cursor_buffer editor;
 
-        let buffer_size = get_buffer_size b in
-        (* dividing by three here because each point has 3 components (x,y, alpha) *)
-        gl_draw_arrays (buffer_size / 3);
-        reset_buffer b;
+    gl_bind_buffer gl_buffer_obj;
+    gl_vertex_attrib_pointer_float_type location 3 false;
+    gl_buffer_subdata b;
 
-        gl_bind_buffer gl_buffer_cursor;
-        gl_vertex_attrib_pointer_float_type location 3 false;
-        draw_cursor cursor_buffer editor editor.vertical_scroll_y_offset;
-        gl_buffer_subdata cursor_buffer;
+    let buffer_size = get_buffer_size b in
+    (* dividing by three here because each point has 3 components (x,y, alpha) *)
+    gl_draw_arrays (buffer_size / 3);
+    reset_buffer b;
 
-        let buffer_size = get_buffer_size cursor_buffer in
-        (* dividing by three here because each point has 3 components (x,y, alpha) *)
-        gl_draw_arrays (buffer_size / 3);
-        reset_buffer cursor_buffer
-    | None -> ());
+    gl_bind_buffer gl_buffer_cursor;
+    gl_vertex_attrib_pointer_float_type location 3 false;
+    gl_buffer_subdata cursor_buffer;
+
+    let buffer_size = get_buffer_size cursor_buffer in
+    (* dividing by three here because each point has 3 components (x,y, alpha) *)
+    gl_draw_arrays (buffer_size / 3);
+    reset_buffer cursor_buffer;
     match Sdl.sdl_gl_swapwindow Sdl.w with Ok () -> () | Error e -> failwith e
 end

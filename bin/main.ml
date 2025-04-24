@@ -167,3 +167,4 @@ let initial_editor : Editor.editor =
 let () = Render.draw initial_editor
 let () = Sdl.sdl_create_and_set_system_cursor ()
 let () = loop initial_editor
+(* HAHA THIS IS FUN *)

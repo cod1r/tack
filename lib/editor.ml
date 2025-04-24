@@ -15,8 +15,15 @@ module Editor = struct
       (126 - 32 + 1)
       (fun i -> FreeType.get_ascii_char_glyph FreeType.face (i + 32))
 
-  let rec traverse_rope (rope : Rope.rope) (handle_result : 'a -> char -> 'a)
-      (result : 'a) =
+  type 'a rope_traversal_info = {
+    acc_horizontal_x_pos : int;
+    rope_pos : int;
+    accumulation : 'a;
+  }
+
+  let rec traverse_rope (rope : Rope.rope)
+      (handle_result : 'a rope_traversal_info -> char -> 'a rope_traversal_info)
+      (result : 'a rope_traversal_info) =
     match rope with
     | Leaf l -> String.fold_left handle_result result l
     | Node { left; right; _ } ->
@@ -34,7 +41,11 @@ module Editor = struct
       if diff1 < diff2 then value1 else value2
     in
     let fold_fn
-        (acc_x_offset, rp, (acc_closest_x, acc_closest_y, acc_closest_rp)) c =
+        {
+          acc_horizontal_x_pos = acc_x_offset;
+          rope_pos = rp;
+          accumulation = acc_closest_x, acc_closest_y, acc_closest_rp;
+        } c =
       let amt_window_widths = acc_x_offset / window_width in
       let lower_y_height = amt_window_widths * FreeType.font_height in
       let used_y =
@@ -51,12 +62,15 @@ module Editor = struct
           compare_and_pick (x * ratio) line_x_pos acc_closest_x
           |> min line_x_pos
         in
-        ( next_x_pos,
-          rp + 1,
-          ( used_x,
-            used_y,
-            if used_y = lower_y_height && used_x = line_x_pos then rp
-            else acc_closest_rp ) )
+        {
+          acc_horizontal_x_pos = next_x_pos;
+          rope_pos = rp + 1;
+          accumulation =
+            ( used_x,
+              used_y,
+              if used_y = lower_y_height && used_x = line_x_pos then rp
+              else acc_closest_rp );
+        }
       else
         let glyph_info_found =
           Array.find_opt (fun (c', _) -> c' = c) glyph_info_with_char
@@ -80,21 +94,27 @@ module Editor = struct
             let row =
               processed_x_offset / window_width * FreeType.font_height
             in
-            ( processed_x_offset + x_advance,
-              rp + 1,
-              ( used_x,
-                used_y,
-                if used_y = row && used_x = calculated_x_offset then rp
-                else acc_closest_rp ) )
+            {
+              acc_horizontal_x_pos = processed_x_offset + x_advance;
+              rope_pos = rp + 1;
+              accumulation =
+                ( used_x,
+                  used_y,
+                  if used_y = row && used_x = calculated_x_offset then rp
+                  else acc_closest_rp );
+            }
         | None -> failwith ("glyph_info not found for " ^ Char.escaped c)
     in
-    let _, _, (_, _, crp) =
+    let { accumulation = _, _, crp; _ } =
       traverse_rope
         (editor.rope |> Option.get)
         fold_fn
-        ( editor.vertical_scroll_y_offset * window_width,
-          0,
-          (Int.max_int, Int.max_int, Int.max_int) )
+        ({
+           acc_horizontal_x_pos = editor.vertical_scroll_y_offset * window_width;
+           rope_pos = 0;
+           accumulation = (Int.max_int, Int.max_int, Int.max_int);
+         }
+          : (int * int * int) rope_traversal_info)
     in
     min crp (length (editor.rope |> Option.get))
 end

@@ -31,32 +31,6 @@ let timing_test_opengl_works _ =
     match Sdl.sdl_gl_swapwindow w with Ok () -> () | Error e -> failwith e
   done
 
-let timing_test_drawing_rope _ =
-  let ropes = 1 in
-  let all_j = List.init ropes (fun _ -> "j") in
-  let rope =
-    List.fold_left
-      (fun acc gj ->
-        match acc with
-        | Some a -> Some (Tack.Rope.concat a (Leaf gj))
-        | None -> Some (Leaf gj))
-      None all_j
-    |> Option.get
-  in
-  ();
-  let b = Render.init_buffer () in
-  let start = Unix.gettimeofday () in
-  let times = 500_000 in
-  for _ = 0 to times do
-    Render.draw_rope b rope 0;
-    Render.reset_buffer b
-  done;
-  let end' = Unix.gettimeofday () -. start in
-  assert_bool
-    ("time it takes to draw " ^ Int.to_string ropes ^ " ropes/leaves "
-   ^ Int.to_string times ^ " times")
-    (end' < 0.5)
-
 let gl_gen_one_buffer_test _ =
   let buffer = Tack.Opengl.gl_gen_one_buffer () in
   assert_bool "buffer should not equal 0 or be less than 0" (buffer != 0)
@@ -76,11 +50,8 @@ let timing_test_writing_bigarray _ =
 
 let tests =
   "render tests"
-  >::: [
-         (*"gl set up" >:: timing_test_opengl_works;*)
-         "rope drawing time" >:: timing_test_drawing_rope;
+  >::: [ (*"gl set up" >:: timing_test_opengl_works;*)
          (* "gl_gen_one_buffer test" >:: gl_gen_one_buffer_test; *)
-         (* "writing to bigarray time test" >:: timing_test_writing_bigarray; *)
-       ]
+         (* "writing to bigarray time test" >:: timing_test_writing_bigarray; *) ]
 
 let () = run_test_tt_main tests
