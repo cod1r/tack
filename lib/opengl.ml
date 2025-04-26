@@ -20,8 +20,12 @@ external gl_clear : unit -> unit = "gl_clear" "gl_clear"
 external gl_gen_one_buffer : unit -> int
   = "gl_gen_one_buffer" "gl_gen_one_buffer"
 
-external gl_vertex_attrib_pointer_float_type : int -> int -> bool -> unit
+external gl_vertex_attrib_pointer_float_type :
+  location:int -> stride:int -> normalized:bool -> start_idx:int -> unit
   = "gl_vertex_attrib_pointer_float_type" "gl_vertex_attrib_pointer_float_type"
+
+external gl_draw_arrays_with_quad_strips : int -> unit
+  = "gl_draw_arrays_with_quad_strips" "gl_draw_arrays_with_quad_strips"
 
 external gl_draw_arrays : int -> unit = "gl_draw_arrays" "gl_draw_arrays"
 external gl_bind_buffer : int -> unit = "gl_bind_buffer" "gl_bind_buffer"

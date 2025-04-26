@@ -31,9 +31,6 @@ current questions:
 current problems:
   memory usage is too high
   performance is not ideal (still need to test on large amounts of text)
-  text wrapping is dogshit
-    - write_to_buffer might have to return the x_offset value due to adjustments when wrapping
-      so that wrapped lines that occur after are consistent. (The adjusted values aren't kept so glyphs that are positioned after the wrapped line, behave as thought they didn't occur after a adjusted value).
 
 thoughts about cursor related problems:
     abstract away the logic for offsetting the x_offset so that it's easily known what glyph a cursor lands on when moving around.
@@ -45,16 +42,15 @@ Using Int_val instead of Long_val might fuck me over in the future. idk...
 
 there needs to be a faster and better way to go from screen coords to a position in the rope data structure.
 
-maybe use ocaml callbacks and call them from c instead of having to pattern match on custom sdl event types?
-
 CLEAN UP CODE!!
- - this includes cleaning up the logic for rendering the rope, rendering the cursor and finding the closest cursor position to where the user clicked. Lots of repeated rope/tree traversal.
-  - might be able to clean up by writing a `traverse_rope` function that accepts a function and some 'a. That
-    function argument will handle rope leafs and returns some 'a which will then be passed into `traverse_rope`.
-
-scrolling needs to be implemented
 
 displaying line numbers
 
 Things to note and remember:
   text is positioned by taking it's relative horizontal position in the rope and wrapping the value around the window width.
+
+for implementing highlighting:
+  - use GL_QUAD_STRIPS
+  - text color might need to be considered if alpha channel doesn't allow text to be easily seen through the highlight
+  - use the same buffer for text; just include RGB so now each point has 6 components - x,y,r,g,b,a
+  - might need to pass in a boolean for when to draw blue for vertices that aren't used to draw characters (white/black pixels)

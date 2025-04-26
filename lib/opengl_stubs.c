@@ -126,9 +126,15 @@ CAMLprim value gl_gen_one_buffer() {
   CAMLreturn(Val_int(buffer));
 }
 
-CAMLprim value gl_vertex_attrib_pointer_float_type(value location, value size, value normalized) {
-  CAMLparam3(location, size, normalized);
-  glVertexAttribPointer(Int_val(location), Int_val(size), GL_FLOAT, Bool_val(normalized), sizeof(float) * Int_val(size), 0);
+CAMLprim value gl_vertex_attrib_pointer_float_type(value location, value size, value normalized, value start_idx) {
+  CAMLparam4(location, size, normalized, start_idx);
+  glVertexAttribPointer(Int_val(location), Int_val(size), GL_FLOAT, Bool_val(normalized), sizeof(float) * Int_val(size), (void*)Int_val(start_idx));
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value gl_draw_arrays_with_quad_strips(value num_points) {
+  CAMLparam1(num_points);
+  glDrawArrays(GL_QUAD_STRIP, 0, Int_val(num_points));
   CAMLreturn(Val_unit);
 }
 

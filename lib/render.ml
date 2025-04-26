@@ -10,45 +10,53 @@ module Render = struct
   external init_buffer_with_capacity : int -> Opengl.buffer
     = "init_buffer_with_capacity" "init_buffer_with_capacity"
 
-  external init_buffer : unit -> Opengl.buffer = "init_buffer" "init_buffer"
+  external init_buffer : floats_per_point:int -> Opengl.buffer
+    = "init_buffer" "init_buffer"
 
   external write_cursor_to_buffer :
     Opengl.buffer -> int * int -> int -> int -> unit
     = "write_cursor_to_buffer" "write_cursor_to_buffer"
 
   external write_to_buffer :
-    Opengl.buffer -> FreeType.glyph_info -> int * int -> int -> int -> unit
-    = "write_to_buffer" "write_to_buffer"
+    Opengl.buffer ->
+    FreeType.glyph_info ->
+    window_dims:int * int ->
+    x_offset:int ->
+    font_height:int ->
+    stride:int ->
+    unit = "write_to_buffer" "write_to_buffer"
   [@@noalloc]
 
   external reset_buffer : Opengl.buffer -> unit = "reset_buffer" "reset_buffer"
 
+  let _EACH_POINT_FLOAT_AMOUNT = 6
+  let _EACH_POINT_FLOAT_AMOUNT_CURSOR = 2
+
   let vertex_shader =
     {|
   #version 120
-  attribute vec3 point_vertex;
+  attribute vec2 point_vertex;
+  attribute vec4 color;
   varying float alpha;
   void main() {
-    // in our ocaml code, we put a buffer object that has 3 components consecutively.
-    // X,Y,Alpha value,X,Y,Alpha value,...
     gl_Position = vec4(point_vertex.x, point_vertex.y, 0.0, 1.0);
-    alpha = point_vertex.z;
+    alpha = color;
   }
   |}
 
   let fragment_shader =
     {|
   #version 120
-  varying float alpha;
+  varying vec4 color;
   void main() {
-    gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
+    gl_FragColor = vec4(color.r, color.g, color.b, color.a);
   }
   |}
 
   let vertex_shader_cursor =
     {|
   #version 120
-  attribute vec3 point;
+  attribute vec2 point;
   void main() {
     gl_Position = vec4(point.x, point.y, 0.0, 1.0);
   }
@@ -63,8 +71,10 @@ module Render = struct
     |}
 
   let _ = gl_enable_blending ()
-  let b = init_buffer ()
-  let cursor_buffer = init_buffer_with_capacity (2 * FreeType.font_height * 3)
+  let b = init_buffer ~floats_per_point:_EACH_POINT_FLOAT_AMOUNT
+
+  (* 2 pixels wide * font_height * 2 floats per pixel *)
+  let cursor_buffer = init_buffer_with_capacity (2 * FreeType.font_height * 2)
 
   let fragment =
     match gl_create_fragment_shader () with Ok f -> f | Error e -> failwith e
@@ -146,8 +156,10 @@ module Render = struct
             and without_x_advance = acc.acc_horizontal_x_pos / window_width in
             let y_pos = without_x_advance * FreeType.font_height in
             if y_pos <= window_height && y_pos >= 0 then
-              write_to_buffer text_buffer gi window_dims
-                acc.acc_horizontal_x_pos FreeType.font_height;
+              write_to_buffer text_buffer gi ~window_dims
+                ~x_offset:acc.acc_horizontal_x_pos
+                ~font_height:FreeType.font_height
+                ~stride:_EACH_POINT_FLOAT_AMOUNT;
             let processed_acc_x_offset =
               if plus_x_advance > without_x_advance then
                 plus_x_advance * window_width
@@ -187,13 +199,23 @@ module Render = struct
   let gl_buffer_obj = gl_gen_one_buffer ()
   let gl_buffer_cursor = gl_gen_one_buffer ()
 
-  let location =
+  let location_point_vertex =
     match gl_getattriblocation program "point_vertex" with
     | Ok l -> l
     | Error e -> failwith e
 
+  let location_color =
+    match gl_getattriblocation program "color" with
+    | Ok l -> l
+    | Error e -> failwith e
+
+  let location_cursor_point_vertex =
+    match gl_getattriblocation program_cursor "point" with
+    | Ok l -> l
+    | Error e -> failwith e
+
   let init_gl_buffers () =
-    gl_enable_vertex_attrib_array location;
+    gl_enable_vertex_attrib_array location_point_vertex;
     gl_bind_buffer gl_buffer_obj;
     gl_buffer_data b;
     gl_bind_buffer gl_buffer_cursor;
@@ -208,21 +230,25 @@ module Render = struct
     draw_editor b cursor_buffer editor;
 
     gl_bind_buffer gl_buffer_obj;
-    gl_vertex_attrib_pointer_float_type location 3 false;
+    gl_vertex_attrib_pointer_float_type ~location:location_point_vertex
+      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
+
+    gl_vertex_attrib_pointer_float_type ~location:location_color
+      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
     gl_buffer_subdata b;
 
     let buffer_size = get_buffer_size b in
-    (* dividing by three here because each point has 3 components (x,y, alpha) *)
-    gl_draw_arrays (buffer_size / 3);
+    gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT);
     reset_buffer b;
 
     gl_bind_buffer gl_buffer_cursor;
-    gl_vertex_attrib_pointer_float_type location 3 false;
+    gl_vertex_attrib_pointer_float_type ~location:location_cursor_point_vertex
+      ~stride:_EACH_POINT_FLOAT_AMOUNT_CURSOR ~normalized:false ~start_idx:0;
     gl_buffer_subdata cursor_buffer;
 
     let buffer_size = get_buffer_size cursor_buffer in
-    (* dividing by three here because each point has 3 components (x,y, alpha) *)
-    gl_draw_arrays (buffer_size / 3);
+    gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT_CURSOR);
     reset_buffer cursor_buffer;
+
     match Sdl.sdl_gl_swapwindow Sdl.w with Ok () -> () | Error e -> failwith e
 end

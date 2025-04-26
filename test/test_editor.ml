@@ -13,14 +13,15 @@ let cursor_positioning_on_mousedown_test _ =
       cursor_pos = 0;
       holding_ctrl = false;
       vertical_scroll_y_offset = 0;
+      highlight = None;
     }
   in
   let rope_pos =
-    Editor.find_closest_rope_pos_for_cursor_on_mouse_down editor (200, 0)
+    Editor.find_closest_rope_pos_for_cursor_on_coords editor (200, 0)
   in
   assert_equal rope_pos 1;
   let rope_pos =
-    Editor.find_closest_rope_pos_for_cursor_on_mouse_down editor (500, 500)
+    Editor.find_closest_rope_pos_for_cursor_on_coords editor (500, 500)
   in
   assert_equal rope_pos (Tack.Rope.length rope)
 

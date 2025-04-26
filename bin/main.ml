@@ -91,8 +91,8 @@ let rec loop (editor_info : Editor.editor) =
               button clicks timestamp;
             let crp =
               if Option.is_some editor_info.rope then
-                Editor.find_closest_rope_pos_for_cursor_on_mouse_down
-                  editor_info (x, y)
+                Editor.find_closest_rope_pos_for_cursor_on_coords editor_info
+                  (x, y)
               else 0
             in
             Printf.printf "closest rp: %d" crp;
@@ -111,9 +111,9 @@ let rec loop (editor_info : Editor.editor) =
             Render.draw editor_info;
             (editor_info, true)
         | Unhandled -> (editor_info, true))
-    | Some (MouseMotionEvt { x = _; _ }) ->
-        (* Printf.printf "Mousemotion %d %d %d" x y timestamp;
-        print_newline (); *)
+    | Some (MouseMotionEvt { x; y; _ }) ->
+        Printf.printf "Mousemotion %d %d" x y;
+        print_newline ();
         (editor_info, true)
     | Some (MouseWheelEvt { y; _ }) ->
         let new_editor =
@@ -162,6 +162,7 @@ let initial_editor : Editor.editor =
     cursor_pos = 0;
     holding_ctrl = false;
     vertical_scroll_y_offset = 0;
+    highlight = None;
   }
 
 let () = Render.draw initial_editor

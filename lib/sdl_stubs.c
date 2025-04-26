@@ -332,10 +332,11 @@ CAMLprim value sdl_pollevent(value unit) {
         Store_field(evt_type, 5, Val_int(e.key.keysym.sym));
         option_val = caml_alloc_some(evt_type);
       } break;
+      case SDL_MOUSEBUTTONUP:
       case SDL_MOUSEBUTTONDOWN: {
         // tag type is 1 because second variant
         evt_type = caml_alloc(7, 1);
-        Store_field(evt_type, 0, Val_int(0));
+        Store_field(evt_type, 0, Val_int(e.type == SDL_MOUSEBUTTONUP ? 1 : 0));
         Store_field(evt_type, 1, Val_int(e.button.timestamp));
         Store_field(evt_type, 2, Val_int(e.button.windowID));
         Store_field(evt_type, 3, Val_int(e.button.button));

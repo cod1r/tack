@@ -12,11 +12,11 @@ CAMLprim value get_buffer_size(value buffer) {
   CAMLreturn(Val_int(b->size));
 }
 
-CAMLprim value init_buffer(value unit) {
-  CAMLparam1(unit);
+CAMLprim value init_buffer(value floats_per_point) {
+  CAMLparam1(floats_per_point);
   CAMLlocal1(buffer);
   buffer = caml_alloc(1, Abstract_tag);
-  size_t c = 5000000 * 3; // 60MB (bc times sizeof(float)) roughly; this needs to be high enough so that no re-allocations are necessary; times 3 bc each point/pixel has 3 components (x,y,alpha)
+  size_t c = 5000000 * Int_val(floats_per_point);
   float* contents = malloc(c * sizeof(float));
   struct Buffer b = { .contents = contents, .size = 0, .capacity = c };
   *((struct Buffer**)Data_abstract_val(buffer)) = malloc(sizeof(struct Buffer));
@@ -44,19 +44,22 @@ int get_proper_x_offset(int original_x_offset, const struct GlyphInfo gi, int wi
   return original_x_offset;
 }
 
-void push_to_buffer(struct Buffer* b, const struct GlyphInfo glyph_info, int window_width, int window_height, int x_offset, int font_height) {
+void push_to_buffer(struct Buffer* b, const struct GlyphInfo glyph_info, int window_width, int window_height, int x_offset, int font_height, int stride) {
 
   int row = (x_offset + glyph_info.x_advance) / window_width + 1;
 
   int new_x_offset = get_proper_x_offset(x_offset, glyph_info, window_width);
   int used_x_offset = new_x_offset % window_width;
 
-  for (int buffer_idx = b->size; buffer_idx < b->size + glyph_info.buffer.size; buffer_idx += 3) {
+  for (int buffer_idx = b->size; buffer_idx < b->size + glyph_info.buffer.size; buffer_idx += stride) {
     if (buffer_idx > b->capacity) caml_failwith("BUFFER TOO SMALL");
 
     int first = buffer_idx;
     int second = buffer_idx + 1;
     int third = buffer_idx + 2;
+    int fourth = buffer_idx + 3;
+    int fifth = buffer_idx + 4;
+    int sixth = buffer_idx + 5;
 
     // dividing by three because of FT_LOAD_TARGET_LCD
     // and adding in necessary offsets
@@ -76,7 +79,10 @@ void push_to_buffer(struct Buffer* b, const struct GlyphInfo glyph_info, int win
 
     b->contents[first] = altered_x;
     b->contents[second] = altered_y;
-    b->contents[third] = glyph_info.buffer.contents[third - b->size] / 255.;
+    b->contents[third] = 0.0f;
+    b->contents[fourth] = 0.0f;
+    b->contents[fifth] = 0.0f;
+    b->contents[sixth] = glyph_info.buffer.contents[third - b->size] / 255.;
   }
   b->size += glyph_info.buffer.size;
 }
@@ -97,8 +103,9 @@ previous_offset here is the summed x_advance of the glyphs up until this call.
 Currently I don't know if there is a use for the vertical offsets or y_advances.
 The x_advance sum is used to offset the new glyph correctly and draw on a new line if necessary.
 */
-CAMLprim value write_to_buffer(value buffer, value glyph_info, value window_dims, value previous_offset, value font_height) {
+CAMLprim value write_to_buffer(value buffer, value glyph_info, value window_dims, value previous_offset, value font_height, value stride) {
   CAMLparam5(buffer, glyph_info, window_dims, previous_offset, font_height);
+  CAMLxparam1(stride);
 
   int window_width = Int_val(Field(window_dims, 0));
 
@@ -112,7 +119,7 @@ CAMLprim value write_to_buffer(value buffer, value glyph_info, value window_dims
 
   struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
 
-  push_to_buffer(b, *glyph_info_struct, window_width, window_height, x_offset, font_height_c);
+  push_to_buffer(b, *glyph_info_struct, window_width, window_height, x_offset, font_height_c, Int_val(stride));
 
   CAMLreturn(Val_unit);
 }
@@ -148,7 +155,6 @@ CAMLprim value write_cursor_to_buffer(value buffer, value window_dims, value pre
       if (b->size > b->capacity) {
         caml_failwith("BUFFER TOO SMALL");
       }
-      b->contents[b->size++] = 1;
     }
   }
   CAMLreturn(Val_unit);

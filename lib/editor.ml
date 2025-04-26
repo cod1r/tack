@@ -8,6 +8,7 @@ module Editor = struct
     cursor_pos : int;
     holding_ctrl : bool;
     vertical_scroll_y_offset : int;
+    highlight : Rope.rope option;
   }
 
   let glyph_info_with_char =
@@ -30,7 +31,7 @@ module Editor = struct
         let left_result = traverse_rope left handle_result result in
         traverse_rope right handle_result left_result
 
-  let find_closest_rope_pos_for_cursor_on_mouse_down (editor : editor)
+  let find_closest_rope_pos_for_cursor_on_coords (editor : editor)
       ((x, y) : int * int) =
     let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
     let window_width_without_high_dpi, _ = Sdl.sdl_get_window_size Sdl.w in
