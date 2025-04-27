@@ -8,7 +8,7 @@ module Editor = struct
     cursor_pos : int;
     holding_ctrl : bool;
     vertical_scroll_y_offset : int;
-    highlight : Rope.rope option;
+    highlight : (int * int) option;
   }
 
   let glyph_info_with_char =

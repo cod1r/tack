@@ -23,7 +23,7 @@ module Render = struct
     window_dims:int * int ->
     x_offset:int ->
     font_height:int ->
-    stride:int ->
+    highlight:bool ->
     unit = "write_to_buffer" "write_to_buffer"
   [@@noalloc]
 
@@ -36,11 +36,11 @@ module Render = struct
     {|
   #version 120
   attribute vec2 point_vertex;
-  attribute vec4 color;
-  varying float alpha;
+  attribute vec4 color_attrib;
+  varying vec4 color;
   void main() {
     gl_Position = vec4(point_vertex.x, point_vertex.y, 0.0, 1.0);
-    alpha = color;
+    color = color_attrib;
   }
   |}
 
@@ -155,11 +155,16 @@ module Render = struct
               (acc.acc_horizontal_x_pos + x_advance) / window_width
             and without_x_advance = acc.acc_horizontal_x_pos / window_width in
             let y_pos = without_x_advance * FreeType.font_height in
+            let highlight =
+              match editor.highlight with
+              | Some (start, end') ->
+                  acc.rope_pos >= start && acc.rope_pos <= end'
+              | None -> false
+            in
             if y_pos <= window_height && y_pos >= 0 then
               write_to_buffer text_buffer gi ~window_dims
                 ~x_offset:acc.acc_horizontal_x_pos
-                ~font_height:FreeType.font_height
-                ~stride:_EACH_POINT_FLOAT_AMOUNT;
+                ~font_height:FreeType.font_height ~highlight;
             let processed_acc_x_offset =
               if plus_x_advance > without_x_advance then
                 plus_x_advance * window_width
@@ -205,7 +210,7 @@ module Render = struct
     | Error e -> failwith e
 
   let location_color =
-    match gl_getattriblocation program "color" with
+    match gl_getattriblocation program "color_attrib" with
     | Ok l -> l
     | Error e -> failwith e
 
@@ -214,41 +219,49 @@ module Render = struct
     | Ok l -> l
     | Error e -> failwith e
 
-  let init_gl_buffers () =
+  let () =
     gl_enable_vertex_attrib_array location_point_vertex;
+    gl_enable_vertex_attrib_array location_cursor_point_vertex;
+    gl_enable_vertex_attrib_array location_color;
     gl_bind_buffer gl_buffer_obj;
     gl_buffer_data b;
     gl_bind_buffer gl_buffer_cursor;
     gl_buffer_data cursor_buffer
 
-  let _ = init_gl_buffers ()
-
   let draw (editor : Editor.editor) =
     gl_clear_color 1. 1. 1. 1.;
     gl_clear ();
-    gl_use_program program;
+
     draw_editor b cursor_buffer editor;
 
+    gl_use_program program;
+
     gl_bind_buffer gl_buffer_obj;
-    gl_vertex_attrib_pointer_float_type ~location:location_point_vertex
+
+    gl_vertex_attrib_pointer_float_type ~location:location_point_vertex ~size:2
       ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
 
-    gl_vertex_attrib_pointer_float_type ~location:location_color
+    gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
       ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
-    gl_buffer_subdata b;
 
+    gl_buffer_subdata b;
     let buffer_size = get_buffer_size b in
+
     gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT);
+
     reset_buffer b;
+
+    gl_use_program program_cursor;
 
     gl_bind_buffer gl_buffer_cursor;
     gl_vertex_attrib_pointer_float_type ~location:location_cursor_point_vertex
-      ~stride:_EACH_POINT_FLOAT_AMOUNT_CURSOR ~normalized:false ~start_idx:0;
+      ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT_CURSOR ~normalized:false
+      ~start_idx:0;
+
     gl_buffer_subdata cursor_buffer;
 
     let buffer_size = get_buffer_size cursor_buffer in
     gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT_CURSOR);
     reset_buffer cursor_buffer;
-
     match Sdl.sdl_gl_swapwindow Sdl.w with Ok () -> () | Error e -> failwith e
 end

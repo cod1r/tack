@@ -64,7 +64,6 @@ CAMLprim value get_ascii_char_glyph(value face, value ascii) {
       buf.contents[buffer_idx] = x;
       buf.contents[buffer_idx + 1] = y;
       buf.contents[buffer_idx + 2] = alpha;
-      // three because x,y,z for opengl vertex attrib array stride
       buffer_idx += 3;
     }
   }

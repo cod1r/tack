@@ -21,7 +21,12 @@ external gl_gen_one_buffer : unit -> int
   = "gl_gen_one_buffer" "gl_gen_one_buffer"
 
 external gl_vertex_attrib_pointer_float_type :
-  location:int -> stride:int -> normalized:bool -> start_idx:int -> unit
+  location:int ->
+  size:int ->
+  stride:int ->
+  normalized:bool ->
+  start_idx:int ->
+  unit
   = "gl_vertex_attrib_pointer_float_type" "gl_vertex_attrib_pointer_float_type"
 
 external gl_draw_arrays_with_quad_strips : int -> unit
