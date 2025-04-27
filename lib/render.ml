@@ -23,7 +23,6 @@ module Render = struct
     window_dims:int * int ->
     x_offset:int ->
     font_height:int ->
-    highlight:bool ->
     unit = "write_to_buffer" "write_to_buffer"
   [@@noalloc]
 
@@ -155,16 +154,10 @@ module Render = struct
               (acc.acc_horizontal_x_pos + x_advance) / window_width
             and without_x_advance = acc.acc_horizontal_x_pos / window_width in
             let y_pos = without_x_advance * FreeType.font_height in
-            let highlight =
-              match editor.highlight with
-              | Some (start, end') ->
-                  acc.rope_pos >= start && acc.rope_pos <= end'
-              | None -> false
-            in
             if y_pos <= window_height && y_pos >= 0 then
               write_to_buffer text_buffer gi ~window_dims
                 ~x_offset:acc.acc_horizontal_x_pos
-                ~font_height:FreeType.font_height ~highlight;
+                ~font_height:FreeType.font_height;
             let processed_acc_x_offset =
               if plus_x_advance > without_x_advance then
                 plus_x_advance * window_width

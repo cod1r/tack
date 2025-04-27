@@ -103,7 +103,24 @@ let rec loop (editor_info : Editor.editor) =
         | Mouseup ->
             Printf.printf "Mouseup";
             print_newline ();
-            (editor_info, true))
+            let crp =
+              if Option.is_some editor_info.rope then
+                Editor.find_closest_rope_pos_for_cursor_on_coords editor_info
+                  (x, y)
+              else 0
+            in
+            if crp != editor_info.cursor_pos then
+              let new_editor =
+                {
+                  editor_info with
+                  highlight =
+                    Some
+                      ( min crp editor_info.cursor_pos,
+                        max crp editor_info.cursor_pos );
+                }
+              in
+              (new_editor, true)
+            else (editor_info, true))
     | Some (WindowEvt { event; _ }) -> (
         match event with
         | WindowClose -> (editor_info, false)

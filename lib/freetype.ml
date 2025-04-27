@@ -29,7 +29,7 @@ module FreeType = struct
   let face, library =
     freetype_init "/Users/cod1r/Library/Fonts/JetBrainsMono[wght].ttf"
 
-  let () = freetype_set_pixel_sizes face 20
+  let () = freetype_set_pixel_sizes face 50
 
   (* need to call font_height after set_pixel_sizes *)
   let font_height = get_font_height face
