@@ -69,11 +69,31 @@ module Render = struct
     }
     |}
 
+  let vertex_highlight_shader =
+    {|
+    #version 120
+    attribute vec2 point;
+    void main() {
+      gl_Position = vec4(point.x, point.y, 0., 1.);
+    }
+    |}
+
+  let fragment_highlight_shader =
+    {|
+    #version 120
+    void main() {
+      gl_FragColor = vec4(0., 0., 1., 0.5);
+    }
+    |}
+
   let _ = gl_enable_blending ()
   let b = init_buffer ~floats_per_point:_EACH_POINT_FLOAT_AMOUNT
 
   (* 2 pixels wide * font_height * 2 floats per pixel *)
   let cursor_buffer = init_buffer_with_capacity (2 * FreeType.font_height * 2)
+
+  let highlight_buffer =
+    init_buffer_with_capacity (1920 * 1080 * FreeType.font_height * 2)
 
   let fragment =
     match gl_create_fragment_shader () with Ok f -> f | Error e -> failwith e
@@ -90,6 +110,12 @@ module Render = struct
     match gl_create_fragment_shader () with
     | Ok f -> f
     | Error e -> failwith (e ^ "_CURSOR")
+
+  let vertex_highlight =
+    match gl_create_vertex_shader () with Ok v -> v | Error e -> failwith e
+
+  let fragment_highlight =
+    match gl_create_fragment_shader () with Ok v -> v | Error e -> failwith e
 
   let program =
     gl_shader_source fragment fragment_shader;
@@ -122,6 +148,23 @@ module Render = struct
     in
     gl_attach_shader p fragment_cursor;
     gl_attach_shader p vertex_cursor;
+    gl_linkprogram p;
+    p
+
+  let program_highlight =
+    gl_shader_source fragment_highlight fragment_highlight_shader;
+    gl_shader_source vertex_highlight vertex_highlight_shader;
+    gl_compileshader fragment_highlight;
+    if not (gl_get_shader_compile_status fragment_highlight) then
+      failwith (gl_get_shader_info_log fragment_highlight);
+    gl_compileshader vertex_highlight;
+    if not (gl_get_shader_compile_status vertex_highlight) then
+      failwith (gl_get_shader_info_log vertex_highlight);
+    let p =
+      match gl_createprogram () with Ok p -> p | Error e -> failwith e
+    in
+    gl_attach_shader p fragment_highlight;
+    gl_attach_shader p vertex_highlight;
     gl_linkprogram p;
     p
 
@@ -196,6 +239,7 @@ module Render = struct
 
   let gl_buffer_obj = gl_gen_one_buffer ()
   let gl_buffer_cursor = gl_gen_one_buffer ()
+  let gl_buffer_highlight = gl_gen_one_buffer ()
 
   let location_point_vertex =
     match gl_getattriblocation program "point_vertex" with
@@ -212,20 +256,36 @@ module Render = struct
     | Ok l -> l
     | Error e -> failwith e
 
+  let location_highlight_point =
+    match gl_getattriblocation program_highlight "point" with
+    | Ok l -> l
+    | Error e -> failwith e
+
   let () =
     gl_enable_vertex_attrib_array location_point_vertex;
     gl_enable_vertex_attrib_array location_cursor_point_vertex;
     gl_enable_vertex_attrib_array location_color;
+    gl_enable_vertex_attrib_array location_highlight_point;
     gl_bind_buffer gl_buffer_obj;
     gl_buffer_data b;
     gl_bind_buffer gl_buffer_cursor;
-    gl_buffer_data cursor_buffer
+    gl_buffer_data cursor_buffer;
+    gl_bind_buffer gl_buffer_highlight;
+    gl_buffer_data highlight_buffer
 
   let draw (editor : Editor.editor) =
     gl_clear_color 1. 1. 1. 1.;
     gl_clear ();
 
     draw_editor b cursor_buffer editor;
+
+    gl_use_program program_highlight;
+    gl_bind_buffer gl_buffer_highlight;
+    gl_vertex_attrib_pointer_float_type ~location:location_highlight_point
+      ~size:2 ~stride:2 ~normalized:false ~start_idx:0;
+    gl_buffer_subdata highlight_buffer;
+    let buffer_size = get_buffer_size highlight_buffer in
+    gl_draw_arrays_with_quad_strips (buffer_size / 2);
 
     gl_use_program program;
 

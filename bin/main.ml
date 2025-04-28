@@ -109,17 +109,19 @@ let rec loop (editor_info : Editor.editor) =
                   (x, y)
               else 0
             in
-            if crp != editor_info.cursor_pos then
+            if crp != editor_info.cursor_pos then (
               let new_editor =
                 {
                   editor_info with
+                  cursor_pos = crp;
                   highlight =
                     Some
                       ( min crp editor_info.cursor_pos,
                         max crp editor_info.cursor_pos );
                 }
               in
-              (new_editor, true)
+              Render.draw new_editor;
+              (new_editor, true))
             else (editor_info, true))
     | Some (WindowEvt { event; _ }) -> (
         match event with

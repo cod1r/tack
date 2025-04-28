@@ -103,6 +103,8 @@ CAMLprim value reset_buffer(value buffer) {
 previous_offset here is the summed x_advance of the glyphs up until this call.
 Currently I don't know if there is a use for the vertical offsets or y_advances.
 The x_advance sum is used to offset the new glyph correctly and draw on a new line if necessary.
+
+this function writes to the text buffer (draws characters)
 */
 CAMLprim value write_to_buffer(value buffer, value glyph_info, value window_dims, value previous_offset, value font_height) {
   CAMLparam5(buffer, glyph_info, window_dims, previous_offset, font_height);
@@ -157,5 +159,13 @@ CAMLprim value write_cursor_to_buffer(value buffer, value window_dims, value pre
       }
     }
   }
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value write_to_highlight_buffer(value highlight_buffer, value x, value y, value window_width, value window_height) {
+  CAMLparam5(highlight_buffer, x, y, window_width, window_height);
+
+  struct Buffer* highlight_buffer_c = *(struct Buffer**)Data_abstract_val(highlight_buffer);
+
   CAMLreturn(Val_unit);
 }
