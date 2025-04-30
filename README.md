@@ -32,12 +32,6 @@ current problems:
   memory usage is too high
   performance is not ideal (still need to test on large amounts of text)
 
-thoughts about cursor related problems:
-    abstract away the logic for offsetting the x_offset so that it's easily known what glyph a cursor lands on when moving around.
-    a lot of logic will surround the rope data structure and traversing it for information (like what glyph the cursor lands on).
-
-maybe there should be colors (RGB) as well in our vertex attrib arrays
-
 Using Int_val instead of Long_val might fuck me over in the future. idk...
 
 there needs to be a faster and better way to go from screen coords to a position in the rope data structure.
@@ -50,5 +44,7 @@ Things to note and remember:
   text is positioned by taking it's relative horizontal position in the rope and wrapping the value around the window width.
 
 editor config needs to be implemented
+
 need to think about what config format to use
+
 blinking cursor?
