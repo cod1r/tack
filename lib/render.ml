@@ -26,10 +26,19 @@ module Render = struct
     unit = "write_to_buffer" "write_to_buffer"
   [@@noalloc]
 
+  external write_to_highlight_buffer :
+    buffer:Opengl.buffer ->
+    x:int ->
+    y:int ->
+    window_width:int ->
+    window_height:int ->
+    unit = "write_to_highlight_buffer" "write_to_highlight_buffer"
+
   external reset_buffer : Opengl.buffer -> unit = "reset_buffer" "reset_buffer"
 
   let _EACH_POINT_FLOAT_AMOUNT = 6
   let _EACH_POINT_FLOAT_AMOUNT_CURSOR = 2
+  let _EACH_POINT_FLOAT_AMOUNT_HIGHLIGHT = 2
 
   let vertex_shader =
     {|
@@ -173,10 +182,46 @@ module Render = struct
     let window_dims = Sdl.sdl_gl_getdrawablesize () in
     let window_width, window_height = window_dims in
     let fold_fn (acc : unit Editor.rope_traversal_info) c =
+      let draw_highlight x_advance =
+        match editor.highlight with
+        | Some (highlight_start, highlight_end) ->
+            if acc.rope_pos >= highlight_start && acc.rope_pos < highlight_end
+            then (
+              let buffer_size = get_buffer_size highlight_buffer
+              and rows = acc.acc_horizontal_x_pos / window_width
+              and mod_x = acc.acc_horizontal_x_pos mod window_width in
+              if buffer_size = 0 then (
+                Printf.printf "%d %d" highlight_start highlight_end;
+                print_newline ();
+                let points =
+                  [
+                    (mod_x, (rows + 1) * FreeType.font_height);
+                    (mod_x, rows * FreeType.font_height);
+                  ]
+                in
+                List.iter
+                  (fun (x, y) ->
+                    write_to_highlight_buffer ~buffer:highlight_buffer ~x ~y
+                      ~window_width ~window_height)
+                  points);
+              let points =
+                [
+                  (mod_x + x_advance, (rows + 1) * FreeType.font_height);
+                  (mod_x + x_advance, rows * FreeType.font_height);
+                ]
+              in
+              List.iter
+                (fun (x, y) ->
+                  write_to_highlight_buffer ~buffer:highlight_buffer ~x ~y
+                    ~window_width ~window_height)
+                points)
+        | None -> ()
+      in
       if c = '\n' then (
         let div_ans =
           (acc.acc_horizontal_x_pos + window_width) / window_width
         in
+        draw_highlight 10;
         if acc.rope_pos = editor.Editor.cursor_pos then
           write_cursor_to_buffer cursor_buffer window_dims
             acc.acc_horizontal_x_pos FreeType.font_height;
@@ -193,6 +238,7 @@ module Render = struct
         match glyph_info_found with
         | Some (_, gi) ->
             let x_advance = FreeType.get_x_advance gi in
+            draw_highlight x_advance;
             let plus_x_advance =
               (acc.acc_horizontal_x_pos + x_advance) / window_width
             and without_x_advance = acc.acc_horizontal_x_pos / window_width in
@@ -280,12 +326,18 @@ module Render = struct
     draw_editor b cursor_buffer editor;
 
     gl_use_program program_highlight;
+
     gl_bind_buffer gl_buffer_highlight;
     gl_vertex_attrib_pointer_float_type ~location:location_highlight_point
       ~size:2 ~stride:2 ~normalized:false ~start_idx:0;
     gl_buffer_subdata highlight_buffer;
     let buffer_size = get_buffer_size highlight_buffer in
-    gl_draw_arrays_with_quad_strips (buffer_size / 2);
+    Printf.printf "highlight buf size: %d" buffer_size;
+    print_newline ();
+    gl_draw_arrays_with_quad_strips
+      (buffer_size / _EACH_POINT_FLOAT_AMOUNT_HIGHLIGHT);
+
+    reset_buffer highlight_buffer;
 
     gl_use_program program;
 
@@ -307,6 +359,7 @@ module Render = struct
     gl_use_program program_cursor;
 
     gl_bind_buffer gl_buffer_cursor;
+
     gl_vertex_attrib_pointer_float_type ~location:location_cursor_point_vertex
       ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT_CURSOR ~normalized:false
       ~start_idx:0;

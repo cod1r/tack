@@ -165,7 +165,19 @@ CAMLprim value write_cursor_to_buffer(value buffer, value window_dims, value pre
 CAMLprim value write_to_highlight_buffer(value highlight_buffer, value x, value y, value window_width, value window_height) {
   CAMLparam5(highlight_buffer, x, y, window_width, window_height);
 
+  int x_c = Int_val(x);
+  int y_c = Int_val(y);
+
+  int window_width_c = Int_val(window_width);
+  int window_height_c = Int_val(window_height);
+
+  float x_scaled = x_c / (window_width_c / 2.f) - 1.f;
+  float y_scaled = -y_c / (window_height_c / 2.f) + 1.f;
+
   struct Buffer* highlight_buffer_c = *(struct Buffer**)Data_abstract_val(highlight_buffer);
+
+  highlight_buffer_c->contents[highlight_buffer_c->size++] = x_scaled;
+  highlight_buffer_c->contents[highlight_buffer_c->size++] = y_scaled;
 
   CAMLreturn(Val_unit);
 }

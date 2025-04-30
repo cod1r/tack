@@ -131,8 +131,8 @@ let rec loop (editor_info : Editor.editor) =
             (editor_info, true)
         | Unhandled -> (editor_info, true))
     | Some (MouseMotionEvt { x; y; _ }) ->
-        Printf.printf "Mousemotion %d %d" x y;
-        print_newline ();
+        (* Printf.printf "Mousemotion %d %d" x y; *)
+        (* print_newline (); *)
         (editor_info, true)
     | Some (MouseWheelEvt { y; _ }) ->
         let new_editor =
