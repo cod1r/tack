@@ -50,7 +50,7 @@ let rec loop (editor_info : Editor.editor) =
                 in
                 Render.draw new_editor;
                 (new_editor, true)
-            | 13 | 10 ->
+            | 13 | 10 when kbd_evt_type = Keydown ->
                 (* on macos, the return key gives \r instead of \n *)
                 let new_rope = Some (insert r editor_info.cursor_pos "\n") in
                 let new_editor : Editor.editor =

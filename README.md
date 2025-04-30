@@ -49,8 +49,6 @@ displaying line numbers
 Things to note and remember:
   text is positioned by taking it's relative horizontal position in the rope and wrapping the value around the window width.
 
-for implementing highlighting:
-  - use GL_QUAD_STRIPS
-  - text color might need to be considered if alpha channel doesn't allow text to be easily seen through the highlight
-  - use the same buffer for text; just include RGB so now each point has 6 components - x,y,r,g,b,a
-  - might need to pass in a boolean for when to draw blue for vertices that aren't used to draw characters (white/black pixels)
+editor config needs to be implemented
+need to think about what config format to use
+blinking cursor?

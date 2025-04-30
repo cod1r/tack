@@ -330,8 +330,6 @@ module Render = struct
       ~size:2 ~stride:2 ~normalized:false ~start_idx:0;
     gl_buffer_subdata highlight_buffer;
     let buffer_size = get_buffer_size highlight_buffer in
-    Printf.printf "highlight buf size: %d" buffer_size;
-    print_newline ();
     gl_draw_arrays_with_quad_strips
       (buffer_size / _EACH_POINT_FLOAT_AMOUNT_HIGHLIGHT);
 
