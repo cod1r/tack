@@ -190,20 +190,18 @@ module Render = struct
               let buffer_size = get_buffer_size highlight_buffer
               and rows = acc.acc_horizontal_x_pos / window_width
               and mod_x = acc.acc_horizontal_x_pos mod window_width in
-              if buffer_size = 0 then (
-                Printf.printf "%d %d" highlight_start highlight_end;
-                print_newline ();
-                let points =
-                  [
-                    (mod_x, (rows + 1) * FreeType.font_height);
-                    (mod_x, rows * FreeType.font_height);
-                  ]
-                in
-                List.iter
-                  (fun (x, y) ->
-                    write_to_highlight_buffer ~buffer:highlight_buffer ~x ~y
-                      ~window_width ~window_height)
-                  points);
+              (if buffer_size = 0 then
+                 let points =
+                   [
+                     (mod_x, (rows + 1) * FreeType.font_height);
+                     (mod_x, rows * FreeType.font_height);
+                   ]
+                 in
+                 List.iter
+                   (fun (x, y) ->
+                     write_to_highlight_buffer ~buffer:highlight_buffer ~x ~y
+                       ~window_width ~window_height)
+                   points);
               let points =
                 [
                   (mod_x + x_advance, (rows + 1) * FreeType.font_height);
