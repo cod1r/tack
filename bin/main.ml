@@ -50,7 +50,7 @@ let rec loop (editor_info : Editor.editor) =
                 in
                 Render.draw new_editor;
                 (new_editor, true)
-            | 13 | 10 when kbd_evt_type = Keydown ->
+            | (13 | 10) when kbd_evt_type = Keydown ->
                 (* on macos, the return key gives \r instead of \n *)
                 let new_rope = Some (insert r editor_info.cursor_pos "\n") in
                 let new_editor : Editor.editor =
@@ -109,20 +109,20 @@ let rec loop (editor_info : Editor.editor) =
                   (x, y)
               else 0
             in
-            if crp != editor_info.cursor_pos then (
-              let new_editor =
-                {
-                  editor_info with
-                  cursor_pos = crp;
-                  highlight =
-                    Some
-                      ( min crp editor_info.cursor_pos,
-                        max crp editor_info.cursor_pos );
-                }
-              in
-              Render.draw new_editor;
-              (new_editor, true))
-            else (editor_info, true))
+            let new_editor =
+              {
+                editor_info with
+                cursor_pos = crp;
+                highlight =
+                  (if crp != editor_info.cursor_pos then
+                     Some
+                       ( min crp editor_info.cursor_pos,
+                         max crp editor_info.cursor_pos )
+                   else None);
+              }
+            in
+            Render.draw new_editor;
+            (new_editor, true))
     | Some (WindowEvt { event; _ }) -> (
         match event with
         | WindowClose -> (editor_info, false)

@@ -91,7 +91,7 @@ module Render = struct
     {|
     #version 120
     void main() {
-      gl_FragColor = vec4(0., 0., 1., 0.5);
+      gl_FragColor = vec4(0., 0., 1., 1.);
     }
     |}
 
@@ -186,29 +186,33 @@ module Render = struct
         match editor.highlight with
         | Some (highlight_start, highlight_end) ->
             if acc.rope_pos >= highlight_start && acc.rope_pos < highlight_end
-            then (
+            then
               let rows = acc.acc_horizontal_x_pos / window_width
               and mod_x = acc.acc_horizontal_x_pos mod window_width in
+              let new_x, new_row =
+                if (acc.acc_horizontal_x_pos + x_advance) / window_width > rows
+                then (0, rows + 1)
+                else (mod_x, rows)
+              in
               let points =
                 [
-                  (mod_x, (rows + 1) * FreeType.font_height);
-                  (mod_x, rows * FreeType.font_height);
-                  (mod_x + x_advance, rows * FreeType.font_height);
-                  (mod_x + x_advance, (rows + 1) * FreeType.font_height);
+                  (new_x, (new_row + 1) * FreeType.font_height);
+                  (new_x, new_row * FreeType.font_height);
+                  (new_x + x_advance, new_row * FreeType.font_height);
+                  (new_x + x_advance, (new_row + 1) * FreeType.font_height);
                 ]
               in
               List.iter
                 (fun (x, y) ->
                   write_to_highlight_buffer ~buffer:highlight_buffer ~x ~y
                     ~window_width ~window_height)
-                points)
+                points
         | None -> ()
       in
       if c = '\n' then (
         let div_ans =
           (acc.acc_horizontal_x_pos + window_width) / window_width
         in
-        draw_highlight 0;
         if acc.rope_pos = editor.Editor.cursor_pos then
           write_cursor_to_buffer cursor_buffer window_dims
             acc.acc_horizontal_x_pos FreeType.font_height;
@@ -319,8 +323,7 @@ module Render = struct
       ~size:2 ~stride:2 ~normalized:false ~start_idx:0;
     gl_buffer_subdata highlight_buffer;
     let buffer_size = get_buffer_size highlight_buffer in
-    gl_draw_arrays_with_quads
-      (buffer_size / _EACH_POINT_FLOAT_AMOUNT_HIGHLIGHT);
+    gl_draw_arrays_with_quads (buffer_size / _EACH_POINT_FLOAT_AMOUNT_HIGHLIGHT);
 
     reset_buffer highlight_buffer;
 
