@@ -29,8 +29,8 @@ external gl_vertex_attrib_pointer_float_type :
   unit
   = "gl_vertex_attrib_pointer_float_type" "gl_vertex_attrib_pointer_float_type"
 
-external gl_draw_arrays_with_quad_strips : int -> unit
-  = "gl_draw_arrays_with_quad_strips" "gl_draw_arrays_with_quad_strips"
+external gl_draw_arrays_with_quads : int -> unit
+  = "gl_draw_arrays_with_quads" "gl_draw_arrays_with_quads"
 
 external gl_draw_arrays : int -> unit = "gl_draw_arrays" "gl_draw_arrays"
 external gl_bind_buffer : int -> unit = "gl_bind_buffer" "gl_bind_buffer"

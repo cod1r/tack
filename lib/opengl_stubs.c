@@ -132,9 +132,9 @@ CAMLprim value gl_vertex_attrib_pointer_float_type(value location, value size, v
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value gl_draw_arrays_with_quad_strips(value num_points) {
+CAMLprim value gl_draw_arrays_with_quads(value num_points) {
   CAMLparam1(num_points);
-  glDrawArrays(GL_QUAD_STRIP, 0, Int_val(num_points));
+  glDrawArrays(GL_QUADS, 0, Int_val(num_points));
   CAMLreturn(Val_unit);
 }
 
