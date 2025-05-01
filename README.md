@@ -48,3 +48,5 @@ editor config needs to be implemented
 need to think about what config format to use
 
 blinking cursor?
+
+arrow keys should properly move text caret
