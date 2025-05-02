@@ -13,13 +13,13 @@
 
 (license MIT)
 
-(documentation https://url/to/documentation)
+(documentation https://github.com/cod1r/tack)
 
 (package
  (name tack)
  (synopsis "a GUI text editor written in OCaml")
  (description "a GUI text editor written in OCaml")
- (depends ocaml ounit2)
+ (depends ocaml ounit2 yojson)
  (tags
   ("editor" "ocaml")))
 
