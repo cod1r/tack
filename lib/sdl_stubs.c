@@ -9,6 +9,15 @@
 #include <stdio.h>
 #include <string.h>
 
+CAMLprim value get_clipboard_text() {
+  CAMLparam0();
+  CAMLlocal1(clip_text);
+  char* text = SDL_GetClipboardText();
+  clip_text = caml_copy_string(text);
+  SDL_free(text);
+  CAMLreturn(clip_text);
+}
+
 CAMLprim value sdl_create_and_set_system_cursor(value unit) {
   CAMLparam1(unit);
   SDL_Cursor* c = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);

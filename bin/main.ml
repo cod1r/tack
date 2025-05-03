@@ -68,6 +68,14 @@ let rec loop (editor_info : Editor.editor) =
                   | Keyup -> { editor_info with holding_ctrl = false }
                 in
                 (new_editor, true)
+            | 118 -> (
+                (match editor_info.holding_ctrl with
+                | true -> (
+                  let s = Sdl.get_clipboard_text () in
+                  Printf.printf "%s" s; print_newline ())
+                | false -> ());
+                (editor_info, true)
+            )
             | 115 ->
                 (match editor_info.holding_ctrl with
                 | true -> (
