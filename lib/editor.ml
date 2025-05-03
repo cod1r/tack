@@ -3,18 +3,55 @@ open Rope
 open Sdl
 
 module Editor = struct
+  type information_relating_to_config = {
+    glyph_info_with_char : (char * FreeType.glyph_info) Array.t;
+    ft_face : FreeType.ft_face;
+    pixel_size : int;
+    font_height : int;
+  }
+
   type editor = {
     rope : Rope.rope option;
     cursor_pos : int;
     holding_ctrl : bool;
     vertical_scroll_y_offset : int;
     highlight : (int * int) option;
+    config_info : information_relating_to_config;
   }
 
-  let glyph_info_with_char =
-    Array.init
-      (126 - 32 + 1)
-      (fun i -> FreeType.get_ascii_char_glyph FreeType.face (i + 32))
+  let config_has_been_modified_during_runtime () =
+    let s = Unix.stat ".config.json" in
+    Unix.time () -. s.st_mtime < 1.
+
+  let read_config () =
+    let config_str =
+      In_channel.with_open_bin ".config.json" (fun ic ->
+          In_channel.input_all ic)
+    in
+    Yojson.Safe.from_string config_str
+
+  let recalculate_info_relating_to_config () =
+    (let config = read_config () in
+     let font_pixel_size =
+       Yojson.Safe.Util.member "font_pixel_size" config
+       |> Yojson.Safe.Util.to_int
+     and font_path =
+       Yojson.Safe.Util.member "font_path" config |> Yojson.Safe.Util.to_string
+     in
+     let face = FreeType.freetype_get_face font_path FreeType.library in
+     FreeType.freetype_set_pixel_sizes face font_pixel_size;
+     (* need to call font_height after set_pixel_sizes *)
+     let font_height = FreeType.get_font_height face in
+     {
+       glyph_info_with_char =
+         Array.init
+           (126 - 32 + 1)
+           (fun i -> FreeType.get_ascii_char_glyph face (i + 32));
+       ft_face = face;
+       pixel_size = font_pixel_size;
+       font_height;
+     }
+      : information_relating_to_config)
 
   type 'a rope_traversal_info = {
     acc_horizontal_x_pos : int;
@@ -48,13 +85,13 @@ module Editor = struct
           accumulation = acc_closest_x, acc_closest_y, acc_closest_rp;
         } c =
       let amt_window_widths = acc_x_offset / window_width in
-      let lower_y_height = amt_window_widths * FreeType.font_height in
+      let lower_y_height = amt_window_widths * editor.config_info.font_height in
       let used_y =
-        if
+        (if
           lower_y_height <= y * ratio
-          && y * ratio <= lower_y_height + FreeType.font_height
+          && y * ratio <= lower_y_height + editor.config_info.font_height
         then lower_y_height
-        else acc_closest_y
+        else acc_closest_y) + editor.vertical_scroll_y_offset * window_width
       in
       if c = '\n' then
         let next_x_pos = (amt_window_widths + 1) * window_width in
@@ -74,7 +111,9 @@ module Editor = struct
         }
       else
         let glyph_info_found =
-          Array.find_opt (fun (c', _) -> c' = c) glyph_info_with_char
+          Array.find_opt
+            (fun (c', _) -> c' = c)
+            editor.config_info.glyph_info_with_char
         in
         match glyph_info_found with
         | Some (_, gi) ->
@@ -93,7 +132,7 @@ module Editor = struct
               |> min calculated_x_offset
             in
             let row =
-              processed_x_offset / window_width * FreeType.font_height
+              processed_x_offset / window_width * editor.config_info.font_height
             in
             {
               acc_horizontal_x_pos = processed_x_offset + x_advance;
@@ -106,16 +145,17 @@ module Editor = struct
             }
         | None -> failwith ("glyph_info not found for " ^ Char.escaped c)
     in
-    let { accumulation = _, _, crp; _ } =
+    let { accumulation = _, cy, crp; _ } =
       traverse_rope
         (editor.rope |> Option.get)
         fold_fn
         ({
-           acc_horizontal_x_pos = editor.vertical_scroll_y_offset * window_width;
+           acc_horizontal_x_pos = 0;
            rope_pos = 0;
            accumulation = (Int.max_int, Int.max_int, Int.max_int);
          }
           : (int * int * int) rope_traversal_info)
     in
+    Printf.printf "closest y: %d" cy; print_newline ();
     min crp (length (editor.rope |> Option.get))
 end

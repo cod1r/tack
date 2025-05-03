@@ -103,25 +103,36 @@ CAMLprim value freetype_set_pixel_sizes(value face, value size) {
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value freetype_init(value path_to_font) {
-  CAMLparam1(path_to_font);
-
-  CAMLlocal1(tuple);
-  CAMLlocal2(abstract_face, abstract_library);
-  abstract_face = caml_alloc(1, Abstract_tag);
+CAMLprim value freetype_init_library() {
+  CAMLparam0();
+  CAMLlocal1(abstract_library);
   abstract_library = caml_alloc(1, Abstract_tag);
 
-  FT_Face face;
   FT_Library library;
-
-  memset(&face, 0, sizeof(FT_Face));
   memset(&library, 0, sizeof(FT_Library));
 
   int result_init = FT_Init_FreeType(&library);
   if (result_init) caml_failwith("failed to initialize freetype");
 
+  *((FT_Library**)Data_abstract_val(abstract_library)) = malloc(sizeof(FT_Library));
+  memcpy(*((FT_Library**)Data_abstract_val(abstract_library)), &library, sizeof(FT_Library));
+
+  CAMLreturn(abstract_library);
+}
+
+CAMLprim value freetype_get_face(value path_to_font, value ft_library) {
+  CAMLparam2(path_to_font, ft_library);
+
+  CAMLlocal1(abstract_face);
+  abstract_face = caml_alloc(1, Abstract_tag);
+
+  FT_Library* ft_library_c = *((FT_Library**)Data_abstract_val(ft_library));
+
+  FT_Face face;
+  memset(&face, 0, sizeof(FT_Face));
+
   printf("opening font file: %s\n", String_val(path_to_font));
-  int result_face = FT_New_Face(library, String_val(path_to_font), 0, &face);
+  int result_face = FT_New_Face(*ft_library_c, String_val(path_to_font), 0, &face);
   if (result_face == FT_Err_Unknown_File_Format) {
     caml_failwith("unknown font file format");
   } else if (result_face) {
@@ -129,13 +140,8 @@ CAMLprim value freetype_init(value path_to_font) {
   }
 
   *((FT_Face**)Data_abstract_val(abstract_face)) = malloc(sizeof(FT_Face));
-  *((FT_Library**)Data_abstract_val(abstract_library)) = malloc(sizeof(FT_Library));
 
   memcpy(*((FT_Face**)Data_abstract_val(abstract_face)), &face, sizeof(FT_Face));
-  memcpy(*((FT_Library**)Data_abstract_val(abstract_library)), &library, sizeof(FT_Library));
 
-  tuple = caml_alloc(2, 0);
-  Store_field(tuple, 0, abstract_face);
-  Store_field(tuple, 1, abstract_library);
-  CAMLreturn(tuple);
+  CAMLreturn(abstract_face);
 }

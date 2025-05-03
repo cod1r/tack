@@ -1,5 +1,3 @@
-open Opengl
-
 module FreeType = struct
   type ft_face
   type ft_library
@@ -17,8 +15,11 @@ module FreeType = struct
   external get_ascii_char_glyph : ft_face -> int -> char * glyph_info
     = "get_ascii_char_glyph" "get_ascii_char_glyph"
 
-  external freetype_init : string -> ft_face * ft_library
-    = "freetype_init" "freetype_init"
+  external freetype_init_library : unit -> ft_library
+    = "freetype_init_library" "freetype_init_library"
+
+  external freetype_get_face : string -> ft_library -> ft_face
+    = "freetype_get_face" "freetype_get_face"
 
   external freetype_set_char_size : ft_face -> int -> unit
     = "freetype_set_char_size" "freetype_set_char_size"
@@ -26,11 +27,5 @@ module FreeType = struct
   external freetype_set_pixel_sizes : ft_face -> int -> unit
     = "freetype_set_pixel_sizes" "freetype_set_pixel_sizes"
 
-  let face, library =
-    freetype_init "/Users/cod1r/Library/Fonts/JetBrainsMono[wght].ttf"
-
-  let () = freetype_set_pixel_sizes face 50
-
-  (* need to call font_height after set_pixel_sizes *)
-  let font_height = get_font_height face
+  let library = freetype_init_library ()
 end

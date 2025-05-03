@@ -1,7 +1,7 @@
 (executable
  (public_name tack)
  (name main)
- (libraries tack)
+ (libraries tack unix)
  (modes exe))
 
 (env

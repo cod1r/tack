@@ -1,0 +1,33 @@
+open Freetype
+
+external get_buffer_size : Opengl.buffer -> int
+  = "get_buffer_size" "get_buffer_size"
+
+external init_buffer_with_capacity : int -> Opengl.buffer
+  = "init_buffer_with_capacity" "init_buffer_with_capacity"
+
+external init_buffer : floats_per_point:int -> Opengl.buffer
+  = "init_buffer" "init_buffer"
+
+external write_cursor_to_buffer :
+  Opengl.buffer -> int * int -> int -> int -> unit
+  = "write_cursor_to_buffer" "write_cursor_to_buffer"
+
+external write_to_buffer :
+  Opengl.buffer ->
+  FreeType.glyph_info ->
+  window_dims:int * int ->
+  x_offset:int ->
+  font_height:int ->
+  unit = "write_to_buffer" "write_to_buffer"
+[@@noalloc]
+
+external write_to_highlight_buffer :
+  buffer:Opengl.buffer ->
+  x:int ->
+  y:int ->
+  window_width:int ->
+  window_height:int ->
+  unit = "write_to_highlight_buffer" "write_to_highlight_buffer"
+
+external reset_buffer : Opengl.buffer -> unit = "reset_buffer" "reset_buffer"

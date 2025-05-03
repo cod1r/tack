@@ -3,8 +3,6 @@ open Tack.Editor
 open Tack.Rope
 open Tack.Render
 
-let _ = "URMOMS HAHA"
-
 let cwd = Sys.getcwd ()
 and filename = Sys.argv.(1)
 
@@ -101,7 +99,7 @@ let rec loop (editor_info : Editor.editor) =
             Render.draw new_editor;
             (new_editor, true)
         | Mouseup ->
-            Printf.printf "Mouseup";
+            Printf.printf "Mouseup: %d %d" x y;
             print_newline ();
             let crp =
               if Option.is_some editor_info.rope then
@@ -141,6 +139,7 @@ let rec loop (editor_info : Editor.editor) =
             vertical_scroll_y_offset = editor_info.vertical_scroll_y_offset + y;
           }
         in
+        Printf.printf "%d" new_editor.vertical_scroll_y_offset; print_newline ();
         Render.draw new_editor;
         (new_editor, true)
     | Some (TextInputEvt { text; _ }) ->
@@ -182,6 +181,7 @@ let initial_editor : Editor.editor =
     holding_ctrl = false;
     vertical_scroll_y_offset = 0;
     highlight = None;
+    config_info = Editor.recalculate_info_relating_to_config ();
   }
 
 let () = Render.draw initial_editor

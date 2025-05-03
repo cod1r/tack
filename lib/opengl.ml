@@ -1,6 +1,10 @@
 (* abstract data type for a float32 array in c *)
 type buffer
 
+let _EACH_POINT_FLOAT_AMOUNT_TEXT = 6
+let _EACH_POINT_FLOAT_AMOUNT_CURSOR = 2
+let _EACH_POINT_FLOAT_AMOUNT_HIGHLIGHT = 2
+
 external gl_enable_blending : unit -> unit
   = "gl_enable_blending" "gl_enable_blending"
 

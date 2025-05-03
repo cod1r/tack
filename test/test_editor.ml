@@ -14,6 +14,7 @@ let cursor_positioning_on_mousedown_test _ =
       holding_ctrl = false;
       vertical_scroll_y_offset = 0;
       highlight = None;
+      config_info = Editor.recalculate_info_relating_to_config ();
     }
   in
   let rope_pos =

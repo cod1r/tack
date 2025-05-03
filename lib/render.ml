@@ -4,41 +4,18 @@ open Opengl
 open Editor
 
 module Render = struct
-  external get_buffer_size : Opengl.buffer -> int
-    = "get_buffer_size" "get_buffer_size"
+  let text_buffer =
+    Stubs.init_buffer ~floats_per_point:Opengl._EACH_POINT_FLOAT_AMOUNT_TEXT
 
-  external init_buffer_with_capacity : int -> Opengl.buffer
-    = "init_buffer_with_capacity" "init_buffer_with_capacity"
+  (* 2 pixels wide * 3000 (seems big enough) * 2 floats per pixel *)
+  let cursor_buffer =
+    Stubs.init_buffer_with_capacity
+      (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT_CURSOR)
 
-  external init_buffer : floats_per_point:int -> Opengl.buffer
-    = "init_buffer" "init_buffer"
-
-  external write_cursor_to_buffer :
-    Opengl.buffer -> int * int -> int -> int -> unit
-    = "write_cursor_to_buffer" "write_cursor_to_buffer"
-
-  external write_to_buffer :
-    Opengl.buffer ->
-    FreeType.glyph_info ->
-    window_dims:int * int ->
-    x_offset:int ->
-    font_height:int ->
-    unit = "write_to_buffer" "write_to_buffer"
-  [@@noalloc]
-
-  external write_to_highlight_buffer :
-    buffer:Opengl.buffer ->
-    x:int ->
-    y:int ->
-    window_width:int ->
-    window_height:int ->
-    unit = "write_to_highlight_buffer" "write_to_highlight_buffer"
-
-  external reset_buffer : Opengl.buffer -> unit = "reset_buffer" "reset_buffer"
-
-  let _EACH_POINT_FLOAT_AMOUNT = 6
-  let _EACH_POINT_FLOAT_AMOUNT_CURSOR = 2
-  let _EACH_POINT_FLOAT_AMOUNT_HIGHLIGHT = 2
+  (* 3000x3000 times 2 floats per point *)
+  let highlight_buffer =
+    Stubs.init_buffer_with_capacity
+      (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT_HIGHLIGHT)
 
   let vertex_shader =
     {|
@@ -96,13 +73,6 @@ module Render = struct
     |}
 
   let _ = gl_enable_blending ()
-  let b = init_buffer ~floats_per_point:_EACH_POINT_FLOAT_AMOUNT
-
-  (* 2 pixels wide * font_height * 2 floats per pixel *)
-  let cursor_buffer = init_buffer_with_capacity (2 * FreeType.font_height * 2)
-
-  let highlight_buffer =
-    init_buffer_with_capacity (1920 * 1080 * FreeType.font_height * 2)
 
   let fragment =
     match gl_create_fragment_shader () with Ok f -> f | Error e -> failwith e
@@ -177,11 +147,15 @@ module Render = struct
     gl_linkprogram p;
     p
 
-  let draw_editor (text_buffer : buffer) (cursor_buffer : buffer)
-      (editor : Editor.editor) =
+  let draw_editor (editor : Editor.editor) =
     let window_dims = Sdl.sdl_gl_getdrawablesize () in
     let window_width, window_height = window_dims in
     let fold_fn (acc : unit Editor.rope_traversal_info) c =
+      (* if acc.acc_horizontal_x_pos < 100 then ( *)
+      (*   let row = acc.acc_horizontal_x_pos / window_width in *)
+      (*   Printf.printf "%d %d %d %d %c" editor.vertical_scroll_y_offset row *)
+      (*     (window_width * editor.vertical_scroll_y_offset) window_width c; *)
+      (*   print_newline ()); *)
       let draw_highlight x_advance =
         match editor.highlight with
         | Some (highlight_start, highlight_end) ->
@@ -196,15 +170,16 @@ module Render = struct
               in
               let points =
                 [
-                  (new_x, (new_row + 1) * FreeType.font_height);
-                  (new_x, new_row * FreeType.font_height);
-                  (new_x + x_advance, new_row * FreeType.font_height);
-                  (new_x + x_advance, (new_row + 1) * FreeType.font_height);
+                  (new_x, (new_row + 1) * editor.config_info.font_height);
+                  (new_x, new_row * editor.config_info.font_height);
+                  (new_x + x_advance, new_row * editor.config_info.font_height);
+                  ( new_x + x_advance,
+                    (new_row + 1) * editor.config_info.font_height );
                 ]
               in
               List.iter
                 (fun (x, y) ->
-                  write_to_highlight_buffer ~buffer:highlight_buffer ~x ~y
+                  Stubs.write_to_highlight_buffer ~buffer:highlight_buffer ~x ~y
                     ~window_width ~window_height)
                 points
         | None -> ()
@@ -214,8 +189,8 @@ module Render = struct
           (acc.acc_horizontal_x_pos + window_width) / window_width
         in
         if acc.rope_pos = editor.Editor.cursor_pos then
-          write_cursor_to_buffer cursor_buffer window_dims
-            acc.acc_horizontal_x_pos FreeType.font_height;
+          Stubs.write_cursor_to_buffer cursor_buffer window_dims
+            acc.acc_horizontal_x_pos editor.config_info.font_height;
         ({
            acc_horizontal_x_pos = div_ans * window_width;
            rope_pos = acc.rope_pos + 1;
@@ -224,28 +199,30 @@ module Render = struct
           : unit Editor.rope_traversal_info))
       else
         let glyph_info_found =
-          Array.find_opt (fun (c', _) -> c' = c) Editor.glyph_info_with_char
+          Array.find_opt
+            (fun (c', _) -> c' = c)
+            editor.config_info.glyph_info_with_char
         in
         match glyph_info_found with
         | Some (_, gi) ->
-            let x_advance = FreeType.get_x_advance gi in
+            let x_advance = Freetype.FreeType.get_x_advance gi in
             draw_highlight x_advance;
             let plus_x_advance =
               (acc.acc_horizontal_x_pos + x_advance) / window_width
             and without_x_advance = acc.acc_horizontal_x_pos / window_width in
-            let y_pos = without_x_advance * FreeType.font_height in
+            let y_pos = plus_x_advance * editor.config_info.font_height in
             if y_pos <= window_height && y_pos >= 0 then
-              write_to_buffer text_buffer gi ~window_dims
+              Stubs.write_to_buffer text_buffer gi ~window_dims
                 ~x_offset:acc.acc_horizontal_x_pos
-                ~font_height:FreeType.font_height;
+                ~font_height:editor.config_info.font_height;
             let processed_acc_x_offset =
               if plus_x_advance > without_x_advance then
                 plus_x_advance * window_width
               else acc.acc_horizontal_x_pos
             in
             if acc.rope_pos = editor.Editor.cursor_pos then
-              write_cursor_to_buffer cursor_buffer window_dims
-                processed_acc_x_offset FreeType.font_height;
+              Stubs.write_cursor_to_buffer cursor_buffer window_dims
+                processed_acc_x_offset editor.config_info.font_height;
             ({
                acc_horizontal_x_pos = processed_acc_x_offset + x_advance;
                rope_pos = acc.rope_pos + 1;
@@ -263,15 +240,15 @@ module Render = struct
         (editor.rope |> Option.get)
         fold_fn
         ({
-           acc_horizontal_x_pos = editor.vertical_scroll_y_offset * window_width;
+           acc_horizontal_x_pos = 0;
            rope_pos = 0;
            accumulation = ();
          }
           : unit Editor.rope_traversal_info)
     in
     if editor.cursor_pos = Rope.length (editor.rope |> Option.get) then
-      write_cursor_to_buffer cursor_buffer window_dims acc_horizontal_x_pos
-        FreeType.font_height;
+      Stubs.write_cursor_to_buffer cursor_buffer window_dims
+        acc_horizontal_x_pos editor.config_info.font_height;
     ()
 
   let gl_buffer_obj = gl_gen_one_buffer ()
@@ -304,7 +281,7 @@ module Render = struct
     gl_enable_vertex_attrib_array location_color;
     gl_enable_vertex_attrib_array location_highlight_point;
     gl_bind_buffer gl_buffer_obj;
-    gl_buffer_data b;
+    gl_buffer_data text_buffer;
     gl_bind_buffer gl_buffer_cursor;
     gl_buffer_data cursor_buffer;
     gl_bind_buffer gl_buffer_highlight;
@@ -314,7 +291,7 @@ module Render = struct
     gl_clear_color 1. 1. 1. 1.;
     gl_clear ();
 
-    draw_editor b cursor_buffer editor;
+    draw_editor editor;
 
     gl_use_program program_highlight;
 
@@ -322,27 +299,27 @@ module Render = struct
     gl_vertex_attrib_pointer_float_type ~location:location_highlight_point
       ~size:2 ~stride:2 ~normalized:false ~start_idx:0;
     gl_buffer_subdata highlight_buffer;
-    let buffer_size = get_buffer_size highlight_buffer in
+    let buffer_size = Stubs.get_buffer_size highlight_buffer in
     gl_draw_arrays_with_quads (buffer_size / _EACH_POINT_FLOAT_AMOUNT_HIGHLIGHT);
 
-    reset_buffer highlight_buffer;
+    Stubs.reset_buffer highlight_buffer;
 
     gl_use_program program;
 
     gl_bind_buffer gl_buffer_obj;
 
     gl_vertex_attrib_pointer_float_type ~location:location_point_vertex ~size:2
-      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
+      ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:0;
 
     gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
-      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
+      ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:2;
 
-    gl_buffer_subdata b;
-    let buffer_size = get_buffer_size b in
+    gl_buffer_subdata text_buffer;
+    let buffer_size = Stubs.get_buffer_size text_buffer in
 
-    gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT);
+    gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT_TEXT);
 
-    reset_buffer b;
+    Stubs.reset_buffer text_buffer;
 
     gl_use_program program_cursor;
 
@@ -354,8 +331,9 @@ module Render = struct
 
     gl_buffer_subdata cursor_buffer;
 
-    let buffer_size = get_buffer_size cursor_buffer in
+    let buffer_size = Stubs.get_buffer_size cursor_buffer in
     gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT_CURSOR);
-    reset_buffer cursor_buffer;
+    Stubs.reset_buffer cursor_buffer;
+
     match Sdl.sdl_gl_swapwindow Sdl.w with Ok () -> () | Error e -> failwith e
 end

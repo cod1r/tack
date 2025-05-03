@@ -5,6 +5,7 @@
 #include <caml/alloc.h>
 #include <caml/fail.h>
 
+#include <stdlib.h>
 #include <stdbool.h>
 #include "stubs.h"
 
@@ -48,13 +49,14 @@ int get_proper_x_offset(int original_x_offset, const struct GlyphInfo gi, int wi
 
 void push_to_buffer(struct Buffer* b, const struct GlyphInfo glyph_info, int window_width, int window_height, int x_offset, int font_height) {
 
-  int row = (x_offset + glyph_info.x_advance) / window_width + 1;
-
   int new_x_offset = get_proper_x_offset(x_offset, glyph_info, window_width);
+
+  int row = new_x_offset / window_width + 1; // adding one because I think macos window decorations cover the top part of the screen
+
   int used_x_offset = new_x_offset % window_width;
 
   int start = b->size;
-  // buffer_idx += 3 because the buffer for the glyph_info is x,y,alpha
+
   for (int buffer_idx = start; buffer_idx < start + glyph_info.buffer.size; buffer_idx += 3) {
     if (buffer_idx > b->capacity) caml_failwith("BUFFER TOO SMALL");
 
@@ -147,15 +149,15 @@ CAMLprim value write_cursor_to_buffer(value buffer, value window_dims, value pre
   for (int x = 0; x < 2; ++x) {
     for (int y = 0; y < font_height_c; ++y) {
       if (b->size > b->capacity) {
-        caml_failwith("BUFFER TOO SMALL");
+        caml_failwith("BUFFER TOO SMALL FOR CURSOR");
       }
       b->contents[b->size++] = (x + used_x_offset) / ((float)window_width / 2) - 1;
       if (b->size > b->capacity) {
-        caml_failwith("BUFFER TOO SMALL");
+        caml_failwith("BUFFER TOO SMALL FOR CURSOR");
       }
       b->contents[b->size++] = -(y + row * font_height_c) / ((float)window_height / 2) + 1;
       if (b->size > b->capacity) {
-        caml_failwith("BUFFER TOO SMALL");
+        caml_failwith("BUFFER TOO SMALL FOR CURSOR");
       }
     }
   }
