@@ -47,11 +47,11 @@ int get_proper_x_offset(int original_x_offset, const struct GlyphInfo gi, int wi
   return original_x_offset;
 }
 
-void push_to_buffer(struct Buffer* b, const struct GlyphInfo glyph_info, int window_width, int window_height, int x_offset, int font_height) {
+void push_to_buffer(struct Buffer* b, const struct GlyphInfo glyph_info, int window_width, int window_height, int x_offset, int font_height, int vertical_scroll_y_offset) {
 
   int new_x_offset = get_proper_x_offset(x_offset, glyph_info, window_width);
 
-  int row = new_x_offset / window_width + 1; // adding one because I think macos window decorations cover the top part of the screen
+  int row = new_x_offset / window_width + 1 + vertical_scroll_y_offset; // adding one because I think macos window decorations cover the top part of the screen
 
   int used_x_offset = new_x_offset % window_width;
 
@@ -108,8 +108,11 @@ The x_advance sum is used to offset the new glyph correctly and draw on a new li
 
 this function writes to the text buffer (draws characters)
 */
-CAMLprim value write_to_buffer(value buffer, value glyph_info, value window_dims, value previous_offset, value font_height) {
+CAMLprim value write_to_buffer(value buffer, value glyph_info, value window_dims, value previous_offset, value font_height, value vertical_scroll_y_offset_val) {
   CAMLparam5(buffer, glyph_info, window_dims, previous_offset, font_height);
+  CAMLxparam1(vertical_scroll_y_offset_val);
+
+  int vertical_scroll_y_offset = Int_val(vertical_scroll_y_offset_val);
 
   int window_width = Int_val(Field(window_dims, 0));
 
@@ -123,13 +126,15 @@ CAMLprim value write_to_buffer(value buffer, value glyph_info, value window_dims
 
   struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
 
-  push_to_buffer(b, *glyph_info_struct, window_width, window_height, x_offset, font_height_c);
+  push_to_buffer(b, *glyph_info_struct, window_width, window_height, x_offset, font_height_c, vertical_scroll_y_offset);
 
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value write_cursor_to_buffer(value buffer, value window_dims, value previous_offset, value font_height) {
-  CAMLparam4(buffer, window_dims, previous_offset, font_height);
+CAMLprim value write_cursor_to_buffer(value buffer, value window_dims, value previous_offset, value font_height, value vertical_scroll_y_offset_val) {
+  CAMLparam5(buffer, window_dims, previous_offset, font_height, vertical_scroll_y_offset_val);
+
+  int vertical_scroll_y_offset = Int_val(vertical_scroll_y_offset_val);
 
   struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
 
@@ -141,7 +146,7 @@ CAMLprim value write_cursor_to_buffer(value buffer, value window_dims, value pre
 
   int font_height_c = Int_val(font_height);
 
-  int row = x_offset / window_width;
+  int row = x_offset / window_width + vertical_scroll_y_offset;
 
   if (b->size != 0) {
     caml_failwith("b->size should be zero for the cursor buffer");

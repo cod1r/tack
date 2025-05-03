@@ -139,7 +139,6 @@ let rec loop (editor_info : Editor.editor) =
             vertical_scroll_y_offset = editor_info.vertical_scroll_y_offset + y;
           }
         in
-        Printf.printf "%d" new_editor.vertical_scroll_y_offset; print_newline ();
         Render.draw new_editor;
         (new_editor, true)
     | Some (TextInputEvt { text; _ }) ->

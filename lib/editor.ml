@@ -85,13 +85,16 @@ module Editor = struct
           accumulation = acc_closest_x, acc_closest_y, acc_closest_rp;
         } c =
       let amt_window_widths = acc_x_offset / window_width in
-      let lower_y_height = amt_window_widths * editor.config_info.font_height in
+      let lower_y_height =
+        (amt_window_widths + editor.vertical_scroll_y_offset)
+        * editor.config_info.font_height
+      in
       let used_y =
-        (if
+        if
           lower_y_height <= y * ratio
           && y * ratio <= lower_y_height + editor.config_info.font_height
         then lower_y_height
-        else acc_closest_y) + editor.vertical_scroll_y_offset * window_width
+        else acc_closest_y
       in
       if c = '\n' then
         let next_x_pos = (amt_window_widths + 1) * window_width in
@@ -132,7 +135,9 @@ module Editor = struct
               |> min calculated_x_offset
             in
             let row =
-              processed_x_offset / window_width * editor.config_info.font_height
+              ((processed_x_offset / window_width)
+              + editor.vertical_scroll_y_offset)
+              * editor.config_info.font_height
             in
             {
               acc_horizontal_x_pos = processed_x_offset + x_advance;
@@ -156,6 +161,7 @@ module Editor = struct
          }
           : (int * int * int) rope_traversal_info)
     in
-    Printf.printf "closest y: %d" cy; print_newline ();
+    Printf.printf "closest y: %d" cy;
+    print_newline ();
     min crp (length (editor.rope |> Option.get))
 end

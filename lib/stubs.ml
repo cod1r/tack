@@ -10,8 +10,12 @@ external init_buffer : floats_per_point:int -> Opengl.buffer
   = "init_buffer" "init_buffer"
 
 external write_cursor_to_buffer :
-  Opengl.buffer -> int * int -> int -> int -> unit
-  = "write_cursor_to_buffer" "write_cursor_to_buffer"
+  Opengl.buffer ->
+  int * int ->
+  int ->
+  int ->
+  vertical_scroll_y_offset:int ->
+  unit = "write_cursor_to_buffer" "write_cursor_to_buffer"
 
 external write_to_buffer :
   Opengl.buffer ->
@@ -19,6 +23,7 @@ external write_to_buffer :
   window_dims:int * int ->
   x_offset:int ->
   font_height:int ->
+  vertical_scroll_y_offset:int ->
   unit = "write_to_buffer" "write_to_buffer"
 [@@noalloc]
 
