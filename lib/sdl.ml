@@ -70,7 +70,8 @@ module Sdl = struct
   type point = Point of int * int
   type pointf = PointF of float * float
 
-  external get_clipboard_text : unit -> string = "get_clipboard_text" "get_clipboard_text"
+  external get_clipboard_text : unit -> string
+    = "get_clipboard_text" "get_clipboard_text"
 
   external sdl_gl_swapwindow : window -> (unit, string) result
     = "sdl_gl_swapwindow" "sdl_gl_swapwindow"

@@ -20,46 +20,6 @@ let rec loop (editor_info : Editor.editor) =
         match editor_info.Editor.rope with
         | Some r -> (
             match char_code with
-            | 8 when kbd_evt_type = Keydown ->
-                let rope_len = length r in
-                if rope_len > 0 && editor_info.cursor_pos > 0 then (
-                  let new_rope =
-                    Some (delete r (editor_info.cursor_pos - 1) 1)
-                  in
-                  let new_editor : Editor.editor =
-                    {
-                      editor_info with
-                      rope = new_rope;
-                      cursor_pos = editor_info.cursor_pos - 1;
-                    }
-                  in
-                  Render.draw new_editor;
-                  (new_editor, true))
-                else (editor_info, true)
-            | 9 ->
-                (* horizontal tab will be two spaces *)
-                let new_rope = Some (insert r editor_info.cursor_pos "  ") in
-                let new_editor : Editor.editor =
-                  {
-                    editor_info with
-                    rope = new_rope;
-                    cursor_pos = editor_info.cursor_pos + 1;
-                  }
-                in
-                Render.draw new_editor;
-                (new_editor, true)
-            | (13 | 10) when kbd_evt_type = Keydown ->
-                (* on macos, the return key gives \r instead of \n *)
-                let new_rope = Some (insert r editor_info.cursor_pos "\n") in
-                let new_editor : Editor.editor =
-                  {
-                    editor_info with
-                    rope = new_rope;
-                    cursor_pos = editor_info.cursor_pos + 1;
-                  }
-                in
-                Render.draw new_editor;
-                (new_editor, true)
             | 1073742048 ->
                 (* this is the integer encoding for ctrl in SDL *)
                 let new_editor =
@@ -68,25 +28,72 @@ let rec loop (editor_info : Editor.editor) =
                   | Keyup -> { editor_info with holding_ctrl = false }
                 in
                 (new_editor, true)
-            | 118 -> (
-                (match editor_info.holding_ctrl with
-                | true -> (
-                  let s = Sdl.get_clipboard_text () in
-                  Printf.printf "%s" s; print_newline ())
-                | false -> ());
-                (editor_info, true)
-            )
-            | 115 ->
-                (match editor_info.holding_ctrl with
-                | true -> (
-                    match editor_info.rope with
-                    | Some r ->
-                        Out_channel.with_open_bin real_path (fun oc ->
-                            Out_channel.output_string oc (to_string r))
-                    | None -> ())
-                | false -> ());
-                (editor_info, true)
-            | _ -> (editor_info, true))
+            | _ -> (
+                match keysym with
+                | '\b' when kbd_evt_type = Keydown ->
+                    (* backspace *)
+                    let rope_len = length r in
+                    if rope_len > 0 && editor_info.cursor_pos > 0 then (
+                      let new_rope =
+                        Some (delete r (editor_info.cursor_pos - 1) 1)
+                      in
+                      let new_editor : Editor.editor =
+                        {
+                          editor_info with
+                          rope = new_rope;
+                          cursor_pos = editor_info.cursor_pos - 1;
+                        }
+                      in
+                      Render.draw new_editor;
+                      (new_editor, true))
+                    else (editor_info, true)
+                | 'v' when kbd_evt_type = Keydown ->
+                    (match editor_info.holding_ctrl with
+                    | true ->
+                        let s = Sdl.get_clipboard_text () in
+                        Printf.printf "%s" s;
+                        print_newline ()
+                    | false -> ());
+                    (editor_info, true)
+                | 's' when kbd_evt_type = Keydown ->
+                    (match editor_info.holding_ctrl with
+                    | true -> (
+                        match editor_info.rope with
+                        | Some r ->
+                            Out_channel.with_open_bin real_path (fun oc ->
+                                Out_channel.output_string oc (to_string r))
+                        | None -> ())
+                    | false -> ());
+                    (editor_info, true)
+                | ('\r' | '\n') when kbd_evt_type = Keydown ->
+                    (* on macos, the return key gives \r instead of \n *)
+                    let new_rope =
+                      Some (insert r editor_info.cursor_pos "\n")
+                    in
+                    let new_editor : Editor.editor =
+                      {
+                        editor_info with
+                        rope = new_rope;
+                        cursor_pos = editor_info.cursor_pos + 1;
+                      }
+                    in
+                    Render.draw new_editor;
+                    (new_editor, true)
+                | '\t' when kbd_evt_type = Keydown ->
+                    (* horizontal tab will be two spaces *)
+                    let new_rope =
+                      Some (insert r editor_info.cursor_pos "  ")
+                    in
+                    let new_editor : Editor.editor =
+                      {
+                        editor_info with
+                        rope = new_rope;
+                        cursor_pos = editor_info.cursor_pos + 2;
+                      }
+                    in
+                    Render.draw new_editor;
+                    (new_editor, true)
+                | _ -> (editor_info, true)))
         | None -> (editor_info, true))
     | Some
         (MouseButtonEvt
