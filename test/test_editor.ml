@@ -8,16 +8,7 @@ let cursor_positioning_on_mousedown_test _ =
   ();
   let rope = Rope.of_string "h\n\nh\n" in
   let editor : Editor.editor =
-    {
-      rope = Some rope;
-      cursor_pos = 0;
-      holding_ctrl = false;
-      vertical_scroll_y_offset = 0;
-      highlight = None;
-      config_info = Editor.recalculate_info_relating_to_config ();
-      search_rope = None;
-      list_options_rope = None;
-    }
+    { Editor.default_editor with rope = Some rope }
   in
   let rope_pos =
     Editor.find_closest_rope_pos_for_cursor_on_coords editor (200, 0)

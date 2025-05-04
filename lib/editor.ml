@@ -10,7 +10,8 @@ module Editor = struct
     font_height : int;
   }
 
-  type mode = Editing | FileSearch
+  type editing_info = { real_path : string }
+  type mode = Editing of editing_info | FileSearch
 
   type editor = {
     rope : Rope.rope option;
@@ -21,6 +22,7 @@ module Editor = struct
     config_info : information_relating_to_config;
     search_rope : Rope.rope option;
     list_options_rope : Rope.rope option;
+    mode : mode;
   }
 
   let config_has_been_modified_during_runtime () =
@@ -56,6 +58,19 @@ module Editor = struct
        font_height;
      }
       : information_relating_to_config)
+
+  let default_editor : editor =
+    {
+      rope = None;
+      cursor_pos = 0;
+      holding_ctrl = false;
+      vertical_scroll_y_offset = 0;
+      highlight = None;
+      config_info = recalculate_info_relating_to_config ();
+      search_rope = None;
+      list_options_rope = None;
+      mode = Editing { real_path = "" };
+    }
 
   type 'a rope_traversal_info = {
     acc_horizontal_x_pos : int;
