@@ -48,3 +48,5 @@ blinking cursor?
 arrow keys should properly move text caret
 
 UNDO TREE SHIT
+
+SOME WAY TO SWITCH FILES QUICKLY

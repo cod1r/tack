@@ -36,3 +36,8 @@ external write_to_highlight_buffer :
   unit = "write_to_highlight_buffer" "write_to_highlight_buffer"
 
 external reset_buffer : Opengl.buffer -> unit = "reset_buffer" "reset_buffer"
+
+external write_mouse_hover_to_highlight_buffer :
+  buffer:Opengl.buffer -> window_width:int -> window_height:int -> unit
+  = "write_mouse_hover_to_highlight_buffer"
+    "write_mouse_hover_to_highlight_buffer"

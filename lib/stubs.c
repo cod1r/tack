@@ -164,6 +164,22 @@ CAMLprim value write_cursor_to_buffer(value buffer, value window_dims, value pre
       if (b->size > b->capacity) {
         caml_failwith("BUFFER TOO SMALL FOR CURSOR");
       }
+      b->contents[b->size++] = 0.f;
+      if (b->size > b->capacity) {
+        caml_failwith("BUFFER TOO SMALL FOR CURSOR");
+      }
+      b->contents[b->size++] = 0.f;
+      if (b->size > b->capacity) {
+        caml_failwith("BUFFER TOO SMALL FOR CURSOR");
+      }
+      b->contents[b->size++] = 1.f;
+      if (b->size > b->capacity) {
+        caml_failwith("BUFFER TOO SMALL FOR CURSOR");
+      }
+      b->contents[b->size++] = 0.5f;
+      if (b->size > b->capacity) {
+        caml_failwith("BUFFER TOO SMALL FOR CURSOR");
+      }
     }
   }
   CAMLreturn(Val_unit);
@@ -185,6 +201,25 @@ CAMLprim value write_to_highlight_buffer(value highlight_buffer, value x, value 
 
   highlight_buffer_c->contents[highlight_buffer_c->size++] = x_scaled;
   highlight_buffer_c->contents[highlight_buffer_c->size++] = y_scaled;
+  highlight_buffer_c->contents[highlight_buffer_c->size++] = 0.f;
+  highlight_buffer_c->contents[highlight_buffer_c->size++] = 0.f;
+  highlight_buffer_c->contents[highlight_buffer_c->size++] = 1.f;
+  highlight_buffer_c->contents[highlight_buffer_c->size++] = 0.5f;
+
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value write_mouse_hover_to_highlight_buffer(value highlight, value window_width_val, value window_height_val, value font_height_val, value mouse_y_val) {
+  CAMLparam5(highlight, window_width_val, window_height_val, font_height_val, mouse_y_val);
+
+  struct Buffer* highlight_buffer_c = *(struct Buffer**)Data_abstract_val(highlight);
+
+  int mouse_y = Int_val(mouse_y_val);
+  int window_height = Int_val(window_height_val);
+  int font_height = Int_val(font_height_val);
+
+  int lower_y = mouse_y / font_height * font_height;
+  int upper_y = (mouse_y + font_height) / font_height * font_height;
 
   CAMLreturn(Val_unit);
 }

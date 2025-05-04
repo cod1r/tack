@@ -12,9 +12,8 @@ let rec loop (editor_info : Editor.editor) =
   let evt = Sdl.sdl_pollevent () in
   let new_editor, continue =
     match evt with
-    | Some (KeyboardEvt { keysym; timestamp; kbd_evt_type; _ }) -> (
-        Printf.printf "KBD: %d, %s, %d" (Char.code keysym) (Char.escaped keysym)
-          timestamp;
+    | Some (KeyboardEvt { keysym; kbd_evt_type; _ }) -> (
+        Printf.printf "KBD: %d, %s" (Char.code keysym) (Char.escaped keysym);
         print_newline ();
         let char_code = Char.code keysym in
         match editor_info.Editor.rope with
@@ -50,8 +49,8 @@ let rec loop (editor_info : Editor.editor) =
                 | 'c' when kbd_evt_type = Keydown ->
                     (match (editor_info.rope, editor_info.highlight) with
                     | Some r, Some (start, end') ->
-                        substring r ~start ~len:(end' - start) |> to_string
-                        |> Sdl.set_clipboard_text
+                        substring r ~start ~len:(end' - start)
+                        |> to_string |> Sdl.set_clipboard_text
                     | _ -> ());
                     (editor_info, true)
                 | 'v' when kbd_evt_type = Keydown -> (
@@ -219,6 +218,8 @@ let initial_editor : Editor.editor =
     vertical_scroll_y_offset = 0;
     highlight = None;
     config_info = Editor.recalculate_info_relating_to_config ();
+    search_rope = None;
+    list_options_rope = None;
   }
 
 let () = Render.draw initial_editor

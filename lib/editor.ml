@@ -10,6 +10,8 @@ module Editor = struct
     font_height : int;
   }
 
+  type mode = Editing | FileSearch
+
   type editor = {
     rope : Rope.rope option;
     cursor_pos : int;
@@ -17,6 +19,8 @@ module Editor = struct
     vertical_scroll_y_offset : int;
     highlight : (int * int) option;
     config_info : information_relating_to_config;
+    search_rope : Rope.rope option;
+    list_options_rope : Rope.rope option;
   }
 
   let config_has_been_modified_during_runtime () =

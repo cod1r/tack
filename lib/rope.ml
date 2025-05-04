@@ -20,10 +20,12 @@ let rec substring r ~start ~len =
   | Node { left; right; _ } ->
       if start + len <= length left then substring left ~start ~len
       else if start >= length left then
-        substring right ~start:(start - length left) ~len:len
+        substring right ~start:(start - length left) ~len
       else
         let left_part = substring left ~start ~len:(length left - start) in
-        let right_part = substring right ~start:0 ~len:(len - (length left - start)) in
+        let right_part =
+          substring right ~start:0 ~len:(len - (length left - start))
+        in
         concat left_part right_part
 
 let rec insert r pos s =
@@ -42,7 +44,9 @@ let rec insert r pos s =
 
 let delete r start len =
   let before = substring r ~start:0 ~len:start in
-  let after = substring r ~start:(start + len) ~len:(length r - (start + len)) in
+  let after =
+    substring r ~start:(start + len) ~len:(length r - (start + len))
+  in
   concat before after
 
 let rebalance r =

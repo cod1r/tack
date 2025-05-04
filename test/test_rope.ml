@@ -24,7 +24,7 @@ let substring_test _ =
   let r1 = Tack.Rope.of_string "Hello" in
   let r2 = Tack.Rope.of_string "World" in
   let r3 = Tack.Rope.concat r1 r2 in
-  let r4 = Tack.Rope.substring r3 0 5 in
+  let r4 = Tack.Rope.substring r3 ~start:0 ~len:5 in
   assert_bool "substring failed" (Tack.Rope.to_string r4 = "Hello")
 
 let timing_test_concatenation _ =

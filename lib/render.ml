@@ -3,22 +3,8 @@ open Sdl
 open Opengl
 open Editor
 
-module Render = struct
-  let text_buffer =
-    Stubs.init_buffer ~floats_per_point:Opengl._EACH_POINT_FLOAT_AMOUNT_TEXT
-
-  (* 2 pixels wide * 3000 (seems big enough) * 2 floats per pixel *)
-  let cursor_buffer =
-    Stubs.init_buffer_with_capacity
-      (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT_CURSOR)
-
-  (* 3000x3000 times 2 floats per point *)
-  let highlight_buffer =
-    Stubs.init_buffer_with_capacity
-      (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT_HIGHLIGHT)
-
-  let vertex_shader =
-    {|
+let generic_vertex_shader =
+  {|
   #version 120
   attribute vec2 point_vertex;
   attribute vec4 color_attrib;
@@ -29,8 +15,8 @@ module Render = struct
   }
   |}
 
-  let fragment_shader =
-    {|
+let generic_fragment_shader =
+  {|
   #version 120
   varying vec4 color;
   void main() {
@@ -38,39 +24,56 @@ module Render = struct
   }
   |}
 
-  let vertex_shader_cursor =
-    {|
-  #version 120
-  attribute vec2 point;
-  void main() {
-    gl_Position = vec4(point.x, point.y, 0.0, 1.0);
-  }
-    |}
+let compile_shaders_and_return_program ~vertex_id ~fragment_id ~vertex_src
+    ~fragment_src =
+  gl_shader_source fragment_id fragment_src;
+  gl_shader_source vertex_id vertex_src;
+  gl_compileshader fragment_id;
+  if not (gl_get_shader_compile_status fragment_id) then
+    failwith (gl_get_shader_info_log fragment_id);
+  gl_compileshader vertex_id;
+  if not (gl_get_shader_compile_status vertex_id) then
+    failwith (gl_get_shader_info_log vertex_id);
+  let p = match gl_createprogram () with Ok p -> p | Error e -> failwith e in
+  gl_attach_shader p fragment_id;
+  gl_attach_shader p vertex_id;
+  gl_linkprogram p;
+  p
 
-  let fragment_shader_cursor =
-    {|
-    #version 120
-    void main() {
-      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-    }
-    |}
+(* unused module for now *)
+module UIOverlay = struct
+  let screen_ui_buffer = Stubs.init_buffer_with_capacity (3000 * 3000 * 4)
+  let gl_screen_ui_buffer = gl_gen_one_buffer ()
 
-  let vertex_highlight_shader =
-    {|
-    #version 120
-    attribute vec2 point;
-    void main() {
-      gl_Position = vec4(point.x, point.y, 0., 1.);
-    }
-    |}
+  let vertex_ui_buffer =
+    match gl_create_vertex_shader () with Ok v -> v | Error e -> failwith e
 
-  let fragment_highlight_shader =
-    {|
-    #version 120
-    void main() {
-      gl_FragColor = vec4(0., 0., 1., 0.5);
-    }
-    |}
+  let fragment_ui_buffer =
+    match gl_create_fragment_shader () with Ok f -> f | Error e -> failwith e
+
+  let ui_program =
+    compile_shaders_and_return_program ~vertex_id:vertex_ui_buffer
+      ~fragment_id:fragment_ui_buffer ~vertex_src:generic_vertex_shader
+      ~fragment_src:generic_fragment_shader
+
+  let () =
+    gl_bind_buffer gl_screen_ui_buffer;
+    gl_buffer_data screen_ui_buffer
+
+  let draw_ui = ()
+end
+
+module Render = struct
+  let text_buffer =
+    Stubs.init_buffer ~floats_per_point:Opengl._EACH_POINT_FLOAT_AMOUNT
+
+  (* 3000x3000 (seems big enough) * 2 floats per pixel *)
+  let cursor_buffer =
+    Stubs.init_buffer_with_capacity (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT)
+
+  (* 3000x3000 times 2 floats per point *)
+  let highlight_buffer =
+    Stubs.init_buffer_with_capacity (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT)
 
   let _ = gl_enable_blending ()
 
@@ -97,55 +100,8 @@ module Render = struct
     match gl_create_fragment_shader () with Ok v -> v | Error e -> failwith e
 
   let program =
-    gl_shader_source fragment fragment_shader;
-    gl_shader_source vertex vertex_shader;
-    gl_compileshader fragment;
-    if not (gl_get_shader_compile_status fragment) then
-      failwith (gl_get_shader_info_log fragment);
-    gl_compileshader vertex;
-    if not (gl_get_shader_compile_status vertex) then
-      failwith (gl_get_shader_info_log vertex);
-    let p =
-      match gl_createprogram () with Ok p -> p | Error e -> failwith e
-    in
-    gl_attach_shader p fragment;
-    gl_attach_shader p vertex;
-    gl_linkprogram p;
-    p
-
-  let program_cursor =
-    gl_shader_source fragment_cursor fragment_shader_cursor;
-    gl_shader_source vertex_cursor vertex_shader_cursor;
-    gl_compileshader fragment_cursor;
-    if not (gl_get_shader_compile_status fragment_cursor) then
-      failwith (gl_get_shader_info_log fragment_cursor);
-    gl_compileshader vertex_cursor;
-    if not (gl_get_shader_compile_status vertex_cursor) then
-      failwith (gl_get_shader_info_log vertex_cursor);
-    let p =
-      match gl_createprogram () with Ok p -> p | Error e -> failwith e
-    in
-    gl_attach_shader p fragment_cursor;
-    gl_attach_shader p vertex_cursor;
-    gl_linkprogram p;
-    p
-
-  let program_highlight =
-    gl_shader_source fragment_highlight fragment_highlight_shader;
-    gl_shader_source vertex_highlight vertex_highlight_shader;
-    gl_compileshader fragment_highlight;
-    if not (gl_get_shader_compile_status fragment_highlight) then
-      failwith (gl_get_shader_info_log fragment_highlight);
-    gl_compileshader vertex_highlight;
-    if not (gl_get_shader_compile_status vertex_highlight) then
-      failwith (gl_get_shader_info_log vertex_highlight);
-    let p =
-      match gl_createprogram () with Ok p -> p | Error e -> failwith e
-    in
-    gl_attach_shader p fragment_highlight;
-    gl_attach_shader p vertex_highlight;
-    gl_linkprogram p;
-    p
+    compile_shaders_and_return_program ~vertex_id:vertex ~fragment_id:fragment
+      ~vertex_src:generic_vertex_shader ~fragment_src:generic_fragment_shader
 
   let draw_editor (editor : Editor.editor) =
     let window_dims = Sdl.sdl_gl_getdrawablesize () in
@@ -268,21 +224,9 @@ module Render = struct
     | Ok l -> l
     | Error e -> failwith e
 
-  let location_cursor_point_vertex =
-    match gl_getattriblocation program_cursor "point" with
-    | Ok l -> l
-    | Error e -> failwith e
-
-  let location_highlight_point =
-    match gl_getattriblocation program_highlight "point" with
-    | Ok l -> l
-    | Error e -> failwith e
-
   let () =
     gl_enable_vertex_attrib_array location_point_vertex;
-    gl_enable_vertex_attrib_array location_cursor_point_vertex;
     gl_enable_vertex_attrib_array location_color;
-    gl_enable_vertex_attrib_array location_highlight_point;
     gl_bind_buffer gl_buffer_obj;
     gl_buffer_data text_buffer;
     gl_bind_buffer gl_buffer_cursor;
@@ -296,46 +240,53 @@ module Render = struct
 
     draw_editor editor;
 
-    gl_use_program program_highlight;
+    gl_use_program program;
 
     gl_bind_buffer gl_buffer_highlight;
-    gl_vertex_attrib_pointer_float_type ~location:location_highlight_point
-      ~size:2 ~stride:2 ~normalized:false ~start_idx:0;
+
+    gl_vertex_attrib_pointer_float_type ~location:location_point_vertex ~size:2
+      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
+
+    gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
+      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
+
     gl_buffer_subdata highlight_buffer;
+
     let buffer_size = Stubs.get_buffer_size highlight_buffer in
-    gl_draw_arrays_with_quads (buffer_size / _EACH_POINT_FLOAT_AMOUNT_HIGHLIGHT);
+
+    gl_draw_arrays_with_quads (buffer_size / _EACH_POINT_FLOAT_AMOUNT);
 
     Stubs.reset_buffer highlight_buffer;
-
-    gl_use_program program;
 
     gl_bind_buffer gl_buffer_obj;
 
     gl_vertex_attrib_pointer_float_type ~location:location_point_vertex ~size:2
-      ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:0;
+      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
 
     gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
-      ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:2;
+      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
 
     gl_buffer_subdata text_buffer;
     let buffer_size = Stubs.get_buffer_size text_buffer in
 
-    gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT_TEXT);
+    gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT);
 
     Stubs.reset_buffer text_buffer;
 
-    gl_use_program program_cursor;
-
     gl_bind_buffer gl_buffer_cursor;
 
-    gl_vertex_attrib_pointer_float_type ~location:location_cursor_point_vertex
-      ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT_CURSOR ~normalized:false
-      ~start_idx:0;
+    gl_vertex_attrib_pointer_float_type ~location:location_point_vertex ~size:2
+      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
+
+    gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
+      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
 
     gl_buffer_subdata cursor_buffer;
 
     let buffer_size = Stubs.get_buffer_size cursor_buffer in
-    gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT_CURSOR);
+
+    gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT);
+
     Stubs.reset_buffer cursor_buffer;
 
     match Sdl.sdl_gl_swapwindow Sdl.w with Ok () -> () | Error e -> failwith e

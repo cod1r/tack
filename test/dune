@@ -14,6 +14,10 @@
  (name test_editor)
  (libraries tack ounit2))
 
+(test
+ (name test_search)
+ (libraries tack ounit2))
+
 (env
  (dev
   (flags
