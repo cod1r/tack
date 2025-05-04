@@ -9,6 +9,15 @@
 #include <stdio.h>
 #include <string.h>
 
+CAMLprim value set_clipboard_text(value string) {
+  CAMLparam1(string);
+  int res = SDL_SetClipboardText(String_val(string));
+  if (res) {
+    caml_failwith(SDL_GetError());
+  }
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value get_clipboard_text() {
   CAMLparam0();
   CAMLlocal1(clip_text);

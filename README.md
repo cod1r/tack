@@ -43,12 +43,8 @@ displaying line numbers
 Things to note and remember:
   text is positioned by taking it's relative horizontal position in the rope and wrapping the value around the window width.
 
-editor config needs to be implemented
-
-need to think about what config format to use
-
 blinking cursor?
 
 arrow keys should properly move text caret
 
-THERE IS AN ISSUE WHERE THE SCROLLING CHANGES BY +-1 and the cursor gets positioned incorrectly
+UNDO TREE SHIT

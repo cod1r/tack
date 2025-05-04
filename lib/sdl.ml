@@ -70,6 +70,9 @@ module Sdl = struct
   type point = Point of int * int
   type pointf = PointF of float * float
 
+  external set_clipboard_text : string -> unit
+    = "set_clipboard_text" "set_clipboard_text"
+
   external get_clipboard_text : unit -> string
     = "get_clipboard_text" "get_clipboard_text"
 

@@ -47,14 +47,37 @@ let rec loop (editor_info : Editor.editor) =
                       Render.draw new_editor;
                       (new_editor, true))
                     else (editor_info, true)
-                | 'v' when kbd_evt_type = Keydown ->
-                    (match editor_info.holding_ctrl with
-                    | true ->
-                        let s = Sdl.get_clipboard_text () in
-                        Printf.printf "%s" s;
-                        print_newline ()
-                    | false -> ());
+                | 'c' when kbd_evt_type = Keydown ->
+                    (match (editor_info.rope, editor_info.highlight) with
+                    | Some r, Some (start, end') ->
+                        substring r ~start ~len:(end' - start) |> to_string
+                        |> Sdl.set_clipboard_text
+                    | _ -> ());
                     (editor_info, true)
+                | 'v' when kbd_evt_type = Keydown -> (
+                    match editor_info.holding_ctrl with
+                    | true ->
+                        let clipboard_contents = Sdl.get_clipboard_text () in
+                        print_string clipboard_contents;
+                        print_newline ();
+                        let new_rope =
+                          match editor_info.rope with
+                          | Some r ->
+                              insert r editor_info.cursor_pos clipboard_contents
+                          | None -> Leaf clipboard_contents
+                        in
+                        let new_editor =
+                          {
+                            editor_info with
+                            rope = Some new_rope;
+                            cursor_pos =
+                              editor_info.cursor_pos
+                              + String.length clipboard_contents;
+                          }
+                        in
+                        Render.draw new_editor;
+                        (new_editor, true)
+                    | false -> (editor_info, true))
                 | 's' when kbd_evt_type = Keydown ->
                     (match editor_info.holding_ctrl with
                     | true -> (

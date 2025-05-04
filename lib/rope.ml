@@ -14,23 +14,23 @@ let rec to_string = function
   | Leaf l -> l
   | Node { left; right; _ } -> to_string left ^ to_string right
 
-let rec substring r start len =
+let rec substring r ~start ~len =
   match r with
   | Leaf l -> Leaf (String.sub l start len)
   | Node { left; right; _ } ->
-      if start + len <= length left then substring left start len
+      if start + len <= length left then substring left ~start ~len
       else if start >= length left then
-        substring right (start - length left) len
+        substring right ~start:(start - length left) ~len:len
       else
-        let left_part = substring left start (length left - start) in
-        let right_part = substring right 0 (len - (length left - start)) in
+        let left_part = substring left ~start ~len:(length left - start) in
+        let right_part = substring right ~start:0 ~len:(len - (length left - start)) in
         concat left_part right_part
 
 let rec insert r pos s =
   match r with
   | Leaf _ as ropeLeaf -> (
-      let left = substring ropeLeaf 0 pos in
-      let right = substring ropeLeaf pos (length ropeLeaf - pos) in
+      let left = substring ropeLeaf ~start:0 ~len:pos in
+      let right = substring ropeLeaf ~start:pos ~len:(length ropeLeaf - pos) in
       match (length left, length right) with
       | 0, 0 -> Leaf s
       | _, 0 -> concat left (Leaf s)
@@ -41,8 +41,8 @@ let rec insert r pos s =
       else concat left (insert right (pos - length left) s)
 
 let delete r start len =
-  let before = substring r 0 start in
-  let after = substring r (start + len) (length r - (start + len)) in
+  let before = substring r ~start:0 ~len:start in
+  let after = substring r ~start:(start + len) ~len:(length r - (start + len)) in
   concat before after
 
 let rebalance r =
