@@ -10,19 +10,17 @@ module Editor = struct
     font_height : int;
   }
 
-  type editing_info = { real_path : string }
-  type mode = Editing of editing_info | FileSearch
+  type rope_wrapper =
+    | FileSearch of { rope : Rope.rope option; cursor_pos : int }
+    | File of { rope : Rope.rope option; cursor_pos : int; file_name : string }
 
   type editor = {
-    rope : Rope.rope option;
-    cursor_pos : int;
+    ropes : rope_wrapper list;
     holding_ctrl : bool;
     vertical_scroll_y_offset : int;
     highlight : (int * int) option;
     config_info : information_relating_to_config;
-    search_rope : Rope.rope option;
-    list_options_rope : Rope.rope option;
-    mode : mode;
+    current_rope_idx : int option;
   }
 
   let config_has_been_modified_during_runtime () =
@@ -61,18 +59,16 @@ module Editor = struct
 
   let default_editor : editor =
     {
-      rope = None;
-      cursor_pos = 0;
+      ropes = [];
       holding_ctrl = false;
       vertical_scroll_y_offset = 0;
       highlight = None;
       config_info = recalculate_info_relating_to_config ();
-      search_rope = None;
-      list_options_rope = None;
-      mode = Editing { real_path = "" };
+      current_rope_idx = None;
     }
 
   type 'a rope_traversal_info = {
+    editor : editor;
     acc_horizontal_x_pos : int;
     rope_pos : int;
     accumulation : 'a;
@@ -102,6 +98,7 @@ module Editor = struct
           acc_horizontal_x_pos = acc_x_offset;
           rope_pos = rp;
           accumulation = acc_closest_x, acc_closest_y, acc_closest_rp;
+          editor;
         } c =
       let amt_window_widths = acc_x_offset / window_width in
       let lower_y_height =
@@ -123,6 +120,7 @@ module Editor = struct
           |> min line_x_pos
         in
         {
+          editor;
           acc_horizontal_x_pos = next_x_pos;
           rope_pos = rp + 1;
           accumulation =
@@ -159,6 +157,7 @@ module Editor = struct
               * editor.config_info.font_height
             in
             {
+              editor;
               acc_horizontal_x_pos = processed_x_offset + x_advance;
               rope_pos = rp + 1;
               accumulation =
@@ -169,18 +168,23 @@ module Editor = struct
             }
         | None -> failwith ("glyph_info not found for " ^ Char.escaped c)
     in
-    let { accumulation = _, cy, crp; _ } =
-      traverse_rope
-        (editor.rope |> Option.get)
-        fold_fn
-        ({
-           acc_horizontal_x_pos = 0;
-           rope_pos = 0;
-           accumulation = (Int.max_int, Int.max_int, Int.max_int);
-         }
-          : (int * int * int) rope_traversal_info)
+    let current_rope =
+      List.nth editor.ropes (editor.current_rope_idx |> Option.get)
     in
-    Printf.printf "closest y: %d" cy;
-    print_newline ();
-    min crp (length (editor.rope |> Option.get))
+    match current_rope with
+    | File { rope; _ } ->
+        let { accumulation = _, cy, crp; _ } =
+          traverse_rope (rope |> Option.get) fold_fn
+            ({
+               editor;
+               acc_horizontal_x_pos = 0;
+               rope_pos = 0;
+               accumulation = (Int.max_int, Int.max_int, Int.max_int);
+             }
+              : (int * int * int) rope_traversal_info)
+        in
+        Printf.printf "closest y: %d" cy;
+        print_newline ();
+        min crp (length (rope |> Option.get))
+    | _ -> failwith "NOT FILE"
 end

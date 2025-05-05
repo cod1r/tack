@@ -106,109 +106,126 @@ module Render = struct
   let draw_editor (editor : Editor.editor) =
     let window_dims = Sdl.sdl_gl_getdrawablesize () in
     let window_width, window_height = window_dims in
-    let fold_fn (acc : unit Editor.rope_traversal_info) c =
-      let draw_highlight x_advance =
-        match editor.highlight with
-        | Some (highlight_start, highlight_end) ->
-            if acc.rope_pos >= highlight_start && acc.rope_pos < highlight_end
-            then
-              let rows = acc.acc_horizontal_x_pos / window_width
-              and mod_x = acc.acc_horizontal_x_pos mod window_width in
-              let new_x, new_row =
-                if (acc.acc_horizontal_x_pos + x_advance) / window_width > rows
-                then (0, rows + 1 + editor.vertical_scroll_y_offset)
-                else (mod_x, rows + editor.vertical_scroll_y_offset)
-              in
-              let points =
-                [
-                  (new_x, (new_row + 1) * editor.config_info.font_height);
-                  (new_x, new_row * editor.config_info.font_height);
-                  (new_x + x_advance, new_row * editor.config_info.font_height);
-                  ( new_x + x_advance,
-                    (new_row + 1) * editor.config_info.font_height );
-                ]
-              in
-              List.iter
-                (fun (x, y) ->
-                  Stubs.write_to_highlight_buffer ~buffer:highlight_buffer ~x ~y
-                    ~window_width ~window_height)
-                points
-        | None -> ()
-      in
-      if c = '\n' then (
-        let div_ans =
-          (acc.acc_horizontal_x_pos + window_width) / window_width
-        in
-        if acc.rope_pos = editor.Editor.cursor_pos then
-          Stubs.write_cursor_to_buffer cursor_buffer window_dims
-            acc.acc_horizontal_x_pos editor.config_info.font_height
-            ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset;
-        ({
-           acc_horizontal_x_pos = div_ans * window_width;
-           rope_pos = acc.rope_pos + 1;
-           accumulation = ();
-         }
-          : unit Editor.rope_traversal_info))
-      else
-        let glyph_info_found =
-          Array.find_opt
-            (fun (c', _) -> c' = c)
-            editor.config_info.glyph_info_with_char
-        in
-        match glyph_info_found with
-        | Some (_, gi) ->
-            let x_advance = Freetype.FreeType.get_x_advance gi in
-            draw_highlight x_advance;
-            let plus_x_advance =
-              (acc.acc_horizontal_x_pos + x_advance) / window_width
-            and without_x_advance = acc.acc_horizontal_x_pos / window_width in
-            (* y_pos is basically the variable row in the stub code that writes to the text_buffer; adding vertical_scroll_y_offset times window_width to the horizontal_x_pos doesn't work due to the fact that (-window_width + some_x_advance) / window_width will be zero because of integer division;
+    let current_rope_wrapper =
+      List.nth editor.ropes (editor.current_rope_idx |> Option.get)
+    in
+    match current_rope_wrapper with
+    | File { rope; cursor_pos; file_name } ->
+        let fold_fn (acc : unit Editor.rope_traversal_info) c =
+          let draw_highlight x_advance =
+            match acc.editor.highlight with
+            | Some (highlight_start, highlight_end) ->
+                if
+                  acc.rope_pos >= highlight_start
+                  && acc.rope_pos < highlight_end
+                then
+                  let rows = acc.acc_horizontal_x_pos / window_width
+                  and mod_x = acc.acc_horizontal_x_pos mod window_width in
+                  let new_x, new_row =
+                    if
+                      (acc.acc_horizontal_x_pos + x_advance) / window_width
+                      > rows
+                    then (0, rows + 1 + acc.editor.vertical_scroll_y_offset)
+                    else (mod_x, rows + acc.editor.vertical_scroll_y_offset)
+                  in
+                  let points =
+                    [
+                      (new_x, (new_row + 1) * acc.editor.config_info.font_height);
+                      (new_x, new_row * acc.editor.config_info.font_height);
+                      ( new_x + x_advance,
+                        new_row * acc.editor.config_info.font_height );
+                      ( new_x + x_advance,
+                        (new_row + 1) * acc.editor.config_info.font_height );
+                    ]
+                  in
+                  List.iter
+                    (fun (x, y) ->
+                      Stubs.write_to_highlight_buffer ~buffer:highlight_buffer
+                        ~x ~y ~window_width ~window_height)
+                    points
+            | None -> ()
+          in
+          if c = '\n' then (
+            let div_ans =
+              (acc.acc_horizontal_x_pos + window_width) / window_width
+            in
+            if acc.rope_pos = cursor_pos then
+              Stubs.write_cursor_to_buffer cursor_buffer window_dims
+                acc.acc_horizontal_x_pos editor.config_info.font_height
+                ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset;
+            ({
+               acc with
+               acc_horizontal_x_pos = div_ans * window_width;
+               rope_pos = acc.rope_pos + 1;
+               accumulation = ();
+             }
+              : unit Editor.rope_traversal_info))
+          else
+            let glyph_info_found =
+              Array.find_opt
+                (fun (c', _) -> c' = c)
+                editor.config_info.glyph_info_with_char
+            in
+            match glyph_info_found with
+            | Some (_, gi) ->
+                let x_advance = Freetype.FreeType.get_x_advance gi in
+                draw_highlight x_advance;
+                let plus_x_advance =
+                  (acc.acc_horizontal_x_pos + x_advance) / window_width
+                and without_x_advance =
+                  acc.acc_horizontal_x_pos / window_width
+                in
+                (* y_pos is basically the variable row in the stub code that writes to the text_buffer; adding vertical_scroll_y_offset times window_width to the horizontal_x_pos doesn't work due to the fact that (-window_width + some_x_advance) / window_width will be zero because of integer division;
 
        also I am using plus_x_advance because that's what row the glyph will be on. using the without_x_advance
        can just give the wrong row
      *)
-            let y_pos =
-              (plus_x_advance + editor.vertical_scroll_y_offset)
-              * editor.config_info.font_height
-            in
-            if y_pos <= window_height && y_pos >= 0 then
-              Stubs.write_to_buffer text_buffer gi ~window_dims
-                ~x_offset:acc.acc_horizontal_x_pos
-                ~font_height:editor.config_info.font_height
-                ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset;
-            let processed_acc_x_offset =
-              if plus_x_advance > without_x_advance then
-                plus_x_advance * window_width
-              else acc.acc_horizontal_x_pos
-            in
-            if acc.rope_pos = editor.Editor.cursor_pos then
-              Stubs.write_cursor_to_buffer cursor_buffer window_dims
-                processed_acc_x_offset editor.config_info.font_height
-                ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset;
+                let y_pos =
+                  (plus_x_advance + editor.vertical_scroll_y_offset)
+                  * editor.config_info.font_height
+                in
+                if y_pos <= window_height && y_pos >= 0 then
+                  Stubs.write_to_buffer text_buffer gi ~window_dims
+                    ~x_offset:acc.acc_horizontal_x_pos
+                    ~font_height:editor.config_info.font_height
+                    ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset;
+                let processed_acc_x_offset =
+                  if plus_x_advance > without_x_advance then
+                    plus_x_advance * window_width
+                  else acc.acc_horizontal_x_pos
+                in
+                if acc.rope_pos = cursor_pos then
+                  Stubs.write_cursor_to_buffer cursor_buffer window_dims
+                    processed_acc_x_offset editor.config_info.font_height
+                    ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset;
+                {
+                  acc with
+                  acc_horizontal_x_pos = processed_acc_x_offset + x_advance;
+                  rope_pos = acc.rope_pos + 1;
+                  accumulation = ();
+                }
+            | None ->
+                Printf.printf "not found";
+                print_char c;
+                print_newline ();
+                acc
+        in
+        let { Editor.acc_horizontal_x_pos; _ } =
+          Editor.traverse_rope (rope |> Option.get) fold_fn
             ({
-               acc_horizontal_x_pos = processed_acc_x_offset + x_advance;
-               rope_pos = acc.rope_pos + 1;
+               editor;
+               acc_horizontal_x_pos = 0;
+               rope_pos = 0;
                accumulation = ();
              }
               : unit Editor.rope_traversal_info)
-        | None ->
-            Printf.printf "not found";
-            print_char c;
-            print_newline ();
-            acc
-    in
-    let { Editor.acc_horizontal_x_pos; _ } =
-      Editor.traverse_rope
-        (editor.rope |> Option.get)
-        fold_fn
-        ({ acc_horizontal_x_pos = 0; rope_pos = 0; accumulation = () }
-          : unit Editor.rope_traversal_info)
-    in
-    if editor.cursor_pos = Rope.length (editor.rope |> Option.get) then
-      Stubs.write_cursor_to_buffer cursor_buffer window_dims
-        acc_horizontal_x_pos editor.config_info.font_height
-        ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset;
-    ()
+        in
+        if cursor_pos = Rope.length (rope |> Option.get) then
+          Stubs.write_cursor_to_buffer cursor_buffer window_dims
+            acc_horizontal_x_pos editor.config_info.font_height
+            ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset
+    | _ ->
+        ( (* todo -> implement filesearch writing to buffer logic for drawing *) )
 
   let gl_buffer_obj = gl_gen_one_buffer ()
   let gl_buffer_cursor = gl_gen_one_buffer ()

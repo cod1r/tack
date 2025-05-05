@@ -8,7 +8,10 @@ let cursor_positioning_on_mousedown_test _ =
   ();
   let rope = Rope.of_string "h\n\nh\n" in
   let editor : Editor.editor =
-    { Editor.default_editor with rope = Some rope }
+    {
+      Editor.default_editor with
+      ropes = [ File { rope = Some rope; cursor_pos = 0; file_name = "" } ];
+    }
   in
   let rope_pos =
     Editor.find_closest_rope_pos_for_cursor_on_coords editor (200, 0)
