@@ -4,6 +4,9 @@ open Tack.Rope
 open Tack.Render
 open Tack.Modes
 
+let s = Another.hi
+let () = print_endline s
+
 let rec loop (editor_info : Editor.editor) =
   let evt = Sdl.sdl_pollevent () in
   let new_editor, continue =
