@@ -103,6 +103,60 @@ module Render = struct
     compile_shaders_and_return_program ~vertex_id:vertex ~fragment_id:fragment
       ~vertex_src:generic_vertex_shader ~fragment_src:generic_fragment_shader
 
+  let handle_glyph_for_file_mode (editor : Editor.editor)
+      (acc : 'a Editor.rope_traversal_info) c draw_highlight window_dims
+      cursor_pos =
+    let window_width, window_height = window_dims in
+    let glyph_info_found =
+      Array.find_opt
+        (fun (c', _) -> c' = c)
+        editor.config_info.glyph_info_with_char
+    in
+    match glyph_info_found with
+    | Some (_, gi) ->
+        let x_advance = Freetype.FreeType.get_x_advance gi in
+        draw_highlight x_advance;
+        let plus_x_advance =
+          (acc.acc_horizontal_x_pos + x_advance) / window_width
+        and without_x_advance = acc.acc_horizontal_x_pos / window_width in
+        (*
+        y_pos is basically the variable row in the stub code that writes to the text_buffer;
+        adding vertical_scroll_y_offset times window_width to the horizontal_x_pos doesn't work due to the fact that
+        (-window_width + some_x_advance) / window_width will be zero because of integer division;
+
+        also I am using plus_x_advance because that's what row the glyph will be on. using the without_x_advance
+        can just give the wrong row
+       *)
+        let y_pos =
+          (plus_x_advance + editor.vertical_scroll_y_offset)
+          * editor.config_info.font_height
+        in
+        if y_pos <= window_height && y_pos >= 0 then
+          Stubs.write_to_buffer text_buffer gi ~window_dims
+            ~x_offset:acc.acc_horizontal_x_pos
+            ~font_height:editor.config_info.font_height
+            ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset;
+        let processed_acc_x_offset =
+          if plus_x_advance > without_x_advance then
+            plus_x_advance * window_width
+          else acc.acc_horizontal_x_pos
+        in
+        if acc.rope_pos = cursor_pos then
+          Stubs.write_cursor_to_buffer cursor_buffer window_dims
+            processed_acc_x_offset editor.config_info.font_height
+            ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset;
+        {
+          acc with
+          acc_horizontal_x_pos = processed_acc_x_offset + x_advance;
+          rope_pos = acc.rope_pos + 1;
+          accumulation = ();
+        }
+    | None ->
+        Printf.printf "not found";
+        print_char c;
+        print_newline ();
+        acc
+
   let draw_editor (editor : Editor.editor) =
     let window_dims = Sdl.sdl_gl_getdrawablesize () in
     let window_width, window_height = window_dims in
@@ -161,54 +215,8 @@ module Render = struct
              }
               : unit Editor.rope_traversal_info))
           else
-            let glyph_info_found =
-              Array.find_opt
-                (fun (c', _) -> c' = c)
-                editor.config_info.glyph_info_with_char
-            in
-            match glyph_info_found with
-            | Some (_, gi) ->
-                let x_advance = Freetype.FreeType.get_x_advance gi in
-                draw_highlight x_advance;
-                let plus_x_advance =
-                  (acc.acc_horizontal_x_pos + x_advance) / window_width
-                and without_x_advance =
-                  acc.acc_horizontal_x_pos / window_width
-                in
-                (* y_pos is basically the variable row in the stub code that writes to the text_buffer; adding vertical_scroll_y_offset times window_width to the horizontal_x_pos doesn't work due to the fact that (-window_width + some_x_advance) / window_width will be zero because of integer division;
-
-       also I am using plus_x_advance because that's what row the glyph will be on. using the without_x_advance
-       can just give the wrong row
-     *)
-                let y_pos =
-                  (plus_x_advance + editor.vertical_scroll_y_offset)
-                  * editor.config_info.font_height
-                in
-                if y_pos <= window_height && y_pos >= 0 then
-                  Stubs.write_to_buffer text_buffer gi ~window_dims
-                    ~x_offset:acc.acc_horizontal_x_pos
-                    ~font_height:editor.config_info.font_height
-                    ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset;
-                let processed_acc_x_offset =
-                  if plus_x_advance > without_x_advance then
-                    plus_x_advance * window_width
-                  else acc.acc_horizontal_x_pos
-                in
-                if acc.rope_pos = cursor_pos then
-                  Stubs.write_cursor_to_buffer cursor_buffer window_dims
-                    processed_acc_x_offset editor.config_info.font_height
-                    ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset;
-                {
-                  acc with
-                  acc_horizontal_x_pos = processed_acc_x_offset + x_advance;
-                  rope_pos = acc.rope_pos + 1;
-                  accumulation = ();
-                }
-            | None ->
-                Printf.printf "not found";
-                print_char c;
-                print_newline ();
-                acc
+            handle_glyph_for_file_mode editor acc c draw_highlight window_dims
+              cursor_pos
         in
         let { Editor.acc_horizontal_x_pos; _ } =
           Editor.traverse_rope (rope |> Option.get) fold_fn
@@ -224,7 +232,7 @@ module Render = struct
           Stubs.write_cursor_to_buffer cursor_buffer window_dims
             acc_horizontal_x_pos editor.config_info.font_height
             ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset
-    | _ ->
+    | FileSearch _ ->
         ( (* todo -> implement filesearch writing to buffer logic for drawing *) )
 
   let gl_buffer_obj = gl_gen_one_buffer ()
