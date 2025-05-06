@@ -2,7 +2,11 @@ open Render
 open Sdl
 open Editor
 
-module FileMode = struct
+module type Mode = sig
+  val handle_mode_evt : Editor.editor -> Sdl.event option -> Editor.editor
+end
+
+module FileMode: Mode = struct
   (* function i made in the process of thinking of a good answer to different editor modes (file search mode, editing mode, etc; this probably isn't needed *)
   let handle_kbd_evt_editor_mode (editor : Editor.editor) ~char_code
       ~kbd_evt_type ~keysym ~file_path =
@@ -145,7 +149,7 @@ module FileMode = struct
         | None -> editor)
     | _ -> editor
 
-  let handle_editing_mode_evt (editor : Editor.editor) (evt : Sdl.event option)
+  let handle_mode_evt (editor : Editor.editor) (evt : Sdl.event option)
       =
     let current_rope_wrapper =
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
@@ -254,8 +258,8 @@ module FileMode = struct
     | _ -> editor
 end
 
-module FileSearchMode = struct
-  let handle_editing_mode_evt (editor : Editor.editor) (evt : Sdl.event option)
+module FileSearchMode: Mode = struct
+  let handle_mode_evt (editor : Editor.editor) (evt : Sdl.event option)
       =
     let current_rope_wrapper =
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)

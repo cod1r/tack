@@ -18,7 +18,7 @@ let rec loop (editor_info : Editor.editor) =
         | Some idx -> (
             let rope = List.nth editor_info.ropes idx in
             match rope with
-            | File _ -> (FileMode.handle_editing_mode_evt editor_info evt, true)
+            | File _ -> (FileMode.handle_mode_evt editor_info evt, true)
             | FileSearch _ -> (editor_info, true))
         | None -> (editor_info, true))
   in
