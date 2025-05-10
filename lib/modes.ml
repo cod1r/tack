@@ -6,7 +6,7 @@ module type Mode = sig
   val handle_mode_evt : Editor.editor -> Sdl.event option -> Editor.editor
 end
 
-module FileMode: Mode = struct
+module FileMode : Mode = struct
   (* function i made in the process of thinking of a good answer to different editor modes (file search mode, editing mode, etc; this probably isn't needed *)
   let handle_kbd_evt_editor_mode (editor : Editor.editor) ~char_code
       ~kbd_evt_type ~keysym ~file_path =
@@ -149,8 +149,7 @@ module FileMode: Mode = struct
         | None -> editor)
     | _ -> editor
 
-  let handle_mode_evt (editor : Editor.editor) (evt : Sdl.event option)
-      =
+  let handle_mode_evt (editor : Editor.editor) (evt : Sdl.event option) =
     let current_rope_wrapper =
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
     in
@@ -258,9 +257,8 @@ module FileMode: Mode = struct
     | _ -> editor
 end
 
-module FileSearchMode: Mode = struct
-  let handle_mode_evt (editor : Editor.editor) (evt : Sdl.event option)
-      =
+module FileSearchMode : Mode = struct
+  let handle_mode_evt (editor : Editor.editor) (evt : Sdl.event option) =
     let current_rope_wrapper =
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
     and other_rope_wrappers =
@@ -269,13 +267,13 @@ module FileSearchMode: Mode = struct
         editor.ropes
     in
     match current_rope_wrapper with
-    | FileSearch { rope; cursor_pos } -> (
+    | FileSearch { search_rope; cursor_pos; results } -> (
         match evt with
         | Some (KeyboardEvt { keysym; kbd_evt_type; _ }) -> (
             Printf.printf "KBD: %d, %s" (Char.code keysym) (Char.escaped keysym);
             print_newline ();
             let char_code = Char.code keysym in
-            match rope with
+            match search_rope with
             | Some r -> (
                 match char_code with
                 | 1073742048 ->
@@ -297,7 +295,11 @@ module FileSearchMode: Mode = struct
                           in
                           let new_rope_wrapper =
                             Editor.FileSearch
-                              { rope = new_rope; cursor_pos = cursor_pos - 1 }
+                              {
+                                results;
+                                search_rope = new_rope;
+                                cursor_pos = cursor_pos - 1;
+                              }
                           in
                           let new_editor : Editor.editor =
                             {
@@ -310,7 +312,7 @@ module FileSearchMode: Mode = struct
                           new_editor)
                         else editor
                     | 'c' when kbd_evt_type = Keydown ->
-                        (match (rope, editor.highlight) with
+                        (match (search_rope, editor.highlight) with
                         | Some r, Some (start, end') ->
                             Rope.substring r ~start ~len:(end' - start)
                             |> Rope.to_string |> Sdl.set_clipboard_text
@@ -325,7 +327,7 @@ module FileSearchMode: Mode = struct
                             print_string clipboard_contents;
                             print_newline ();
                             let new_rope =
-                              match rope with
+                              match search_rope with
                               | Some r ->
                                   Rope.insert r cursor_pos clipboard_contents
                               | None -> Leaf clipboard_contents
@@ -333,7 +335,8 @@ module FileSearchMode: Mode = struct
                             let new_rope_wrapper =
                               Editor.FileSearch
                                 {
-                                  rope = Some new_rope;
+                                  results;
+                                  search_rope = Some new_rope;
                                   cursor_pos =
                                     cursor_pos
                                     + String.length clipboard_contents;
@@ -356,7 +359,11 @@ module FileSearchMode: Mode = struct
                         let new_rope = Some (Rope.insert r cursor_pos "  ") in
                         let new_rope_wrapper =
                           Editor.FileSearch
-                            { rope = new_rope; cursor_pos = cursor_pos + 2 }
+                            {
+                              results;
+                              search_rope = new_rope;
+                              cursor_pos = cursor_pos + 2;
+                            }
                         in
                         let new_editor : Editor.editor =
                           {
@@ -378,7 +385,7 @@ module FileSearchMode: Mode = struct
                 Printf.printf "Mousedown %d, %d, %d, %d, %d, %d\n" x y windowID
                   button clicks timestamp;
                 let crp =
-                  if Option.is_some rope then
+                  if Option.is_some search_rope then
                     Editor.find_closest_rope_pos_for_cursor_on_coords editor
                       (x, y)
                   else 0
@@ -386,7 +393,7 @@ module FileSearchMode: Mode = struct
                 Printf.printf "closest rp: %d" crp;
                 print_newline ();
                 let new_rope_wrapper =
-                  Editor.FileSearch { rope; cursor_pos = crp }
+                  Editor.FileSearch { search_rope; cursor_pos = crp; results }
                 in
                 let new_editor =
                   {
@@ -401,13 +408,13 @@ module FileSearchMode: Mode = struct
                 Printf.printf "Mouseup: %d %d" x y;
                 print_newline ();
                 let crp =
-                  if Option.is_some rope then
+                  if Option.is_some search_rope then
                     Editor.find_closest_rope_pos_for_cursor_on_coords editor
                       (x, y)
                   else 0
                 in
                 let new_rope_wrapper =
-                  Editor.FileSearch { rope; cursor_pos = crp }
+                  Editor.FileSearch { search_rope; cursor_pos = crp; results }
                 in
                 let new_editor =
                   {
@@ -429,7 +436,7 @@ module FileSearchMode: Mode = struct
                 Render.draw editor;
                 editor
             | Unhandled -> editor)
-        | Some (MouseMotionEvt { x; y; _ }) ->
+        | Some (MouseMotionEvt _) ->
             (* Printf.printf "Mousemotion %d %d" x y; *)
             (* print_newline (); *)
             editor
@@ -443,13 +450,25 @@ module FileSearchMode: Mode = struct
             Render.draw new_editor;
             new_editor
         | Some (TextInputEvt { text; _ }) ->
+            let no_new_lines =
+              String.split_on_char '\n' text
+              |> List.fold_left (fun acc s -> acc ^ s) ""
+              |> String.split_on_char '\r'
+              |> List.fold_left (fun acc s -> acc ^ s) ""
+            in
             let new_rope =
-              match rope with
-              | Some r -> Some (Rope.insert r cursor_pos text)
+              match search_rope with
+              | Some r -> Some (Rope.insert r cursor_pos no_new_lines)
               | None -> Some (Leaf text)
             in
+            let files = Search.list_files "." in
+            let results =
+              Search.includes_search files
+                (Rope.to_string (new_rope |> Option.get))
+            in
             let new_rope_wrapper =
-              Editor.FileSearch { rope = new_rope; cursor_pos = cursor_pos + 1 }
+              Editor.FileSearch
+                { search_rope = new_rope; cursor_pos = cursor_pos + 1; results }
             in
             let new_editor : Editor.editor =
               {

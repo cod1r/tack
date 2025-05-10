@@ -157,6 +157,12 @@ module Render = struct
         print_newline ();
         acc
 
+  (*
+        At first, it seems like there could be a write_rope_to_text_buffer function, BUT
+        there are specific details like wrapping that I'd like to handle. Maybe there could be
+        an abstraction for that specific wrapping behavior, but let's consider that later.
+        *)
+
   let draw_editor (editor : Editor.editor) =
     let window_dims = Sdl.sdl_gl_getdrawablesize () in
     let window_width, window_height = window_dims in
@@ -232,8 +238,61 @@ module Render = struct
           Stubs.write_cursor_to_buffer cursor_buffer window_dims
             acc_horizontal_x_pos editor.config_info.font_height
             ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset
-    | FileSearch _ ->
-        ( (* todo -> implement filesearch writing to buffer logic for drawing *) )
+    | FileSearch { search_rope; results; _ } -> (
+        (* todo -> implement filesearch writing to buffer logic for drawing *)
+        let fold_fn (acc : unit Editor.rope_traversal_info) c =
+          let found_glyph =
+            Array.find_opt
+              (fun (c', _) -> c' = c)
+              editor.config_info.glyph_info_with_char
+          in
+          match found_glyph with
+          | Some (_, gi) ->
+              let x_advance = FreeType.get_x_advance gi in
+              Stubs.write_search_to_text_buffer ~text_buffer ~glyph_info:gi
+                ~x_offset:acc.acc_horizontal_x_pos ~window_width ~window_height
+                ~font_height:editor.config_info.font_height;
+              List.iteri
+                (fun idx file ->
+                  let x_offset = ref 0 in
+                  String.iter
+                    (fun c ->
+                      let gi =
+                        Array.find_opt
+                          (fun (c', _) -> c' = c)
+                          editor.config_info.glyph_info_with_char
+                      in
+                      match gi with
+                      | Some (_, gi') ->
+                          let x_advance = FreeType.get_x_advance gi' in
+                          Stubs.write_glyph_to_text_buffer_value ~text_buffer
+                            ~glyph_info:gi' ~x_offset:!x_offset
+                            ~y_offset:(idx * editor.config_info.font_height)
+                            ~window_width ~window_height;
+                          x_offset := !x_offset + x_advance
+                      | None -> ())
+                    file)
+                results;
+              {
+                acc with
+                acc_horizontal_x_pos = acc.acc_horizontal_x_pos + x_advance;
+                rope_pos = acc.rope_pos + 1;
+              }
+          | None -> failwith "NO GLYPH FOUND BRUH"
+        in
+        match search_rope with
+        | Some r ->
+            let _ =
+              Editor.traverse_rope r fold_fn
+                {
+                  editor;
+                  acc_horizontal_x_pos = 0;
+                  rope_pos = 0;
+                  accumulation = ();
+                }
+            in
+            ()
+        | None -> ())
 
   let gl_buffer_obj = gl_gen_one_buffer ()
   let gl_buffer_cursor = gl_gen_one_buffer ()

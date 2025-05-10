@@ -41,3 +41,21 @@ external write_mouse_hover_to_highlight_buffer :
   buffer:Opengl.buffer -> window_width:int -> window_height:int -> unit
   = "write_mouse_hover_to_highlight_buffer"
     "write_mouse_hover_to_highlight_buffer"
+
+external write_search_to_text_buffer :
+  text_buffer:Opengl.buffer ->
+  glyph_info:FreeType.glyph_info ->
+  x_offset:int ->
+  window_width:int ->
+  window_height:int ->
+  font_height:int ->
+  unit = "write_search_to_text_buffer" "write_search_to_text_buffer"
+
+external write_glyph_to_text_buffer_value :
+  text_buffer:Opengl.buffer ->
+  glyph_info:FreeType.glyph_info ->
+  x_offset:int ->
+  y_offset:int ->
+  window_width:int ->
+  window_height:int ->
+  unit = "write_glyph_to_text_buffer_value" "write_glyph_to_text_buffer_value"

@@ -10,3 +10,20 @@ let list_files dir =
         acc dirs
   in
   list_files' dir []
+
+let includes_search files search =
+  List.filter
+    (fun file ->
+      let _, was_found =
+        String.fold_left
+          (fun (idx, was_found) _ ->
+            let len_of_search = String.length search
+            and len_of_file = String.length file in
+            ( idx + 1,
+              was_found
+              || idx + len_of_search <= len_of_file
+                 && String.sub file idx len_of_search = search ))
+          (0, false) file
+      in
+      was_found)
+    files

@@ -11,7 +11,11 @@ module Editor = struct
   }
 
   type rope_wrapper =
-    | FileSearch of { rope : Rope.rope option; cursor_pos : int }
+    | FileSearch of {
+        search_rope : Rope.rope option;
+        cursor_pos : int;
+        results : string list;
+      }
     | File of { rope : Rope.rope option; cursor_pos : int; file_name : string }
 
   type editor = {

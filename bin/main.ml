@@ -19,7 +19,8 @@ let rec loop (editor_info : Editor.editor) =
             let rope = List.nth editor_info.ropes idx in
             match rope with
             | File _ -> (FileMode.handle_mode_evt editor_info evt, true)
-            | FileSearch _ -> (editor_info, true))
+            | FileSearch _ ->
+                (FileSearchMode.handle_mode_evt editor_info evt, true))
         | None -> (editor_info, true))
   in
   if continue then loop new_editor else ()
@@ -45,7 +46,8 @@ let initial_editor : Editor.editor =
   {
     Editor.default_editor with
     ropes =
-      [ File { rope = Some file_rope; cursor_pos = 0; file_name = real_path } ];
+      (* [ File { rope = Some file_rope; cursor_pos = 0; file_name = real_path } ]; *)
+      [ FileSearch { search_rope = None; cursor_pos = 0; results = [] } ];
     current_rope_idx = Some 0;
   }
 
