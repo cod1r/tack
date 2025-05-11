@@ -54,8 +54,10 @@ SOME WAY TO SWITCH FILES QUICKLY
 MOUSEDOWN handling needs to be more accurate
 
 more things to do:
-  LINE NUMBERS NEED TO BE IMPLEMENTED
-  THERE IS A BUG WITH PASTING where if 'v' is typed and ctrl is not held, it will paste the clipboard contents
-  HIGHLIGHTED TEXT should all be deleted on backspace
-  for some reason, when switching to a file, text is highlighted from the beginning to where the last cursor click position was
-  There is too much nested state, so things are hard to read. this means another session of code cleanup
+  - LINE NUMBERS NEED TO BE IMPLEMENTED
+  - HIGHLIGHTED TEXT should all be deleted on backspace
+  - for some reason, when switching to a file, text is highlighted from the beginning to where the last cursor click position was
+  - There is too much nested state, so things are hard to read. this means another session of code cleanup
+  - every file should keep track of its scroll position
+  - every file needs to occasionally poll if it's contents have changed on disk and make a decision about current changes vs
+    changes on disk
