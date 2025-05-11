@@ -62,7 +62,6 @@ void write_glyph_to_text_buffer(
 ) {
   int start = text_buffer_c->size;
   for (int buffer_idx = start; buffer_idx < start + glyph_info.buffer.size; buffer_idx += 3) {
-
     if (buffer_idx > text_buffer_c->capacity) caml_failwith("BUFFER TOO SMALL");
 
     int first = buffer_idx;
@@ -264,7 +263,7 @@ CAMLprim value write_glyph_to_text_buffer_value(value text_buffer, value glyph_i
   struct GlyphInfo* glyph_info_struct = *(struct GlyphInfo**)Data_abstract_val(glyph_info);
   struct Buffer* text_buffer_c = *(struct Buffer**)Data_abstract_val(text_buffer);
 
-  write_glyph_to_text_buffer(*glyph_info_struct, text_buffer_c, initial_y_offset, initial_y_offset, window_width, window_height);
+  write_glyph_to_text_buffer(*glyph_info_struct, text_buffer_c, initial_x_offset, initial_y_offset, window_width, window_height);
 
   CAMLreturn(Val_unit);
 }

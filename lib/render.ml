@@ -252,26 +252,29 @@ module Render = struct
               Stubs.write_search_to_text_buffer ~text_buffer ~glyph_info:gi
                 ~x_offset:acc.acc_horizontal_x_pos ~window_width ~window_height
                 ~font_height:editor.config_info.font_height;
+
               List.iteri
                 (fun idx file ->
-                  let x_offset = ref 0 in
-                  String.iter
-                    (fun c ->
-                      let gi =
-                        Array.find_opt
-                          (fun (c', _) -> c' = c)
-                          editor.config_info.glyph_info_with_char
-                      in
-                      match gi with
-                      | Some (_, gi') ->
-                          let x_advance = FreeType.get_x_advance gi' in
-                          Stubs.write_glyph_to_text_buffer_value ~text_buffer
-                            ~glyph_info:gi' ~x_offset:!x_offset
-                            ~y_offset:(idx * editor.config_info.font_height)
-                            ~window_width ~window_height;
-                          x_offset := !x_offset + x_advance
-                      | None -> ())
-                    file)
+                  (* adding two to offset the search results past the search row and the window title bar *)
+                  let row_pos = (idx + 2) * editor.config_info.font_height in
+                  if row_pos < window_height then
+                    let x_offset = ref 0 in
+                    String.iter
+                      (fun c ->
+                        let gi =
+                          Array.find_opt
+                            (fun (c', _) -> c' = c)
+                            editor.config_info.glyph_info_with_char
+                        in
+                        match gi with
+                        | Some (_, gi') ->
+                            let x_advance = FreeType.get_x_advance gi' in
+                            Stubs.write_glyph_to_text_buffer_value ~text_buffer
+                              ~glyph_info:gi' ~x_offset:!x_offset
+                              ~y_offset:row_pos ~window_width ~window_height;
+                            x_offset := !x_offset + x_advance
+                        | None -> ())
+                      file)
                 results;
               {
                 acc with
