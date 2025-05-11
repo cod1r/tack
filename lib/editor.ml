@@ -44,28 +44,27 @@ module Editor = struct
     in
     Yojson.Safe.from_string config_str
 
-  let recalculate_info_relating_to_config () =
-    (let config = read_config () in
-     let font_pixel_size =
-       Yojson.Safe.Util.member "font_pixel_size" config
-       |> Yojson.Safe.Util.to_int
-     and font_path =
-       Yojson.Safe.Util.member "font_path" config |> Yojson.Safe.Util.to_string
-     in
-     let face = FreeType.freetype_get_face font_path FreeType.library in
-     FreeType.freetype_set_pixel_sizes face font_pixel_size;
-     (* need to call font_height after set_pixel_sizes *)
-     let font_height = FreeType.get_font_height face in
-     {
-       glyph_info_with_char =
-         Array.init
-           (126 - 32 + 1)
-           (fun i -> FreeType.get_ascii_char_glyph face (i + 32));
-       ft_face = face;
-       pixel_size = font_pixel_size;
-       font_height;
-     }
-      : information_relating_to_config)
+  let recalculate_info_relating_to_config () : information_relating_to_config =
+    let config = read_config () in
+    let font_pixel_size =
+      Yojson.Safe.Util.member "font_pixel_size" config
+      |> Yojson.Safe.Util.to_int
+    and font_path =
+      Yojson.Safe.Util.member "font_path" config |> Yojson.Safe.Util.to_string
+    in
+    let face = FreeType.freetype_get_face font_path FreeType.library in
+    FreeType.freetype_set_pixel_sizes face font_pixel_size;
+    (* need to call font_height after set_pixel_sizes *)
+    let font_height = FreeType.get_font_height face in
+    {
+      glyph_info_with_char =
+        Array.init
+          (126 - 32 + 1)
+          (fun i -> FreeType.get_ascii_char_glyph face (i + 32));
+      ft_face = face;
+      pixel_size = font_pixel_size;
+      font_height;
+    }
 
   let default_editor : editor =
     {

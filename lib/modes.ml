@@ -121,13 +121,7 @@ module FileMode : Mode = struct
                     new_editor
                 | '\t' when kbd_evt_type = Keydown ->
                     (* horizontal tab will be two spaces *)
-                    let new_rope = Some (Rope.insert r cursor_pos "  ")
-                    and new_ropes =
-                      List.filteri
-                        (fun idx _ ->
-                          idx != (editor.current_rope_idx |> Option.get))
-                        editor.ropes
-                    in
+                    let new_rope = Some (Rope.insert r cursor_pos "  ") in
                     let new_rope_wrapper =
                       Editor.File
                         {
@@ -139,8 +133,21 @@ module FileMode : Mode = struct
                     let new_editor : Editor.editor =
                       {
                         editor with
-                        ropes = new_rope_wrapper :: new_ropes;
+                        ropes = new_rope_wrapper :: other_rope_wrappers;
                         current_rope_idx = Some 0;
+                      }
+                    in
+                    Render.draw new_editor;
+                    new_editor
+                | 'p' when kbd_evt_type = Keydown && editor.holding_ctrl ->
+                    let new_rope_wrapper =
+                      Editor.FileSearch
+                        { search_rope = None; cursor_pos = 0; results = [] }
+                    in
+                    let new_editor =
+                      {
+                        editor with
+                        ropes = new_rope_wrapper :: other_rope_wrappers;
                       }
                     in
                     Render.draw new_editor;
