@@ -249,7 +249,11 @@ module FileMode : Mode = struct
                 { file_name; cursor_pos = cursor_pos + 1; rope = new_rope }
             in
             let new_editor : Editor.editor =
-              { editor with ropes = new_rope_wrapper :: other_rope_wrappers }
+              {
+                editor with
+                ropes = new_rope_wrapper :: other_rope_wrappers;
+                current_rope_idx = Some 0;
+              }
             in
             Render.draw new_editor;
             new_editor
@@ -380,30 +384,57 @@ module FileSearchMode : Mode = struct
             (MouseButtonEvt
                { mouse_evt_type; timestamp; x; y; windowID; button; clicks })
           -> (
+            (* the x and y that comes from these events are not scaled to match the sdl drawable size
+          and it scales to match the sdl window size *)
+            let window_width, _ = Sdl.sdl_gl_getdrawablesize ()
+            and window_width_without_high_dpi, _ =
+              Sdl.sdl_get_window_size Sdl.w
+            in
+            let ratio = window_width / window_width_without_high_dpi in
             match mouse_evt_type with
             | Mousedown ->
                 Printf.printf "Mousedown %d, %d, %d, %d, %d, %d\n" x y windowID
                   button clicks timestamp;
-                let crp =
-                  if Option.is_some search_rope then
-                    Editor.find_closest_rope_pos_for_cursor_on_coords editor
-                      (x, y)
-                  else 0
-                in
-                Printf.printf "closest rp: %d" crp;
-                print_newline ();
-                let new_rope_wrapper =
-                  Editor.FileSearch { search_rope; cursor_pos = crp; results }
-                in
-                let new_editor =
+                let used_y = y * ratio in
+                if used_y < editor.config_info.font_height * 2 then (
+                  let crp =
+                    if Option.is_some search_rope then
+                      Editor.find_closest_rope_pos_for_cursor_on_coords editor
+                        (x, y)
+                    else 0
+                  in
+                  Printf.printf "closest rp: %d" crp;
+                  print_newline ();
+                  let new_rope_wrapper =
+                    Editor.FileSearch { search_rope; cursor_pos = crp; results }
+                  in
+                  let new_editor =
+                    {
+                      editor with
+                      ropes = new_rope_wrapper :: other_rope_wrappers;
+                      current_rope_idx = Some 0;
+                    }
+                  in
+                  Render.draw new_editor;
+                  new_editor)
+                else
+                  let filename =
+                    List.nth results
+                      ((used_y / editor.config_info.font_height) - 2)
+                  in
+                  let new_rope_wrapper =
+                    Editor.File
+                      {
+                        rope = Some (Editor.open_file filename);
+                        file_name = filename;
+                        cursor_pos = 0;
+                      }
+                  in
                   {
                     editor with
                     ropes = new_rope_wrapper :: other_rope_wrappers;
                     current_rope_idx = Some 0;
                   }
-                in
-                Render.draw new_editor;
-                new_editor
             | Mouseup ->
                 Printf.printf "Mouseup: %d %d" x y;
                 print_newline ();

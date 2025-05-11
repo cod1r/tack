@@ -27,6 +27,12 @@ module Editor = struct
     current_rope_idx : int option;
   }
 
+  let open_file file_name =
+    Printf.printf "Trying to open %s" file_name;
+    print_newline ();
+    In_channel.with_open_bin file_name (fun ic -> In_channel.input_all ic)
+    |> Rope.of_string
+
   let config_has_been_modified_during_runtime () =
     let s = Unix.stat ".config.json" in
     Unix.time () -. s.st_mtime < 1.

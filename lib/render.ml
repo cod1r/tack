@@ -278,6 +278,10 @@ module Render = struct
                 (* adding two to offset the search results past the search row and the window title bar *)
                 let row_pos = (idx + 2) * editor.config_info.font_height in
                 if row_pos < window_height then
+                  (*
+                  there are two coordinate systems, the one that is used in ocaml is top left being the origin.
+                  The one used in opengl and the c stub code has the center of the window as the origin.
+                   *)
                   let x_offset = ref 0 in
                   String.iter
                     (fun c ->
