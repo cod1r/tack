@@ -22,7 +22,7 @@ let includes_search files search =
             ( idx + 1,
               was_found
               || idx + len_of_search <= len_of_file
-                 && String.sub file idx len_of_search = search ))
+                 && String.sub file idx len_of_search = search && len_of_search > 0 ))
           (0, false) file
       in
       was_found)
