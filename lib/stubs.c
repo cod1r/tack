@@ -254,8 +254,8 @@ CAMLprim value write_glyph_to_text_buffer_value(value text_buffer, value glyph_i
   CAMLparam5(text_buffer, glyph_info, initial_x_offset_val, initial_y_offset_val, window_width_val);
   CAMLxparam1(window_height_val);
 
-  int initial_x_offset = Int_val(initial_x_offset_val);
-  int initial_y_offset = Int_val(initial_y_offset_val);
+  int x_offset = Int_val(initial_x_offset_val);
+  int y_offset = Int_val(initial_y_offset_val);
 
   int window_width = Int_val(window_width_val);
   int window_height = Int_val(window_height_val);
@@ -263,7 +263,7 @@ CAMLprim value write_glyph_to_text_buffer_value(value text_buffer, value glyph_i
   struct GlyphInfo* glyph_info_struct = *(struct GlyphInfo**)Data_abstract_val(glyph_info);
   struct Buffer* text_buffer_c = *(struct Buffer**)Data_abstract_val(text_buffer);
 
-  write_glyph_to_text_buffer(*glyph_info_struct, text_buffer_c, initial_x_offset, initial_y_offset, window_width, window_height);
+  write_glyph_to_text_buffer(*glyph_info_struct, text_buffer_c, x_offset, y_offset, window_width, window_height);
 
   CAMLreturn(Val_unit);
 }
