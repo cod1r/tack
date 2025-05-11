@@ -48,8 +48,8 @@ module Sdl = struct
   external sdl_delay : int -> unit = "SDL_Delay" "SDL_Delay"
   external init_sdl : unit -> (unit, string) result = "init_sdl" "init_sdl"
 
-  external sdl_pollevent : (unit[@untagged]) -> event option
-    = "sdl_pollevent" "sdl_pollevent"
+  external sdl_waitevent : (unit[@untagged]) -> event option
+    = "sdl_waitevent" "sdl_waitevent"
 
   type window =
     | Window of {

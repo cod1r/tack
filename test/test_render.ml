@@ -18,7 +18,7 @@ let timing_test_opengl_works _ =
   let _ =
     match Sdl.sdl_gl_make_current w with Ok () -> () | Error e -> failwith e
   in
-  let _ = Sdl.sdl_pollevent () in
+  let _ = Sdl.sdl_waitevent () in
   for _ = 0 to 100_000 do
     Tack.Opengl.gl_clear_color 1. 0. 0. 1.;
     Tack.Opengl.gl_clear ();

@@ -8,7 +8,7 @@ let s = Another.hi
 let () = print_endline s
 
 let rec loop (editor_info : Editor.editor) =
-  let evt = Sdl.sdl_pollevent () in
+  let evt = Sdl.sdl_waitevent () in
   let new_editor, continue =
     match evt with
     | Some Quit -> (editor_info, false)
