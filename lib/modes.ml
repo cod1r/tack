@@ -14,7 +14,7 @@ module FileMode : Mode = struct
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
     in
     match rope_wrapper with
-    | File { rope; cursor_pos; file_name } -> (
+    | File { rope; cursor_pos; file_name; vertical_scroll_y_offset; _ } -> (
         let other_rope_wrappers =
           List.filteri
             (fun idx _ -> idx != (editor.current_rope_idx |> Option.get))
@@ -41,6 +41,7 @@ module FileMode : Mode = struct
                             file_name;
                             cursor_pos = cursor_pos - 1;
                             rope = new_rope;
+                            vertical_scroll_y_offset;
                           }
                       in
                       let new_editor : Editor.editor =
@@ -77,6 +78,7 @@ module FileMode : Mode = struct
                               cursor_pos =
                                 cursor_pos + String.length clipboard_contents;
                               rope = new_rope;
+                              vertical_scroll_y_offset;
                             }
                         in
                         let new_editor =
@@ -108,6 +110,7 @@ module FileMode : Mode = struct
                           file_name;
                           cursor_pos = cursor_pos + 1;
                           rope = new_rope;
+                          vertical_scroll_y_offset;
                         }
                     in
                     let new_editor : Editor.editor =
@@ -128,6 +131,7 @@ module FileMode : Mode = struct
                           file_name;
                           cursor_pos = cursor_pos + 2;
                           rope = new_rope;
+                          vertical_scroll_y_offset;
                         }
                     in
                     let new_editor : Editor.editor =
@@ -161,7 +165,7 @@ module FileMode : Mode = struct
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
     in
     match current_rope_wrapper with
-    | File { rope; file_name; cursor_pos; _ } -> (
+    | File { rope; file_name; cursor_pos; vertical_scroll_y_offset; _ } -> (
         let other_rope_wrappers =
           List.filteri
             (fun idx _ -> idx != (editor.current_rope_idx |> Option.get))
@@ -169,7 +173,8 @@ module FileMode : Mode = struct
         in
         match evt with
         | Some (KeyboardEvt { keysym; kbd_evt_type; _ }) ->
-            Printf.printf "KBD: %d, %s" (Char.code keysym) (Char.escaped keysym);
+            Printf.printf "KBD file mode: %d, %s" (Char.code keysym)
+              (Char.escaped keysym);
             print_newline ();
             let char_code = Char.code keysym in
             handle_kbd_evt_editor_mode editor ~char_code ~kbd_evt_type ~keysym
@@ -182,6 +187,8 @@ module FileMode : Mode = struct
             | Mousedown ->
                 Printf.printf "Mousedown %d, %d, %d, %d, %d, %d\n" x y windowID
                   button clicks timestamp;
+                Printf.printf "holding ctrl: %b" editor.holding_ctrl;
+                print_newline ();
                 let crp =
                   if Option.is_some rope then
                     Editor.find_closest_rope_pos_for_cursor_on_coords editor
@@ -191,7 +198,13 @@ module FileMode : Mode = struct
                 Printf.printf "closest rp: %d" crp;
                 print_newline ();
                 let new_rope_wrapper =
-                  Editor.File { file_name; cursor_pos = crp; rope }
+                  Editor.File
+                    {
+                      file_name;
+                      cursor_pos = crp;
+                      rope;
+                      vertical_scroll_y_offset;
+                    }
                 in
                 let new_editor =
                   {
@@ -211,7 +224,13 @@ module FileMode : Mode = struct
                   else 0
                 in
                 let new_rope_wrapper =
-                  Editor.File { file_name; cursor_pos = crp; rope }
+                  Editor.File
+                    {
+                      file_name;
+                      cursor_pos = crp;
+                      rope;
+                      vertical_scroll_y_offset;
+                    }
                 in
                 let new_editor =
                   {
@@ -237,10 +256,20 @@ module FileMode : Mode = struct
             (* print_newline (); *)
             editor
         | Some (MouseWheelEvt { y; _ }) ->
+            let new_rope_wrapper =
+              Editor.File
+                {
+                  rope;
+                  cursor_pos;
+                  file_name;
+                  vertical_scroll_y_offset = vertical_scroll_y_offset + y;
+                }
+            in
             let new_editor =
               {
                 editor with
-                vertical_scroll_y_offset = editor.vertical_scroll_y_offset + y;
+                ropes = new_rope_wrapper :: other_rope_wrappers;
+                current_rope_idx = Some 0;
               }
             in
             Render.draw new_editor;
@@ -253,7 +282,12 @@ module FileMode : Mode = struct
             in
             let new_rope_wrapper =
               Editor.File
-                { file_name; cursor_pos = cursor_pos + 1; rope = new_rope }
+                {
+                  file_name;
+                  cursor_pos = cursor_pos + 1;
+                  rope = new_rope;
+                  vertical_scroll_y_offset;
+                }
             in
             let new_editor : Editor.editor =
               {
@@ -281,20 +315,18 @@ module FileSearchMode : Mode = struct
     | FileSearch { search_rope; cursor_pos; results } -> (
         match evt with
         | Some (KeyboardEvt { keysym; kbd_evt_type; _ }) -> (
-            Printf.printf "KBD: %d, %s" (Char.code keysym) (Char.escaped keysym);
+            Printf.printf "KBD file search mode: %d, %s" (Char.code keysym)
+              (Char.escaped keysym);
             print_newline ();
             let char_code = Char.code keysym in
             match search_rope with
             | Some r -> (
                 match char_code with
-                | 1073742048 ->
+                | 1073742048 -> (
                     (* this is the integer encoding for ctrl in SDL *)
-                    let new_editor =
-                      match kbd_evt_type with
-                      | Sdl.Keydown -> { editor with holding_ctrl = true }
-                      | Keyup -> { editor with holding_ctrl = false }
-                    in
-                    new_editor
+                    match kbd_evt_type with
+                    | Sdl.Keydown -> { editor with holding_ctrl = true }
+                    | Keyup -> { editor with holding_ctrl = false })
                 | _ -> (
                     match keysym with
                     | '\b' when kbd_evt_type = Keydown ->
@@ -386,7 +418,14 @@ module FileSearchMode : Mode = struct
                         Render.draw new_editor;
                         new_editor
                     | _ -> editor))
-            | None -> editor)
+            | None -> (
+                match char_code with
+                | 1073742048 -> (
+                    (* this is the integer encoding for ctrl in SDL *)
+                    match kbd_evt_type with
+                    | Sdl.Keydown -> { editor with holding_ctrl = true }
+                    | Keyup -> { editor with holding_ctrl = false })
+                | _ -> editor))
         | Some
             (MouseButtonEvt
                { mouse_evt_type; timestamp; x; y; windowID; button; clicks })
@@ -402,7 +441,12 @@ module FileSearchMode : Mode = struct
             | Mousedown ->
                 Printf.printf "Mousedown %d, %d, %d, %d, %d, %d\n" x y windowID
                   button clicks timestamp;
+                Printf.printf "holding ctrl: %b" editor.holding_ctrl;
+                print_newline ();
                 let used_y = y * ratio in
+                Printf.printf "clicked y: %d, font_height: %d" used_y
+                  editor.config_info.font_height;
+                print_newline ();
                 if used_y < editor.config_info.font_height * 2 then (
                   let crp =
                     if Option.is_some search_rope then
@@ -435,6 +479,7 @@ module FileSearchMode : Mode = struct
                         rope = Some (Editor.open_file filename);
                         file_name = filename;
                         cursor_pos = 0;
+                        vertical_scroll_y_offset = 0;
                       }
                   in
                   {
@@ -478,15 +523,7 @@ module FileSearchMode : Mode = struct
             (* Printf.printf "Mousemotion %d %d" x y; *)
             (* print_newline (); *)
             editor
-        | Some (MouseWheelEvt { y; _ }) ->
-            let new_editor =
-              {
-                editor with
-                vertical_scroll_y_offset = editor.vertical_scroll_y_offset + y;
-              }
-            in
-            Render.draw new_editor;
-            new_editor
+        | Some (MouseWheelEvt { y; _ }) -> editor
         | Some (TextInputEvt { text; _ }) ->
             let no_new_lines =
               String.split_on_char '\n' text

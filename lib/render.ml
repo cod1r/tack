@@ -128,14 +128,14 @@ module Render = struct
         can just give the wrong row
        *)
         let y_pos =
-          (plus_x_advance + editor.vertical_scroll_y_offset)
+          (plus_x_advance + acc.vertical_scroll_y_offset)
           * editor.config_info.font_height
         in
         if y_pos <= window_height && y_pos >= 0 then
           Stubs.write_to_buffer text_buffer gi ~window_dims
             ~x_offset:acc.acc_horizontal_x_pos
             ~font_height:editor.config_info.font_height
-            ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset;
+            ~vertical_scroll_y_offset:acc.vertical_scroll_y_offset;
         let processed_acc_x_offset =
           if plus_x_advance > without_x_advance then
             plus_x_advance * window_width
@@ -144,7 +144,7 @@ module Render = struct
         if acc.rope_pos = cursor_pos then
           Stubs.write_cursor_to_buffer cursor_buffer window_dims
             processed_acc_x_offset editor.config_info.font_height
-            ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset;
+            ~vertical_scroll_y_offset:acc.vertical_scroll_y_offset;
         {
           acc with
           acc_horizontal_x_pos = processed_acc_x_offset + x_advance;
@@ -170,7 +170,7 @@ module Render = struct
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
     in
     match current_rope_wrapper with
-    | File { rope; cursor_pos; file_name } ->
+    | File { rope; cursor_pos; file_name; vertical_scroll_y_offset; _ } ->
         let fold_fn (acc : unit Editor.rope_traversal_info) c =
           let draw_highlight x_advance =
             match acc.editor.highlight with
@@ -185,8 +185,8 @@ module Render = struct
                     if
                       (acc.acc_horizontal_x_pos + x_advance) / window_width
                       > rows
-                    then (0, rows + 1 + acc.editor.vertical_scroll_y_offset)
-                    else (mod_x, rows + acc.editor.vertical_scroll_y_offset)
+                    then (0, rows + 1 + vertical_scroll_y_offset)
+                    else (mod_x, rows + vertical_scroll_y_offset)
                   in
                   let points =
                     [
@@ -212,32 +212,34 @@ module Render = struct
             if acc.rope_pos = cursor_pos then
               Stubs.write_cursor_to_buffer cursor_buffer window_dims
                 acc.acc_horizontal_x_pos editor.config_info.font_height
-                ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset;
+                ~vertical_scroll_y_offset;
             ({
                acc with
                acc_horizontal_x_pos = div_ans * window_width;
                rope_pos = acc.rope_pos + 1;
                accumulation = ();
+               vertical_scroll_y_offset;
              }
               : unit Editor.rope_traversal_info))
           else
             handle_glyph_for_file_mode editor acc c draw_highlight window_dims
               cursor_pos
         in
-        let { Editor.acc_horizontal_x_pos; _ } =
+        let { Editor.acc_horizontal_x_pos; vertical_scroll_y_offset; _ } =
           Editor.traverse_rope (rope |> Option.get) fold_fn
             ({
                editor;
                acc_horizontal_x_pos = 0;
                rope_pos = 0;
                accumulation = ();
+               vertical_scroll_y_offset;
              }
               : unit Editor.rope_traversal_info)
         in
         if cursor_pos = Rope.length (rope |> Option.get) then
           Stubs.write_cursor_to_buffer cursor_buffer window_dims
             acc_horizontal_x_pos editor.config_info.font_height
-            ~vertical_scroll_y_offset:editor.vertical_scroll_y_offset
+            ~vertical_scroll_y_offset
     | FileSearch { search_rope; results; _ } -> (
         (* todo -> implement filesearch writing to buffer logic for drawing *)
         let fold_fn (acc : unit Editor.rope_traversal_info) c =
@@ -269,6 +271,7 @@ module Render = struct
                   acc_horizontal_x_pos = 0;
                   rope_pos = 0;
                   accumulation = ();
+                  vertical_scroll_y_offset = 0;
                 }
             in
             ();

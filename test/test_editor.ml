@@ -10,7 +10,16 @@ let cursor_positioning_on_mousedown_test _ =
   let editor : Editor.editor =
     {
       Editor.default_editor with
-      ropes = [ File { rope = Some rope; cursor_pos = 0; file_name = "" } ];
+      ropes =
+        [
+          File
+            {
+              rope = Some rope;
+              cursor_pos = 0;
+              file_name = "";
+              vertical_scroll_y_offset = 0;
+            };
+        ];
     }
   in
   let rope_pos =

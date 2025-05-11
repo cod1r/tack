@@ -50,3 +50,12 @@ arrow keys should properly move text caret
 UNDO TREE SHIT
 
 SOME WAY TO SWITCH FILES QUICKLY
+
+MOUSEDOWN handling needs to be more accurate
+
+more things to do:
+  LINE NUMBERS NEED TO BE IMPLEMENTED
+  THERE IS A BUG WITH PASTING where if 'v' is typed and ctrl is not held, it will paste the clipboard contents
+  HIGHLIGHTED TEXT should all be deleted on backspace
+  for some reason, when switching to a file, text is highlighted from the beginning to where the last cursor click position was
+  There is too much nested state, so things are hard to read. this means another session of code cleanup
