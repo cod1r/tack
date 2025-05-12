@@ -68,3 +68,5 @@ external gl_attach_shader : int -> int -> unit
 
 external gl_createprogram : unit -> (int, string) result
   = "gl_createprogram" "gl_createprogram"
+
+external glew_init : unit -> unit = "glew_init" "glew_init"

@@ -2,8 +2,8 @@
 #define GL_SILENCE_DEPRECATION
 #include <OpenGL/gl.h>
 #endif
-#ifdef __LINUX__
-#include <GL/gl.h>
+#ifdef __linux__
+#include <GL/glew.h>
 #endif
 #ifdef __WINDOWS__
 #include <gl/GL.h>
@@ -18,6 +18,15 @@
 #include <stdbool.h>
 #include <string.h>
 #include "stubs.h"
+
+CAMLprim value glew_init() {
+  CAMLparam0();
+#ifdef __linux__
+  GLenum err = glewInit();
+  if (GLEW_OK != err) { caml_failwith(glewGetErrorString(err)); }
+#endif
+  CAMLreturn(Val_unit);
+}
 
 void check_error() {
   GLenum err = glGetError();
