@@ -367,7 +367,7 @@ CAMLprim value sdl_waitevent(value unit) {
         int window_evt_type = 2;
         if (e.window.event == SDL_WINDOWEVENT_CLOSE) {
           window_evt_type = 0;
-        } else if (e.window.event == SDL_WINDOWEVENT_RESIZED) {
+        } else if (e.window.event == SDL_WINDOWEVENT_RESIZED || e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
           window_evt_type = 1;
         }
           // tag type is 2 because third variant
