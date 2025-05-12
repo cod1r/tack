@@ -61,3 +61,9 @@ more things to do:
   - every file should keep track of its scroll position
   - every file needs to occasionally poll if it's contents have changed on disk and make a decision about current changes vs
     changes on disk
+  - build some sort of a layout "engine"
+  - make some ui elements that can handle text behaviors
+
+findings about behavior on linux vs macos:
+  - on linux, resize events are sent every time a slight change in size happens whereas on macos, the resize event is sent after the resizing is done
+  - on linux, the opengl viewport is not resized to match the window size/resize but on macos, it is

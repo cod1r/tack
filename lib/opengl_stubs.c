@@ -19,6 +19,19 @@
 #include <string.h>
 #include "stubs.h"
 
+CAMLprim value gl_get_viewport() {
+  CAMLparam0();
+  CAMLlocal1(four_tuple);
+  int values[4];
+  glGetIntegerv(GL_VIEWPORT, values);
+  four_tuple = caml_alloc(4, 0);
+  Store_field(four_tuple, 0, Val_int(values[0]));
+  Store_field(four_tuple, 1, Val_int(values[1]));
+  Store_field(four_tuple, 2, Val_int(values[2]));
+  Store_field(four_tuple, 3, Val_int(values[3]));
+  CAMLreturn(four_tuple);
+}
+
 CAMLprim value glew_init() {
   CAMLparam0();
 #ifdef __linux__
