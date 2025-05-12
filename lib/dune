@@ -12,7 +12,7 @@
 (rule
  (targets c_flags.sexp c_library_flags.sexp)
  (action
-  (run ./config/get_cflags.exe)))
+  (run ../config/get_cflags.exe)))
 
 (env
  (dev
