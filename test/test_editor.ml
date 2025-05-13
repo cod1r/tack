@@ -18,6 +18,8 @@ let cursor_positioning_on_mousedown_test _ =
               cursor_pos = 0;
               file_name = "";
               vertical_scroll_y_offset = 0;
+              highlight = None;
+              last_modification_time = 0.0;
             };
         ];
     }

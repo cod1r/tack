@@ -170,10 +170,10 @@ module Render = struct
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
     in
     match current_rope_wrapper with
-    | File { rope; cursor_pos; file_name; vertical_scroll_y_offset; _ } ->
+    | File { rope; cursor_pos; vertical_scroll_y_offset; highlight; _ } ->
         let fold_fn (acc : unit Editor.rope_traversal_info) c =
           let draw_highlight x_advance =
-            match acc.editor.highlight with
+            match highlight with
             | Some (highlight_start, highlight_end) ->
                 if
                   acc.rope_pos >= highlight_start

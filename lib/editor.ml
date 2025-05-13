@@ -22,12 +22,12 @@ module Editor = struct
         file_name : string;
         vertical_scroll_y_offset : int;
         last_modification_time : float;
+        highlight : (int * int) option;
       }
 
   type editor = {
     ropes : rope_wrapper list;
     holding_ctrl : bool;
-    highlight : (int * int) option;
     config_info : information_relating_to_config;
     current_rope_idx : int option;
   }
@@ -75,7 +75,6 @@ module Editor = struct
     {
       ropes = [];
       holding_ctrl = false;
-      highlight = None;
       config_info = recalculate_info_relating_to_config ();
       current_rope_idx = None;
     }

@@ -53,6 +53,8 @@ SOME WAY TO SWITCH FILES QUICKLY
 
 MOUSEDOWN handling needs to be more accurate
 
+rope data structure needs to be built in a way such that there is less depth for SPEED (basically balance between leaf length and tree depth)
+
 more things to do:
   - LINE NUMBERS NEED TO BE IMPLEMENTED
   - HIGHLIGHTED TEXT should all be deleted on backspace

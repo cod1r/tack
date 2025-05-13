@@ -21,6 +21,7 @@ module FileMode : Mode = struct
           file_name;
           vertical_scroll_y_offset;
           last_modification_time;
+          highlight;
         } -> (
         let other_rope_wrappers =
           List.filteri
@@ -41,7 +42,13 @@ module FileMode : Mode = struct
                     (* backspace *)
                     let rope_len = Rope.length r in
                     if rope_len > 0 && cursor_pos > 0 then (
-                      let new_rope = Some (Rope.delete r (cursor_pos - 1) 1) in
+                      let new_rope =
+                        Some
+                          (match highlight with
+                          | Some (start, end') ->
+                              Rope.delete r ~start ~len:(end' - start)
+                          | None -> Rope.delete r ~start:(cursor_pos - 1) ~len:1)
+                      in
                       let new_rope_wrapper =
                         Editor.File
                           {
@@ -50,6 +57,7 @@ module FileMode : Mode = struct
                             rope = new_rope;
                             vertical_scroll_y_offset;
                             last_modification_time;
+                            highlight = None;
                           }
                       in
                       let new_editor : Editor.editor =
@@ -63,7 +71,7 @@ module FileMode : Mode = struct
                       new_editor)
                     else editor
                 | 'c' when kbd_evt_type = Keydown ->
-                    (match (rope, editor.highlight) with
+                    (match (rope, highlight) with
                     | Some r, Some (start, end') ->
                         Rope.substring r ~start ~len:(end' - start)
                         |> Rope.to_string |> Sdl.set_clipboard_text
@@ -88,6 +96,7 @@ module FileMode : Mode = struct
                               rope = new_rope;
                               vertical_scroll_y_offset;
                               last_modification_time;
+                              highlight;
                             }
                         in
                         let new_editor =
@@ -121,6 +130,7 @@ module FileMode : Mode = struct
                           cursor_pos = cursor_pos + 1;
                           rope = new_rope;
                           vertical_scroll_y_offset;
+                          highlight;
                         }
                     in
                     let new_editor : Editor.editor =
@@ -143,6 +153,7 @@ module FileMode : Mode = struct
                           rope = new_rope;
                           vertical_scroll_y_offset;
                           last_modification_time;
+                          highlight;
                         }
                     in
                     let new_editor : Editor.editor =
@@ -183,6 +194,7 @@ module FileMode : Mode = struct
           cursor_pos;
           vertical_scroll_y_offset;
           last_modification_time;
+          highlight;
         } -> (
         let other_rope_wrappers =
           List.filteri
@@ -223,6 +235,7 @@ module FileMode : Mode = struct
                       rope;
                       vertical_scroll_y_offset;
                       last_modification_time;
+                      highlight;
                     }
                 in
                 let new_editor =
@@ -250,16 +263,16 @@ module FileMode : Mode = struct
                       rope;
                       vertical_scroll_y_offset;
                       last_modification_time;
+                      highlight =
+                        (if crp != cursor_pos then
+                           Some (min crp cursor_pos, max crp cursor_pos)
+                         else None);
                     }
                 in
                 let new_editor =
                   {
                     editor with
                     ropes = new_rope_wrapper :: other_rope_wrappers;
-                    highlight =
-                      (if crp != cursor_pos then
-                         Some (min crp cursor_pos, max crp cursor_pos)
-                       else None);
                   }
                 in
                 Render.draw new_editor;
@@ -288,6 +301,7 @@ module FileMode : Mode = struct
                   file_name;
                   vertical_scroll_y_offset = vertical_scroll_y_offset + y;
                   last_modification_time;
+                  highlight;
                 }
             in
             let new_editor =
@@ -313,6 +327,7 @@ module FileMode : Mode = struct
                   rope = new_rope;
                   vertical_scroll_y_offset;
                   last_modification_time;
+                  highlight;
                 }
             in
             let new_editor : Editor.editor =
@@ -360,7 +375,7 @@ module FileSearchMode : Mode = struct
                         let rope_len = Rope.length r in
                         if rope_len > 0 && cursor_pos > 0 then (
                           let new_rope =
-                            Some (Rope.delete r (cursor_pos - 1) 1)
+                            Some (Rope.delete r ~start:(cursor_pos - 1) ~len:1)
                           in
                           let new_rope_wrapper =
                             Editor.FileSearch
@@ -380,13 +395,7 @@ module FileSearchMode : Mode = struct
                           Render.draw new_editor;
                           new_editor)
                         else editor
-                    | 'c' when kbd_evt_type = Keydown ->
-                        (match (search_rope, editor.highlight) with
-                        | Some r, Some (start, end') ->
-                            Rope.substring r ~start ~len:(end' - start)
-                            |> Rope.to_string |> Sdl.set_clipboard_text
-                        | _ -> ());
-                        editor
+                    | 'c' when kbd_evt_type = Keydown -> editor
                     | 'v' when kbd_evt_type = Keydown -> (
                         match editor.holding_ctrl with
                         | true ->
@@ -503,7 +512,9 @@ module FileSearchMode : Mode = struct
                     List.find_mapi
                       (fun idx mode_variant ->
                         match mode_variant with
-                        | Editor.File { file_name; _ } -> if file_name = filename then Some ((idx, mode_variant)) else None
+                        | Editor.File { file_name; _ } ->
+                            if file_name = filename then Some (idx, mode_variant)
+                            else None
                         | Editor.FileSearch _ -> None)
                       editor.ropes
                   in
@@ -521,6 +532,7 @@ module FileSearchMode : Mode = struct
                               cursor_pos = 0;
                               vertical_scroll_y_offset = 0;
                               last_modification_time = current_mod_time;
+                              highlight = None;
                             }
                         in
                         {
@@ -533,6 +545,7 @@ module FileSearchMode : Mode = struct
                       let new_rope_wrapper =
                         Editor.File
                           {
+                            highlight = None;
                             rope = Some (Editor.open_file filename);
                             file_name = filename;
                             cursor_pos = 0;
@@ -562,10 +575,6 @@ module FileSearchMode : Mode = struct
                     editor with
                     ropes = new_rope_wrapper :: other_rope_wrappers;
                     current_rope_idx = Some 0;
-                    highlight =
-                      (if crp != cursor_pos then
-                         Some (min crp cursor_pos, max crp cursor_pos)
-                       else None);
                   }
                 in
                 Render.draw new_editor;

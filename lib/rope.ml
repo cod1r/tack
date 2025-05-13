@@ -42,7 +42,7 @@ let rec insert r pos s =
       if pos <= length left then concat (insert left pos s) right
       else concat left (insert right (pos - length left) s)
 
-let delete r start len =
+let delete r ~start ~len =
   let before = substring r ~start:0 ~len:start in
   let after =
     substring r ~start:(start + len) ~len:(length r - (start + len))
