@@ -21,6 +21,7 @@ module Editor = struct
         cursor_pos : int;
         file_name : string;
         vertical_scroll_y_offset : int;
+        last_modification_time : float;
       }
 
   type editor = {

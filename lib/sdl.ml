@@ -162,6 +162,5 @@ module Sdl = struct
     w
 
   let w = actually_init_sdl ()
-
   let () = Opengl.glew_init ()
 end

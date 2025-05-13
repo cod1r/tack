@@ -71,5 +71,8 @@ external gl_createprogram : unit -> (int, string) result
 
 external glew_init : unit -> unit = "glew_init" "glew_init"
 
-external gl_get_viewport : unit -> int * int * int * int = "gl_get_viewport" "gl_get_viewport"
-external gl_set_viewport : int -> int -> int -> int -> unit = "gl_set_viewport" "gl_set_viewport"
+external gl_get_viewport : unit -> int * int * int * int
+  = "gl_get_viewport" "gl_get_viewport"
+
+external gl_set_viewport : int -> int -> int -> int -> unit
+  = "gl_set_viewport" "gl_set_viewport"

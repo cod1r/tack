@@ -21,8 +21,8 @@ let () =
   C.main ~name:"get_cflags" (fun c ->
       let opengl_flag =
         if C.ocaml_config_var c "system" = Some "macosx" then
-          ["-framework OpenGL"]
-        else ["-lGL"; "-lGLEW"]
+          [ "-framework OpenGL" ]
+        else [ "-lGL"; "-lGLEW" ]
       in
       let default : C.Pkg_config.package_conf =
         { libs = opengl_flag @ flags; cflags = "-fPIC" :: flags }

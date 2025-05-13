@@ -14,7 +14,14 @@ module FileMode : Mode = struct
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
     in
     match rope_wrapper with
-    | File { rope; cursor_pos; file_name; vertical_scroll_y_offset; _ } -> (
+    | File
+        {
+          rope;
+          cursor_pos;
+          file_name;
+          vertical_scroll_y_offset;
+          last_modification_time;
+        } -> (
         let other_rope_wrappers =
           List.filteri
             (fun idx _ -> idx != (editor.current_rope_idx |> Option.get))
@@ -42,6 +49,7 @@ module FileMode : Mode = struct
                             cursor_pos = cursor_pos - 1;
                             rope = new_rope;
                             vertical_scroll_y_offset;
+                            last_modification_time;
                           }
                       in
                       let new_editor : Editor.editor =
@@ -79,6 +87,7 @@ module FileMode : Mode = struct
                                 cursor_pos + String.length clipboard_contents;
                               rope = new_rope;
                               vertical_scroll_y_offset;
+                              last_modification_time;
                             }
                         in
                         let new_editor =
@@ -107,6 +116,7 @@ module FileMode : Mode = struct
                     let new_rope_wrapper =
                       Editor.File
                         {
+                          last_modification_time;
                           file_name;
                           cursor_pos = cursor_pos + 1;
                           rope = new_rope;
@@ -132,6 +142,7 @@ module FileMode : Mode = struct
                           cursor_pos = cursor_pos + 2;
                           rope = new_rope;
                           vertical_scroll_y_offset;
+                          last_modification_time;
                         }
                     in
                     let new_editor : Editor.editor =
@@ -165,7 +176,14 @@ module FileMode : Mode = struct
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
     in
     match current_rope_wrapper with
-    | File { rope; file_name; cursor_pos; vertical_scroll_y_offset; _ } -> (
+    | File
+        {
+          rope;
+          file_name;
+          cursor_pos;
+          vertical_scroll_y_offset;
+          last_modification_time;
+        } -> (
         let other_rope_wrappers =
           List.filteri
             (fun idx _ -> idx != (editor.current_rope_idx |> Option.get))
@@ -204,6 +222,7 @@ module FileMode : Mode = struct
                       cursor_pos = crp;
                       rope;
                       vertical_scroll_y_offset;
+                      last_modification_time;
                     }
                 in
                 let new_editor =
@@ -230,6 +249,7 @@ module FileMode : Mode = struct
                       cursor_pos = crp;
                       rope;
                       vertical_scroll_y_offset;
+                      last_modification_time;
                     }
                 in
                 let new_editor =
@@ -248,7 +268,9 @@ module FileMode : Mode = struct
             match event with
             | WindowClose -> editor
             | WindowResize ->
-                let window_width, window_height = Sdl.sdl_gl_getdrawablesize () in
+                let window_width, window_height =
+                  Sdl.sdl_gl_getdrawablesize ()
+                in
                 Opengl.gl_set_viewport 0 0 window_width window_height;
                 Render.draw editor;
                 editor
@@ -265,6 +287,7 @@ module FileMode : Mode = struct
                   cursor_pos;
                   file_name;
                   vertical_scroll_y_offset = vertical_scroll_y_offset + y;
+                  last_modification_time;
                 }
             in
             let new_editor =
@@ -289,6 +312,7 @@ module FileMode : Mode = struct
                   cursor_pos = cursor_pos + 1;
                   rope = new_rope;
                   vertical_scroll_y_offset;
+                  last_modification_time;
                 }
             in
             let new_editor : Editor.editor =
@@ -440,7 +464,7 @@ module FileSearchMode : Mode = struct
             in
             let ratio = window_width / window_width_without_high_dpi in
             match mouse_evt_type with
-            | Mousedown ->
+            | Mousedown -> (
                 Printf.printf "Mousedown %d, %d, %d, %d, %d, %d\n" x y windowID
                   button clicks timestamp;
                 Printf.printf "holding ctrl: %b" editor.holding_ctrl;
@@ -475,20 +499,52 @@ module FileSearchMode : Mode = struct
                     List.nth results
                       ((used_y / editor.config_info.font_height) - 2)
                   in
-                  let new_rope_wrapper =
-                    Editor.File
-                      {
-                        rope = Some (Editor.open_file filename);
-                        file_name = filename;
-                        cursor_pos = 0;
-                        vertical_scroll_y_offset = 0;
-                      }
+                  let find_file =
+                    List.find_mapi
+                      (fun idx mode_variant ->
+                        match mode_variant with
+                        | Editor.File { file_name; _ } -> if file_name = filename then Some ((idx, mode_variant)) else None
+                        | Editor.FileSearch _ -> None)
+                      editor.ropes
                   in
-                  {
-                    editor with
-                    ropes = new_rope_wrapper :: other_rope_wrappers;
-                    current_rope_idx = Some 0;
-                  }
+                  let current_mod_time =
+                    Unix.stat filename |> fun s -> s.st_mtime
+                  in
+                  match find_file with
+                  | Some (idx, File { last_modification_time; _ }) ->
+                      if last_modification_time != current_mod_time then
+                        let new_rope_wrapper =
+                          Editor.File
+                            {
+                              rope = Some (Editor.open_file filename);
+                              file_name = filename;
+                              cursor_pos = 0;
+                              vertical_scroll_y_offset = 0;
+                              last_modification_time = current_mod_time;
+                            }
+                        in
+                        {
+                          editor with
+                          ropes = new_rope_wrapper :: other_rope_wrappers;
+                          current_rope_idx = Some 0;
+                        }
+                      else { editor with current_rope_idx = Some idx }
+                  | None | _ ->
+                      let new_rope_wrapper =
+                        Editor.File
+                          {
+                            rope = Some (Editor.open_file filename);
+                            file_name = filename;
+                            cursor_pos = 0;
+                            vertical_scroll_y_offset = 0;
+                            last_modification_time = current_mod_time;
+                          }
+                      in
+                      {
+                        editor with
+                        ropes = new_rope_wrapper :: other_rope_wrappers;
+                        current_rope_idx = Some 0;
+                      })
             | Mouseup ->
                 Printf.printf "Mouseup: %d %d" x y;
                 print_newline ();
@@ -518,7 +574,9 @@ module FileSearchMode : Mode = struct
             match event with
             | WindowClose -> editor
             | WindowResize ->
-                let window_width, window_height = Sdl.sdl_gl_getdrawablesize () in
+                let window_width, window_height =
+                  Sdl.sdl_gl_getdrawablesize ()
+                in
                 Opengl.gl_set_viewport 0 0 window_width window_height;
                 Render.draw editor;
                 editor
@@ -527,7 +585,7 @@ module FileSearchMode : Mode = struct
             (* Printf.printf "Mousemotion %d %d" x y; *)
             (* print_newline (); *)
             editor
-        | Some (MouseWheelEvt { y; _ }) -> editor
+        | Some (MouseWheelEvt _) -> editor
         | Some (TextInputEvt { text; _ }) ->
             let no_new_lines =
               String.split_on_char '\n' text
