@@ -249,8 +249,6 @@ module FileMode : Mode = struct
             | WindowClose -> editor
             | WindowResize ->
                 let window_width, window_height = Sdl.sdl_gl_getdrawablesize () in
-                let x, y, width, height = Opengl.gl_get_viewport () in
-                Printf.printf "edit mode: %d %d %d %d %d %d" x y width height window_width window_height; print_newline ();
                 Opengl.gl_set_viewport 0 0 window_width window_height;
                 Render.draw editor;
                 editor
@@ -521,8 +519,6 @@ module FileSearchMode : Mode = struct
             | WindowClose -> editor
             | WindowResize ->
                 let window_width, window_height = Sdl.sdl_gl_getdrawablesize () in
-                let x, y, width, height = Opengl.gl_get_viewport () in
-                Printf.printf "search mode: %d %d %d %d %d %d" x y width height window_width window_height; print_newline ();
                 Opengl.gl_set_viewport 0 0 window_width window_height;
                 Render.draw editor;
                 editor
