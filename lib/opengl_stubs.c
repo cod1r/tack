@@ -19,6 +19,16 @@
 #include <string.h>
 #include "stubs.h"
 
+CAMLprim value gl_set_viewport(value x_val, value y_val, value width_val, value height_val) {
+  CAMLparam4(x_val, y_val, width_val, height_val);
+  int x = Int_val(x_val);
+  int y = Int_val(y_val);
+  int width = Int_val(width_val);
+  int height = Int_val(height_val);
+  glViewport(x, y, width, height);
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value gl_get_viewport() {
   CAMLparam0();
   CAMLlocal1(four_tuple);
