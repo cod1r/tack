@@ -11,7 +11,7 @@ let delete_test _ =
   let r1 = Tack.Rope.of_string "Hello " in
   let r2 = Tack.Rope.of_string "World" in
   let r3 = Tack.Rope.concat r1 r2 in
-  let r4 = Tack.Rope.delete r3 4 1 in
+  let r4 = Tack.Rope.delete r3 ~start:4 ~len:1 in
   let s = Tack.Rope.to_string r4 in
   assert_equal ~msg:(s ^ " is not equal to 'Hell '") s "Hell World"
 

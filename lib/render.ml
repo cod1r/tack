@@ -103,8 +103,13 @@ module Render = struct
     compile_shaders_and_return_program ~vertex_id:vertex ~fragment_id:fragment
       ~vertex_src:generic_vertex_shader ~fragment_src:generic_fragment_shader
 
+  type extra_rope_traversal_info = {
+    vertical_scroll_y_offset: int;
+    editor : Editor.editor
+  }
+
   let handle_glyph_for_file_mode (editor : Editor.editor)
-      (acc : 'a Editor.rope_traversal_info) c draw_highlight window_dims
+      (acc : extra_rope_traversal_info Editor.rope_traversal_info) c draw_highlight window_dims
       cursor_pos =
     let window_width, window_height = window_dims in
     let glyph_info_found =
@@ -128,14 +133,14 @@ module Render = struct
         can just give the wrong row
        *)
         let y_pos =
-          (plus_x_advance + acc.vertical_scroll_y_offset)
+          (plus_x_advance + acc.accumulation.vertical_scroll_y_offset)
           * editor.config_info.font_height
         in
         if y_pos <= window_height && y_pos >= 0 then
           Stubs.write_to_buffer text_buffer gi ~window_dims
             ~x_offset:acc.acc_horizontal_x_pos
             ~font_height:editor.config_info.font_height
-            ~vertical_scroll_y_offset:acc.vertical_scroll_y_offset;
+            ~vertical_scroll_y_offset:acc.accumulation.vertical_scroll_y_offset;
         let processed_acc_x_offset =
           if plus_x_advance > without_x_advance then
             plus_x_advance * window_width
@@ -144,12 +149,11 @@ module Render = struct
         if acc.rope_pos = cursor_pos then
           Stubs.write_cursor_to_buffer cursor_buffer window_dims
             processed_acc_x_offset editor.config_info.font_height
-            ~vertical_scroll_y_offset:acc.vertical_scroll_y_offset;
+            ~vertical_scroll_y_offset:acc.accumulation.vertical_scroll_y_offset;
         {
           acc with
           acc_horizontal_x_pos = processed_acc_x_offset + x_advance;
           rope_pos = acc.rope_pos + 1;
-          accumulation = ();
         }
     | None ->
         Printf.printf "not found";
@@ -162,6 +166,16 @@ module Render = struct
         there are specific details like wrapping that I'd like to handle. Maybe there could be
         an abstraction for that specific wrapping behavior, but let's consider that later.
         *)
+  let num_lines (rope : Rope.rope) =
+    let fold_fn (acc : int Editor.rope_traversal_info) ch =
+      if ch = '\n' then { acc with accumulation = acc.accumulation + 1 }
+      else acc
+    in
+    let { Editor.accumulation; _ } =
+      Editor.traverse_rope rope fold_fn
+        { acc_horizontal_x_pos = 0; accumulation = 0; rope_pos = 0 }
+    in
+    accumulation
 
   let draw_editor (editor : Editor.editor) =
     let window_dims = Sdl.sdl_gl_getdrawablesize () in
@@ -171,7 +185,7 @@ module Render = struct
     in
     match current_rope_wrapper with
     | File { rope; cursor_pos; vertical_scroll_y_offset; highlight; _ } ->
-        let fold_fn (acc : unit Editor.rope_traversal_info) c =
+        let fold_fn (acc : extra_rope_traversal_info Editor.rope_traversal_info) c =
           let draw_highlight x_advance =
             match highlight with
             | Some (highlight_start, highlight_end) ->
@@ -190,12 +204,12 @@ module Render = struct
                   in
                   let points =
                     [
-                      (new_x, (new_row + 1) * acc.editor.config_info.font_height);
-                      (new_x, new_row * acc.editor.config_info.font_height);
+                      (new_x, (new_row + 1) * acc.accumulation.editor.config_info.font_height);
+                      (new_x, new_row * acc.accumulation.editor.config_info.font_height);
                       ( new_x + x_advance,
-                        new_row * acc.editor.config_info.font_height );
+                        new_row * acc.accumulation.editor.config_info.font_height );
                       ( new_x + x_advance,
-                        (new_row + 1) * acc.editor.config_info.font_height );
+                        (new_row + 1) * acc.accumulation.editor.config_info.font_height );
                     ]
                   in
                   List.iter
@@ -217,24 +231,20 @@ module Render = struct
                acc with
                acc_horizontal_x_pos = div_ans * window_width;
                rope_pos = acc.rope_pos + 1;
-               accumulation = ();
-               vertical_scroll_y_offset;
              }
-              : unit Editor.rope_traversal_info))
+              : extra_rope_traversal_info Editor.rope_traversal_info))
           else
             handle_glyph_for_file_mode editor acc c draw_highlight window_dims
               cursor_pos
         in
-        let { Editor.acc_horizontal_x_pos; vertical_scroll_y_offset; _ } =
+        let { Editor.acc_horizontal_x_pos; _ } =
           Editor.traverse_rope (rope |> Option.get) fold_fn
             ({
-               editor;
                acc_horizontal_x_pos = 0;
                rope_pos = 0;
-               accumulation = ();
-               vertical_scroll_y_offset;
+               accumulation = { editor; vertical_scroll_y_offset };
              }
-              : unit Editor.rope_traversal_info)
+              : extra_rope_traversal_info Editor.rope_traversal_info)
         in
         if cursor_pos = Rope.length (rope |> Option.get) then
           Stubs.write_cursor_to_buffer cursor_buffer window_dims
@@ -267,11 +277,9 @@ module Render = struct
             let _ =
               Editor.traverse_rope r fold_fn
                 {
-                  editor;
                   acc_horizontal_x_pos = 0;
                   rope_pos = 0;
                   accumulation = ();
-                  vertical_scroll_y_offset = 0;
                 }
             in
             ();

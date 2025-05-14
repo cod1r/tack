@@ -80,11 +80,9 @@ module Editor = struct
     }
 
   type 'a rope_traversal_info = {
-    editor : editor;
     acc_horizontal_x_pos : int;
     rope_pos : int;
     accumulation : 'a;
-    vertical_scroll_y_offset : int;
   }
 
   let rec traverse_rope (rope : Rope.rope)
@@ -110,9 +108,12 @@ module Editor = struct
         {
           acc_horizontal_x_pos = acc_x_offset;
           rope_pos = rp;
-          accumulation = acc_closest_x, acc_closest_y, acc_closest_rp;
-          editor;
-          vertical_scroll_y_offset;
+          accumulation =
+            ( acc_closest_x,
+              acc_closest_y,
+              acc_closest_rp,
+              vertical_scroll_y_offset,
+              editor );
         } c =
       let amt_window_widths = acc_x_offset / window_width in
       let lower_y_height =
@@ -134,15 +135,15 @@ module Editor = struct
           |> min line_x_pos
         in
         {
-          editor;
           acc_horizontal_x_pos = next_x_pos;
           rope_pos = rp + 1;
           accumulation =
             ( used_x,
               used_y,
-              if used_y = lower_y_height && used_x = line_x_pos then rp
-              else acc_closest_rp );
-          vertical_scroll_y_offset;
+              (if used_y = lower_y_height && used_x = line_x_pos then rp
+               else acc_closest_rp),
+              vertical_scroll_y_offset,
+              editor );
         }
       else
         let glyph_info_found =
@@ -171,15 +172,15 @@ module Editor = struct
               * editor.config_info.font_height
             in
             {
-              editor;
               acc_horizontal_x_pos = processed_x_offset + x_advance;
               rope_pos = rp + 1;
               accumulation =
                 ( used_x,
                   used_y,
-                  if used_y = row && used_x = calculated_x_offset then rp
-                  else acc_closest_rp );
-              vertical_scroll_y_offset;
+                  (if used_y = row && used_x = calculated_x_offset then rp
+                   else acc_closest_rp),
+                  vertical_scroll_y_offset,
+                  editor );
             }
         | None -> failwith ("glyph_info not found for " ^ Char.escaped c)
     in
@@ -188,16 +189,19 @@ module Editor = struct
     in
     match current_rope with
     | File { rope; vertical_scroll_y_offset; _ } ->
-        let { accumulation = _, cy, crp; _ } =
+        let { accumulation = _, cy, crp, _, _; _ } =
           traverse_rope (rope |> Option.get) fold_fn
             ({
-               editor;
                acc_horizontal_x_pos = 0;
                rope_pos = 0;
-               accumulation = (Int.max_int, Int.max_int, Int.max_int);
-               vertical_scroll_y_offset;
+               accumulation =
+                 ( Int.max_int,
+                   Int.max_int,
+                   Int.max_int,
+                   vertical_scroll_y_offset,
+                   editor );
              }
-              : (int * int * int) rope_traversal_info)
+              : (int * int * int * int * editor) rope_traversal_info)
         in
         Printf.printf "closest y: %d" cy;
         print_newline ();

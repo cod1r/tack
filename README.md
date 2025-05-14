@@ -57,7 +57,6 @@ rope data structure needs to be built in a way such that there is less depth for
 
 more things to do:
   - LINE NUMBERS NEED TO BE IMPLEMENTED
-  - HIGHLIGHTED TEXT should all be deleted on backspace
   - for some reason, when switching to a file, text is highlighted from the beginning to where the last cursor click position was
   - There is too much nested state, so things are hard to read. this means another session of code cleanup
   - every file should keep track of its scroll position
