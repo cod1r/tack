@@ -104,13 +104,13 @@ module Render = struct
       ~vertex_src:generic_vertex_shader ~fragment_src:generic_fragment_shader
 
   type extra_rope_traversal_info = {
-    vertical_scroll_y_offset: int;
-    editor : Editor.editor
+    vertical_scroll_y_offset : int;
+    editor : Editor.editor;
   }
 
   let handle_glyph_for_file_mode (editor : Editor.editor)
-      (acc : extra_rope_traversal_info Editor.rope_traversal_info) c draw_highlight window_dims
-      cursor_pos =
+      (acc : extra_rope_traversal_info Editor.rope_traversal_info) c
+      draw_highlight window_dims cursor_pos =
     let window_width, window_height = window_dims in
     let glyph_info_found =
       Array.find_opt
@@ -136,11 +136,20 @@ module Render = struct
           (plus_x_advance + acc.accumulation.vertical_scroll_y_offset)
           * editor.config_info.font_height
         in
-        if y_pos <= window_height && y_pos >= 0 then
-          Stubs.write_to_buffer text_buffer gi ~window_dims
-            ~x_offset:acc.acc_horizontal_x_pos
-            ~font_height:editor.config_info.font_height
-            ~vertical_scroll_y_offset:acc.accumulation.vertical_scroll_y_offset;
+        (if y_pos <= window_height && y_pos >= 0 then
+           let processed_x =
+             (if plus_x_advance > without_x_advance then
+                plus_x_advance * window_width
+              else acc.acc_horizontal_x_pos)
+             mod window_width
+           and processed_y =
+             ((if plus_x_advance > without_x_advance then plus_x_advance
+              else without_x_advance) + 1)
+             * editor.config_info.font_height
+           in
+           Stubs.write_glyph_to_text_buffer_value ~text_buffer ~glyph_info:gi
+             ~x_offset:processed_x ~y_offset:processed_y ~window_width
+             ~window_height);
         let processed_acc_x_offset =
           if plus_x_advance > without_x_advance then
             plus_x_advance * window_width
@@ -166,6 +175,7 @@ module Render = struct
         there are specific details like wrapping that I'd like to handle. Maybe there could be
         an abstraction for that specific wrapping behavior, but let's consider that later.
         *)
+
   let num_lines (rope : Rope.rope) =
     let fold_fn (acc : int Editor.rope_traversal_info) ch =
       if ch = '\n' then { acc with accumulation = acc.accumulation + 1 }
@@ -184,72 +194,98 @@ module Render = struct
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
     in
     match current_rope_wrapper with
-    | File { rope; cursor_pos; vertical_scroll_y_offset; highlight; _ } ->
-        let fold_fn (acc : extra_rope_traversal_info Editor.rope_traversal_info) c =
-          let draw_highlight x_advance =
-            match highlight with
-            | Some (highlight_start, highlight_end) ->
-                if
-                  acc.rope_pos >= highlight_start
-                  && acc.rope_pos < highlight_end
-                then
-                  let rows = acc.acc_horizontal_x_pos / window_width
-                  and mod_x = acc.acc_horizontal_x_pos mod window_width in
-                  let new_x, new_row =
-                    if
-                      (acc.acc_horizontal_x_pos + x_advance) / window_width
-                      > rows
-                    then (0, rows + 1 + vertical_scroll_y_offset)
-                    else (mod_x, rows + vertical_scroll_y_offset)
-                  in
-                  let points =
-                    [
-                      (new_x, (new_row + 1) * acc.accumulation.editor.config_info.font_height);
-                      (new_x, new_row * acc.accumulation.editor.config_info.font_height);
-                      ( new_x + x_advance,
-                        new_row * acc.accumulation.editor.config_info.font_height );
-                      ( new_x + x_advance,
-                        (new_row + 1) * acc.accumulation.editor.config_info.font_height );
-                    ]
-                  in
-                  List.iter
-                    (fun (x, y) ->
-                      Stubs.write_to_highlight_buffer ~buffer:highlight_buffer
-                        ~x ~y ~window_width ~window_height)
-                    points
-            | None -> ()
-          in
-          if c = '\n' then (
-            let div_ans =
-              (acc.acc_horizontal_x_pos + window_width) / window_width
+    | File { rope; cursor_pos; vertical_scroll_y_offset; highlight; _ } -> (
+        match rope with
+        | Some r ->
+            let lines = num_lines r in
+            let str_lines = string_of_int lines in
+            let chars_with_glyphs =
+              String.fold_right (fun c acc -> c :: acc) str_lines []
+              |> List.map (fun c ->
+                     Array.find_opt
+                       (fun (c', _) -> c' = c)
+                       editor.config_info.glyph_info_with_char
+                     |> Option.get)
             in
-            if acc.rope_pos = cursor_pos then
+            let digits_widths_summed =
+              List.fold_left
+                (fun acc (_, gi) -> acc + FreeType.get_x_advance gi)
+                0 chars_with_glyphs
+            in
+            let fold_fn
+                (acc : extra_rope_traversal_info Editor.rope_traversal_info) c =
+              let draw_highlight x_advance =
+                match highlight with
+                | Some (highlight_start, highlight_end) ->
+                    if
+                      acc.rope_pos >= highlight_start
+                      && acc.rope_pos < highlight_end
+                    then
+                      let rows = acc.acc_horizontal_x_pos / window_width
+                      and mod_x = acc.acc_horizontal_x_pos mod window_width in
+                      let new_x, new_row =
+                        if
+                          (acc.acc_horizontal_x_pos + x_advance) / window_width
+                          > rows
+                        then (0, rows + 1 + vertical_scroll_y_offset)
+                        else (mod_x, rows + vertical_scroll_y_offset)
+                      in
+                      let points =
+                        [
+                          ( new_x,
+                            (new_row + 1)
+                            * acc.accumulation.editor.config_info.font_height );
+                          ( new_x,
+                            new_row
+                            * acc.accumulation.editor.config_info.font_height );
+                          ( new_x + x_advance,
+                            new_row
+                            * acc.accumulation.editor.config_info.font_height );
+                          ( new_x + x_advance,
+                            (new_row + 1)
+                            * acc.accumulation.editor.config_info.font_height );
+                        ]
+                      in
+                      List.iter
+                        (fun (x, y) ->
+                          Stubs.write_to_highlight_buffer
+                            ~buffer:highlight_buffer ~x ~y ~window_width
+                            ~window_height)
+                        points
+                | None -> ()
+              in
+              if c = '\n' then (
+                let div_ans =
+                  (acc.acc_horizontal_x_pos + window_width) / window_width
+                in
+                if acc.rope_pos = cursor_pos then
+                  Stubs.write_cursor_to_buffer cursor_buffer window_dims
+                    acc.acc_horizontal_x_pos editor.config_info.font_height
+                    ~vertical_scroll_y_offset;
+                ({
+                   acc with
+                   acc_horizontal_x_pos = div_ans * window_width;
+                   rope_pos = acc.rope_pos + 1;
+                 }
+                  : extra_rope_traversal_info Editor.rope_traversal_info))
+              else
+                handle_glyph_for_file_mode editor acc c draw_highlight
+                  window_dims cursor_pos
+            in
+            let { Editor.acc_horizontal_x_pos; _ } =
+              Editor.traverse_rope (rope |> Option.get) fold_fn
+                ({
+                   acc_horizontal_x_pos = 0;
+                   rope_pos = 0;
+                   accumulation = { editor; vertical_scroll_y_offset };
+                 }
+                  : extra_rope_traversal_info Editor.rope_traversal_info)
+            in
+            if cursor_pos = Rope.length r then
               Stubs.write_cursor_to_buffer cursor_buffer window_dims
-                acc.acc_horizontal_x_pos editor.config_info.font_height
-                ~vertical_scroll_y_offset;
-            ({
-               acc with
-               acc_horizontal_x_pos = div_ans * window_width;
-               rope_pos = acc.rope_pos + 1;
-             }
-              : extra_rope_traversal_info Editor.rope_traversal_info))
-          else
-            handle_glyph_for_file_mode editor acc c draw_highlight window_dims
-              cursor_pos
-        in
-        let { Editor.acc_horizontal_x_pos; _ } =
-          Editor.traverse_rope (rope |> Option.get) fold_fn
-            ({
-               acc_horizontal_x_pos = 0;
-               rope_pos = 0;
-               accumulation = { editor; vertical_scroll_y_offset };
-             }
-              : extra_rope_traversal_info Editor.rope_traversal_info)
-        in
-        if cursor_pos = Rope.length (rope |> Option.get) then
-          Stubs.write_cursor_to_buffer cursor_buffer window_dims
-            acc_horizontal_x_pos editor.config_info.font_height
-            ~vertical_scroll_y_offset
+                acc_horizontal_x_pos editor.config_info.font_height
+                ~vertical_scroll_y_offset
+        | None -> ())
     | FileSearch { search_rope; results; _ } -> (
         (* todo -> implement filesearch writing to buffer logic for drawing *)
         let fold_fn (acc : unit Editor.rope_traversal_info) c =
@@ -276,11 +312,7 @@ module Render = struct
         | Some r ->
             let _ =
               Editor.traverse_rope r fold_fn
-                {
-                  acc_horizontal_x_pos = 0;
-                  rope_pos = 0;
-                  accumulation = ();
-                }
+                { acc_horizontal_x_pos = 0; rope_pos = 0; accumulation = () }
             in
             ();
 

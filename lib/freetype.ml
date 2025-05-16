@@ -27,5 +27,8 @@ module FreeType = struct
   external freetype_set_pixel_sizes : ft_face -> int -> unit
     = "freetype_set_pixel_sizes" "freetype_set_pixel_sizes"
 
+  external free_glyph_info : glyph_info -> unit
+    = "free_glyph_info" "free_glyph_info"
+
   let library = freetype_init_library ()
 end

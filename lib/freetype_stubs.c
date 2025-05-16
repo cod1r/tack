@@ -145,3 +145,10 @@ CAMLprim value freetype_get_face(value path_to_font, value ft_library) {
 
   CAMLreturn(abstract_face);
 }
+
+CAMLprim value free_glyph_info(value glyph_info) {
+  CAMLparam1(glyph_info);
+  struct GlyphInfo* glyph_info_struct = *(struct GlyphInfo**)Data_abstract_val(glyph_info);
+  free(glyph_info_struct);
+  CAMLreturn(Val_unit);
+}

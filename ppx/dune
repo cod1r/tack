@@ -1,0 +1,4 @@
+(library
+ (name custom_ppx)
+ (kind ppx_rewriter)
+ (libraries ppxlib dune-configurator))
