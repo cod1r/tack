@@ -110,7 +110,7 @@ module Render = struct
 
   let handle_glyph_for_file_mode (editor : Editor.editor)
       (acc : extra_rope_traversal_info Editor.rope_traversal_info) c
-      draw_highlight window_dims cursor_pos =
+      draw_highlight window_dims cursor_pos digits_widths_summed =
     let window_width, window_height = window_dims in
     let glyph_info_found =
       Array.find_opt
@@ -138,13 +138,15 @@ module Render = struct
         in
         (if y_pos <= window_height && y_pos >= 0 then
            let processed_x =
-             (if plus_x_advance > without_x_advance then
-                plus_x_advance * window_width
-              else acc.acc_horizontal_x_pos)
+             ((if plus_x_advance > without_x_advance then
+                 plus_x_advance * window_width
+               else acc.acc_horizontal_x_pos)
+             + digits_widths_summed)
              mod window_width
            and processed_y =
              ((if plus_x_advance > without_x_advance then plus_x_advance
-              else without_x_advance) + 1)
+               else without_x_advance)
+             + 1)
              * editor.config_info.font_height
            in
            Stubs.write_glyph_to_text_buffer_value ~text_buffer ~glyph_info:gi
@@ -156,9 +158,12 @@ module Render = struct
           else acc.acc_horizontal_x_pos
         in
         if acc.rope_pos = cursor_pos then
-          Stubs.write_cursor_to_buffer cursor_buffer window_dims
-            processed_acc_x_offset editor.config_info.font_height
-            ~vertical_scroll_y_offset:acc.accumulation.vertical_scroll_y_offset;
+          Stubs.write_cursor_to_buffer ~cursor_buffer ~window_dims
+            ~x:(processed_acc_x_offset mod window_width)
+            ~y:
+              ((processed_acc_x_offset / window_width)
+              + acc.accumulation.vertical_scroll_y_offset)
+            ~cursor_width:2 ~cursor_height:editor.config_info.font_height;
         {
           acc with
           acc_horizontal_x_pos = processed_acc_x_offset + x_advance;
@@ -258,10 +263,15 @@ module Render = struct
                 let div_ans =
                   (acc.acc_horizontal_x_pos + window_width) / window_width
                 in
-                if acc.rope_pos = cursor_pos then
-                  Stubs.write_cursor_to_buffer cursor_buffer window_dims
-                    acc.acc_horizontal_x_pos editor.config_info.font_height
-                    ~vertical_scroll_y_offset;
+                (if acc.rope_pos = cursor_pos then
+                   let x = acc.acc_horizontal_x_pos mod window_width in
+                   Stubs.write_cursor_to_buffer ~cursor_buffer ~window_dims ~x
+                     ~y:
+                       (((acc.acc_horizontal_x_pos / window_width)
+                        + vertical_scroll_y_offset)
+                       * editor.config_info.font_height)
+                     ~cursor_width:2
+                     ~cursor_height:editor.config_info.font_height);
                 ({
                    acc with
                    acc_horizontal_x_pos = div_ans * window_width;
@@ -270,7 +280,7 @@ module Render = struct
                   : extra_rope_traversal_info Editor.rope_traversal_info))
               else
                 handle_glyph_for_file_mode editor acc c draw_highlight
-                  window_dims cursor_pos
+                  window_dims cursor_pos digits_widths_summed
             in
             let { Editor.acc_horizontal_x_pos; _ } =
               Editor.traverse_rope (rope |> Option.get) fold_fn
@@ -282,9 +292,13 @@ module Render = struct
                   : extra_rope_traversal_info Editor.rope_traversal_info)
             in
             if cursor_pos = Rope.length r then
-              Stubs.write_cursor_to_buffer cursor_buffer window_dims
-                acc_horizontal_x_pos editor.config_info.font_height
-                ~vertical_scroll_y_offset
+              let x = acc_horizontal_x_pos mod window_width in
+              Stubs.write_cursor_to_buffer ~cursor_buffer ~window_dims ~x
+                ~y:
+                  (((acc_horizontal_x_pos / window_width)
+                   + vertical_scroll_y_offset)
+                  * editor.config_info.font_height)
+                ~cursor_width:2 ~cursor_height:editor.config_info.font_height
         | None -> ())
     | FileSearch { search_rope; results; _ } -> (
         (* todo -> implement filesearch writing to buffer logic for drawing *)

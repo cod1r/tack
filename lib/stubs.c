@@ -94,17 +94,6 @@ void write_glyph_to_text_buffer(
   }
 }
 
-void push_to_buffer(struct Buffer* b, const struct GlyphInfo glyph_info, int window_width, int window_height, int x_offset, int font_height, int vertical_scroll_y_offset) {
-
-  int new_x_offset = get_proper_x_offset(x_offset, glyph_info, window_width);
-
-  int row = new_x_offset / window_width + 1 + vertical_scroll_y_offset; // adding one because I think macos window decorations cover the top part of the screen
-
-  int used_x_offset = new_x_offset % window_width;
-
-  write_glyph_to_text_buffer(glyph_info, b, used_x_offset, row * font_height, window_width, window_height);
-}
-
 /*
 reset_buffer needs be called on the screen buffer when the screen needs to be redrawn
 or else the buffer_idx (the starting index for where push_to_buffer starts) will overflow
@@ -116,66 +105,35 @@ CAMLprim value reset_buffer(value buffer) {
   CAMLreturn(Val_unit);
 }
 
-/*
-previous_offset here is the summed x_advance of the glyphs up until this call.
-Currently I don't know if there is a use for the vertical offsets or y_advances.
-The x_advance sum is used to offset the new glyph correctly and draw on a new line if necessary.
-
-this function writes to the text buffer (draws characters)
-*/
-CAMLprim value write_to_buffer(value buffer, value glyph_info, value window_dims, value previous_offset, value font_height, value vertical_scroll_y_offset_val) {
-  CAMLparam5(buffer, glyph_info, window_dims, previous_offset, font_height);
-  CAMLxparam1(vertical_scroll_y_offset_val);
-
-  int vertical_scroll_y_offset = Int_val(vertical_scroll_y_offset_val);
-
-  int window_width = Int_val(Field(window_dims, 0));
-
-  int window_height = Int_val(Field(window_dims, 1));
-
-  int x_offset = Int_val(previous_offset);
-
-  int font_height_c = Int_val(font_height);
-
-  struct GlyphInfo* glyph_info_struct = *(struct GlyphInfo**)Data_abstract_val(glyph_info);
-
-  struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
-
-  push_to_buffer(b, *glyph_info_struct, window_width, window_height, x_offset, font_height_c, vertical_scroll_y_offset);
-
-  CAMLreturn(Val_unit);
-}
-
-CAMLprim value write_cursor_to_buffer(value buffer, value window_dims, value previous_offset, value font_height, value vertical_scroll_y_offset_val) {
-  CAMLparam5(buffer, window_dims, previous_offset, font_height, vertical_scroll_y_offset_val);
-
-  int vertical_scroll_y_offset = Int_val(vertical_scroll_y_offset_val);
+CAMLprim value write_cursor_to_buffer(value buffer, value window_dims, value x_offset, value y_offset, value cursor_width, value cursor_height) {
+  CAMLparam5(buffer, window_dims, x_offset, y_offset, cursor_width);
+  CAMLxparam1(cursor_height);
 
   struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
 
   int window_width = Int_val(Field(window_dims, 0));
   int window_height = Int_val(Field(window_dims, 1));
 
-  int x_offset = Int_val(previous_offset);
-  int used_x_offset = x_offset % window_width;
+  int x_offset_c = Int_val(x_offset);
 
-  int font_height_c = Int_val(font_height);
+  int y_offset_c = Int_val(y_offset);
 
-  int row = x_offset / window_width + vertical_scroll_y_offset;
+  int cursor_width_c = Int_val(cursor_width);
+  int cursor_height_c = Int_val(cursor_height);
 
   if (b->size != 0) {
     caml_failwith("b->size should be zero for the cursor buffer");
   }
-  for (int x = 0; x < 2; ++x) {
-    for (int y = 0; y < font_height_c; ++y) {
+  for (int x = 0; x < cursor_width_c; ++x) {
+    for (int y = 0; y < cursor_height_c; ++y) {
       if (b->size > b->capacity) {
         caml_failwith("BUFFER TOO SMALL FOR CURSOR");
       }
-      b->contents[b->size++] = (x + used_x_offset) / ((float)window_width / 2) - 1;
+      b->contents[b->size++] = (x + x_offset_c) / ((float)window_width / 2) - 1;
       if (b->size > b->capacity) {
         caml_failwith("BUFFER TOO SMALL FOR CURSOR");
       }
-      b->contents[b->size++] = -(y + row * font_height_c) / ((float)window_height / 2) + 1;
+      b->contents[b->size++] = -(y + y_offset_c) / ((float)window_height / 2) + 1;
       if (b->size > b->capacity) {
         caml_failwith("BUFFER TOO SMALL FOR CURSOR");
       }
