@@ -248,13 +248,14 @@ module Render = struct
           (plus_x_advance + acc.accumulation.vertical_scroll_y_offset)
           * editor.config_info.font_height
         in
+        let processed_acc_x_offset =
+          if plus_x_advance > without_x_advance then
+            plus_x_advance * window_width
+          else acc.acc_horizontal_x_pos
+        in
         (if y_pos <= window_height && y_pos >= 0 then
            let processed_x =
-             ((if plus_x_advance > without_x_advance then
-                 plus_x_advance * window_width
-               else acc.acc_horizontal_x_pos)
-             + digits_widths_summed)
-             mod window_width
+             (processed_acc_x_offset + digits_widths_summed) mod window_width
            and processed_y =
              ((if plus_x_advance > without_x_advance then plus_x_advance
                else without_x_advance)
@@ -264,11 +265,6 @@ module Render = struct
            Stubs.write_glyph_to_text_buffer_value ~text_buffer ~glyph_info:gi
              ~x_offset:processed_x ~y_offset:processed_y ~window_width
              ~window_height);
-        let processed_acc_x_offset =
-          if plus_x_advance > without_x_advance then
-            plus_x_advance * window_width
-          else acc.acc_horizontal_x_pos
-        in
         if acc.rope_pos = cursor_pos then
           Stubs.write_cursor_to_buffer ~cursor_buffer ~window_dims
             ~x:(processed_acc_x_offset mod window_width)
