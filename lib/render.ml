@@ -146,7 +146,7 @@ module Render = struct
            and processed_y =
              ((if plus_x_advance > without_x_advance then plus_x_advance
                else without_x_advance)
-             + 1)
+             + 1 + acc.accumulation.vertical_scroll_y_offset)
              * editor.config_info.font_height
            in
            Stubs.write_glyph_to_text_buffer_value ~text_buffer ~glyph_info:gi
@@ -216,6 +216,41 @@ module Render = struct
               List.fold_left
                 (fun acc (_, gi) -> acc + FreeType.get_x_advance gi)
                 0 chars_with_glyphs
+              + 20
+            in
+            let fold_fn_for_draw_line_numbers
+                (acc : int Editor.rope_traversal_info) c =
+              match c with
+              | '\n' ->
+                  let digits = string_of_int (acc.accumulation + 1) in
+                  let glyph_infos =
+                    String.fold_right
+                      (fun c' acc ->
+                        (Array.find_opt
+                           (fun (c'', _) -> c'' = c')
+                           editor.config_info.glyph_info_with_char
+                        |> Option.get)
+                        :: acc)
+                      digits []
+                  in
+                  let curr_x_offset = ref 0 in
+                  List.iter
+                    (fun (_, gi) ->
+                      Stubs.write_glyph_to_text_buffer_value ~text_buffer
+                        ~glyph_info:gi ~x_offset:!curr_x_offset
+                        ~y_offset:
+                          ((acc.accumulation + 1 + vertical_scroll_y_offset)
+                          * editor.config_info.font_height)
+                        ~window_width ~window_height;
+                      curr_x_offset :=
+                        !curr_x_offset + FreeType.get_x_advance gi)
+                    glyph_infos;
+                  { acc with accumulation = acc.accumulation + 1 }
+              | _ -> acc
+            in
+            let _ =
+              Editor.traverse_rope r fold_fn_for_draw_line_numbers
+                { acc_horizontal_x_pos = 0; rope_pos = 0; accumulation = 0 }
             in
             let fold_fn
                 (acc : extra_rope_traversal_info Editor.rope_traversal_info) c =
@@ -264,7 +299,10 @@ module Render = struct
                   (acc.acc_horizontal_x_pos + window_width) / window_width
                 in
                 (if acc.rope_pos = cursor_pos then
-                   let x = acc.acc_horizontal_x_pos mod window_width in
+                   let x =
+                     (acc.acc_horizontal_x_pos + digits_widths_summed)
+                     mod window_width
+                   in
                    Stubs.write_cursor_to_buffer ~cursor_buffer ~window_dims ~x
                      ~y:
                        (((acc.acc_horizontal_x_pos / window_width)
