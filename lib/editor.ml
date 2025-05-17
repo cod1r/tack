@@ -94,6 +94,17 @@ module Editor = struct
         let left_result = traverse_rope left handle_result result in
         traverse_rope right handle_result left_result
 
+  let num_lines (rope : Rope.rope) =
+    let fold_fn (acc : int rope_traversal_info) ch =
+      if ch = '\n' then { acc with accumulation = acc.accumulation + 1 }
+      else acc
+    in
+    let { accumulation; _ } =
+      traverse_rope rope fold_fn
+        { acc_horizontal_x_pos = 0; accumulation = 0; rope_pos = 0 }
+    in
+    accumulation
+
   let find_closest_rope_pos_for_cursor_on_coords (editor : editor)
       ((x, y) : int * int) =
     let window_width, _ = Sdl.sdl_gl_getdrawablesize () in

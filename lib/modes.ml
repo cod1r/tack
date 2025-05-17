@@ -217,8 +217,6 @@ module FileMode : Mode = struct
             | Mousedown ->
                 Printf.printf "Mousedown %d, %d, %d, %d, %d, %d\n" x y windowID
                   button clicks timestamp;
-                Printf.printf "holding ctrl: %b" editor.holding_ctrl;
-                print_newline ();
                 let crp =
                   if Option.is_some rope then
                     Editor.find_closest_rope_pos_for_cursor_on_coords editor
@@ -473,11 +471,9 @@ module FileSearchMode : Mode = struct
             in
             let ratio = window_width / window_width_without_high_dpi in
             match mouse_evt_type with
-            | Mousedown -> (
+            | Mousedown ->
                 Printf.printf "Mousedown %d, %d, %d, %d, %d, %d\n" x y windowID
                   button clicks timestamp;
-                Printf.printf "holding ctrl: %b" editor.holding_ctrl;
-                print_newline ();
                 let used_y = y * ratio in
                 Printf.printf "clicked y: %d, font_height: %d" used_y
                   editor.config_info.font_height;
@@ -505,34 +501,56 @@ module FileSearchMode : Mode = struct
                   new_editor)
                 else
                   let filename =
-                    List.nth results
+                    List.nth_opt results
                       ((used_y / editor.config_info.font_height) - 2)
                   in
-                  let find_file =
-                    List.find_mapi
-                      (fun idx mode_variant ->
-                        match mode_variant with
-                        | Editor.File { file_name; _ } ->
-                            if file_name = filename then Some (idx, mode_variant)
-                            else None
-                        | Editor.FileSearch _ -> None)
-                      editor.ropes
-                  in
-                  let current_mod_time =
-                    Unix.stat filename |> fun s -> s.st_mtime
-                  in
-                  match find_file with
-                  | Some (idx, File { last_modification_time; _ }) ->
-                      if last_modification_time != current_mod_time then
+                  if Option.is_some filename then
+                    let filename_unwrapped = Option.get filename in
+                    let find_file =
+                      List.find_mapi
+                        (fun idx mode_variant ->
+                          match mode_variant with
+                          | Editor.File { file_name; _ } ->
+                              if file_name = filename_unwrapped then
+                                Some (idx, mode_variant)
+                              else None
+                          | Editor.FileSearch _ -> None)
+                        editor.ropes
+                    in
+                    let current_mod_time =
+                      Unix.stat filename_unwrapped |> fun s -> s.st_mtime
+                    in
+                    match find_file with
+                    | Some (idx, File { last_modification_time; _ }) ->
+                        if last_modification_time != current_mod_time then
+                          let new_rope_wrapper =
+                            Editor.File
+                              {
+                                rope =
+                                  Some (Editor.open_file filename_unwrapped);
+                                file_name = filename_unwrapped;
+                                cursor_pos = 0;
+                                vertical_scroll_y_offset = 0;
+                                last_modification_time = current_mod_time;
+                                highlight = None;
+                              }
+                          in
+                          {
+                            editor with
+                            ropes = new_rope_wrapper :: other_rope_wrappers;
+                            current_rope_idx = Some 0;
+                          }
+                        else { editor with current_rope_idx = Some idx }
+                    | None | _ ->
                         let new_rope_wrapper =
                           Editor.File
                             {
-                              rope = Some (Editor.open_file filename);
-                              file_name = filename;
+                              highlight = None;
+                              rope = Some (Editor.open_file filename_unwrapped);
+                              file_name = filename_unwrapped;
                               cursor_pos = 0;
                               vertical_scroll_y_offset = 0;
                               last_modification_time = current_mod_time;
-                              highlight = None;
                             }
                         in
                         {
@@ -540,24 +558,7 @@ module FileSearchMode : Mode = struct
                           ropes = new_rope_wrapper :: other_rope_wrappers;
                           current_rope_idx = Some 0;
                         }
-                      else { editor with current_rope_idx = Some idx }
-                  | None | _ ->
-                      let new_rope_wrapper =
-                        Editor.File
-                          {
-                            highlight = None;
-                            rope = Some (Editor.open_file filename);
-                            file_name = filename;
-                            cursor_pos = 0;
-                            vertical_scroll_y_offset = 0;
-                            last_modification_time = current_mod_time;
-                          }
-                      in
-                      {
-                        editor with
-                        ropes = new_rope_wrapper :: other_rope_wrappers;
-                        current_rope_idx = Some 0;
-                      })
+                  else editor
             | Mouseup ->
                 Printf.printf "Mouseup: %d %d" x y;
                 print_newline ();

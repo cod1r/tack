@@ -160,23 +160,83 @@ module FileModeRendering = struct
                 :: acc)
               digits []
           in
-          let curr_x_offset = ref 0 in
-          List.iter
-            (fun (_, gi) ->
-              Stubs.write_glyph_to_text_buffer_value ~text_buffer ~glyph_info:gi
-                ~x_offset:!curr_x_offset
-                ~y_offset:
-                  ((acc.accumulation + 1 + vertical_scroll_y_offset)
-                  * editor.config_info.font_height)
-                ~window_width ~window_height;
-              curr_x_offset := !curr_x_offset + FreeType.get_x_advance gi)
-            glyph_infos;
+          (if acc.accumulation <= window_height / editor.config_info.font_height
+           then
+             let curr_x_offset = ref 0 in
+             List.iter
+               (fun (_, gi) ->
+                 Stubs.write_glyph_to_text_buffer_value ~text_buffer
+                   ~glyph_info:gi ~x_offset:!curr_x_offset
+                   ~y_offset:
+                     ((acc.accumulation + 1 + vertical_scroll_y_offset)
+                     * editor.config_info.font_height)
+                   ~window_width ~window_height;
+                 curr_x_offset := !curr_x_offset + FreeType.get_x_advance gi)
+               glyph_infos);
           { acc with accumulation = acc.accumulation + 1 }
       | _ -> acc
     in
     let _ =
       Editor.traverse_rope r fold_fn_for_draw_line_numbers
         { acc_horizontal_x_pos = 0; rope_pos = 0; accumulation = 0 }
+    in
+    ()
+
+  let draw_cursor ~(editor : Editor.editor) ~(r : Rope.rope) ~cursor_pos
+      ~cursor_buffer ~vertical_scroll_y_offset ~window_width ~window_height
+      ~digits_widths_summed =
+    let fold_fn_draw_cursor
+        (acc : extra_rope_traversal_info Editor.rope_traversal_info) c =
+      match c with
+      | '\n' ->
+          if acc.rope_pos = cursor_pos then
+            Stubs.write_cursor_to_buffer ~cursor_buffer ~cursor_width:3
+              ~cursor_height:editor.config_info.font_height
+              ~window_dims:(window_width, window_height)
+              ~x:digits_widths_summed
+              ~y:
+                (((acc.acc_horizontal_x_pos / window_width)
+                 + 1 + vertical_scroll_y_offset)
+                * editor.config_info.font_height);
+          { acc with rope_pos = acc.rope_pos + 1 }
+      | _ ->
+          let _, glyph_info =
+            Array.find_opt
+              (fun (c', _) -> c' = c)
+              editor.config_info.glyph_info_with_char
+            |> Option.get
+          in
+          let x_advance = FreeType.get_x_advance glyph_info in
+          let plus_x_advance =
+            (acc.acc_horizontal_x_pos + x_advance) / window_width
+          and without_x_advance = acc.acc_horizontal_x_pos / window_width in
+          let processed_x_offset =
+            (if plus_x_advance > without_x_advance then
+               plus_x_advance * window_width
+             else acc.acc_horizontal_x_pos)
+            mod window_width
+          in
+          if acc.rope_pos = cursor_pos then
+            Stubs.write_cursor_to_buffer ~cursor_buffer ~cursor_width:3
+              ~cursor_height:editor.config_info.font_height
+              ~window_dims:(window_width, window_height)
+              ~x:(processed_x_offset + digits_widths_summed)
+              ~y:
+                (((processed_x_offset / window_width) + vertical_scroll_y_offset)
+                * editor.config_info.font_height);
+          {
+            acc with
+            acc_horizontal_x_pos = processed_x_offset + x_advance;
+            rope_pos = acc.rope_pos + 1;
+          }
+    in
+    let _ =
+      Editor.traverse_rope r fold_fn_draw_cursor
+        {
+          accumulation = { editor; vertical_scroll_y_offset };
+          acc_horizontal_x_pos = 0;
+          rope_pos = 0;
+        }
     in
     ()
 end
@@ -223,7 +283,7 @@ module Render = struct
 
   let handle_glyph_for_file_mode (editor : Editor.editor)
       (acc : extra_rope_traversal_info Editor.rope_traversal_info) c window_dims
-      cursor_pos digits_widths_summed =
+      digits_widths_summed =
     let window_width, window_height = window_dims in
     let glyph_info_found =
       Array.find_opt
@@ -265,13 +325,6 @@ module Render = struct
            Stubs.write_glyph_to_text_buffer_value ~text_buffer ~glyph_info:gi
              ~x_offset:processed_x ~y_offset:processed_y ~window_width
              ~window_height);
-        if acc.rope_pos = cursor_pos then
-          Stubs.write_cursor_to_buffer ~cursor_buffer ~window_dims
-            ~x:(processed_acc_x_offset mod window_width)
-            ~y:
-              ((processed_acc_x_offset / window_width)
-              + acc.accumulation.vertical_scroll_y_offset)
-            ~cursor_width:2 ~cursor_height:editor.config_info.font_height;
         {
           acc with
           acc_horizontal_x_pos = processed_acc_x_offset + x_advance;
@@ -289,17 +342,6 @@ module Render = struct
         an abstraction for that specific wrapping behavior, but let's consider that later.
         *)
 
-  let num_lines (rope : Rope.rope) =
-    let fold_fn (acc : int Editor.rope_traversal_info) ch =
-      if ch = '\n' then { acc with accumulation = acc.accumulation + 1 }
-      else acc
-    in
-    let { Editor.accumulation; _ } =
-      Editor.traverse_rope rope fold_fn
-        { acc_horizontal_x_pos = 0; accumulation = 0; rope_pos = 0 }
-    in
-    accumulation
-
   let draw_editor (editor : Editor.editor) =
     let window_dims = Sdl.sdl_gl_getdrawablesize () in
     let window_width, window_height = window_dims in
@@ -310,13 +352,7 @@ module Render = struct
     | File { rope; cursor_pos; vertical_scroll_y_offset; highlight; _ } -> (
         match rope with
         | Some r ->
-            FileModeRendering.draw_line_numbers ~editor ~r
-              ~vertical_scroll_y_offset ~window_width ~window_height
-              ~text_buffer;
-            FileModeRendering.draw_highlight ~editor ~r
-              ~vertical_scroll_y_offset ~highlight ~window_width ~window_height
-              ~highlight_buffer;
-            let lines = num_lines r in
+            let lines = Editor.num_lines r in
             let str_lines = string_of_int lines in
             let chars_with_glyphs =
               String.fold_right (fun c acc -> c :: acc) str_lines []
@@ -332,35 +368,29 @@ module Render = struct
                 0 chars_with_glyphs
               + 20
             in
+            FileModeRendering.draw_line_numbers ~editor ~r
+              ~vertical_scroll_y_offset ~window_width ~window_height
+              ~text_buffer;
+            FileModeRendering.draw_highlight ~editor ~r
+              ~vertical_scroll_y_offset ~highlight ~window_width ~window_height
+              ~highlight_buffer;
             let fold_fn
                 (acc : extra_rope_traversal_info Editor.rope_traversal_info) c =
-              if c = '\n' then (
+              if c = '\n' then
                 let div_ans =
                   (acc.acc_horizontal_x_pos + window_width) / window_width
                 in
-                (if acc.rope_pos = cursor_pos then
-                   let x =
-                     (acc.acc_horizontal_x_pos + digits_widths_summed)
-                     mod window_width
-                   in
-                   Stubs.write_cursor_to_buffer ~cursor_buffer ~window_dims ~x
-                     ~y:
-                       (((acc.acc_horizontal_x_pos / window_width)
-                        + vertical_scroll_y_offset)
-                       * editor.config_info.font_height)
-                     ~cursor_width:2
-                     ~cursor_height:editor.config_info.font_height);
                 ({
                    acc with
                    acc_horizontal_x_pos = div_ans * window_width;
                    rope_pos = acc.rope_pos + 1;
                  }
-                  : extra_rope_traversal_info Editor.rope_traversal_info))
+                  : extra_rope_traversal_info Editor.rope_traversal_info)
               else
-                handle_glyph_for_file_mode editor acc c window_dims cursor_pos
+                handle_glyph_for_file_mode editor acc c window_dims
                   digits_widths_summed
             in
-            let { Editor.acc_horizontal_x_pos; _ } =
+            let _ =
               Editor.traverse_rope (rope |> Option.get) fold_fn
                 ({
                    acc_horizontal_x_pos = 0;
@@ -369,16 +399,7 @@ module Render = struct
                  }
                   : extra_rope_traversal_info Editor.rope_traversal_info)
             in
-            if cursor_pos = Rope.length r then
-              let x =
-                (acc_horizontal_x_pos + digits_widths_summed) mod window_width
-              in
-              Stubs.write_cursor_to_buffer ~cursor_buffer ~window_dims ~x
-                ~y:
-                  (((acc_horizontal_x_pos / window_width)
-                   + vertical_scroll_y_offset)
-                  * editor.config_info.font_height)
-                ~cursor_width:2 ~cursor_height:editor.config_info.font_height
+            ()
         | None -> ())
     | FileSearch { search_rope; results; _ } -> (
         (* todo -> implement filesearch writing to buffer logic for drawing *)
