@@ -330,7 +330,9 @@ module Render = struct
                   : extra_rope_traversal_info Editor.rope_traversal_info)
             in
             if cursor_pos = Rope.length r then
-              let x = acc_horizontal_x_pos mod window_width in
+              let x =
+                (acc_horizontal_x_pos + digits_widths_summed) mod window_width
+              in
               Stubs.write_cursor_to_buffer ~cursor_buffer ~window_dims ~x
                 ~y:
                   (((acc_horizontal_x_pos / window_width)
