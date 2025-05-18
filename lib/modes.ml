@@ -219,8 +219,13 @@ module FileMode : Mode = struct
                   button clicks timestamp;
                 let crp =
                   if Option.is_some rope then
+                    let digits_widths_summed =
+                      Editor.get_digits_widths_summed
+                        (Editor.num_lines (rope |> Option.get))
+                        editor
+                    in
                     Editor.find_closest_rope_pos_for_cursor_on_coords editor
-                      (x, y)
+                      (x - digits_widths_summed, y)
                   else 0
                 in
                 Printf.printf "closest rp: %d" crp;
@@ -249,8 +254,13 @@ module FileMode : Mode = struct
                 print_newline ();
                 let crp =
                   if Option.is_some rope then
+                    let digits_widths_summed =
+                      Editor.get_digits_widths_summed
+                        (Editor.num_lines (rope |> Option.get))
+                        editor
+                    in
                     Editor.find_closest_rope_pos_for_cursor_on_coords editor
-                      (x, y)
+                      (x - digits_widths_summed, y)
                   else 0
                 in
                 let new_rope_wrapper =

@@ -70,13 +70,21 @@ type extra_rope_traversal_info = {
 
 module FileModeRendering = struct
   let draw_highlight ~(editor : Editor.editor) ~(r : Rope.rope) ~highlight
-      ~vertical_scroll_y_offset ~window_width ~window_height ~highlight_buffer =
+      ~vertical_scroll_y_offset ~window_width ~window_height ~highlight_buffer
+      ~digits_widths_summed =
     match highlight with
     | Some (highlight_start, highlight_end) ->
         let fold_fn_for_draw_highlight
             (acc : extra_rope_traversal_info Editor.rope_traversal_info) c =
           match c with
-          | '\n' -> acc
+          | '\n' ->
+              {
+                acc with
+                acc_horizontal_x_pos =
+                  (acc.acc_horizontal_x_pos + window_width)
+                  / window_width * window_width;
+                rope_pos = acc.rope_pos + 1;
+              }
           | _ ->
               let _, glyph_info_found =
                 Array.find_opt
@@ -107,16 +115,16 @@ module FileModeRendering = struct
                  in
                  let points =
                    [
-                     ( new_x,
+                     ( new_x + digits_widths_summed,
                        (new_row + 1)
                        * acc.accumulation.editor.config_info.font_height );
-                     ( new_x,
+                     ( new_x + digits_widths_summed,
                        new_row * acc.accumulation.editor.config_info.font_height
                      );
-                     ( new_x + x_advance,
+                     ( new_x + x_advance + digits_widths_summed,
                        new_row * acc.accumulation.editor.config_info.font_height
                      );
-                     ( new_x + x_advance,
+                     ( new_x + x_advance + digits_widths_summed,
                        (new_row + 1)
                        * acc.accumulation.editor.config_info.font_height );
                    ]
@@ -198,7 +206,14 @@ module FileModeRendering = struct
                 (((acc.acc_horizontal_x_pos / window_width)
                  + 1 + vertical_scroll_y_offset)
                 * editor.config_info.font_height);
-          { acc with rope_pos = acc.rope_pos + 1 }
+          let div_ans =
+            (acc.acc_horizontal_x_pos + window_width) / window_width
+          in
+          {
+            acc with
+            acc_horizontal_x_pos = div_ans * window_width;
+            rope_pos = acc.rope_pos + 1;
+          }
       | _ ->
           let _, glyph_info =
             Array.find_opt
@@ -210,23 +225,24 @@ module FileModeRendering = struct
           let plus_x_advance =
             (acc.acc_horizontal_x_pos + x_advance) / window_width
           and without_x_advance = acc.acc_horizontal_x_pos / window_width in
-          let processed_x_offset =
-            (if plus_x_advance > without_x_advance then
-               plus_x_advance * window_width
-             else acc.acc_horizontal_x_pos)
-            mod window_width
+          let used_horizontal_x_pos =
+            if plus_x_advance > without_x_advance then
+              plus_x_advance * window_width
+            else acc.acc_horizontal_x_pos
           in
+          let processed_x_offset = used_horizontal_x_pos mod window_width in
           if acc.rope_pos = cursor_pos then
             Stubs.write_cursor_to_buffer ~cursor_buffer ~cursor_width:3
               ~cursor_height:editor.config_info.font_height
               ~window_dims:(window_width, window_height)
               ~x:(processed_x_offset + digits_widths_summed)
               ~y:
-                (((processed_x_offset / window_width) + vertical_scroll_y_offset)
+                (((used_horizontal_x_pos / window_width)
+                 + vertical_scroll_y_offset)
                 * editor.config_info.font_height);
           {
             acc with
-            acc_horizontal_x_pos = processed_x_offset + x_advance;
+            acc_horizontal_x_pos = used_horizontal_x_pos + x_advance;
             rope_pos = acc.rope_pos + 1;
           }
     in
@@ -373,7 +389,10 @@ module Render = struct
               ~text_buffer;
             FileModeRendering.draw_highlight ~editor ~r
               ~vertical_scroll_y_offset ~highlight ~window_width ~window_height
-              ~highlight_buffer;
+              ~highlight_buffer ~digits_widths_summed;
+            FileModeRendering.draw_cursor ~editor ~r ~cursor_buffer ~cursor_pos
+              ~vertical_scroll_y_offset ~window_width ~window_height
+              ~digits_widths_summed;
             let fold_fn
                 (acc : extra_rope_traversal_info Editor.rope_traversal_info) c =
               if c = '\n' then

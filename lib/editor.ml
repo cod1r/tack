@@ -105,6 +105,18 @@ module Editor = struct
     in
     accumulation
 
+  let get_digits_widths_summed (num_lines : int) (editor : editor) =
+    string_of_int num_lines
+    |> String.fold_left
+         (fun acc c ->
+           (Array.find_opt
+              (fun (c', _) -> c' = c)
+              editor.config_info.glyph_info_with_char
+           |> Option.get)
+           :: acc)
+         []
+    |> List.fold_left (fun acc (_, gi) -> acc + FreeType.get_x_advance gi) 0
+
   let find_closest_rope_pos_for_cursor_on_coords (editor : editor)
       ((x, y) : int * int) =
     let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
@@ -200,7 +212,7 @@ module Editor = struct
     in
     match current_rope with
     | File { rope; vertical_scroll_y_offset; _ } ->
-        let { accumulation = _, cy, crp, _, _; _ } =
+        let { accumulation = cx, cy, crp, _, _; _ } =
           traverse_rope (rope |> Option.get) fold_fn
             ({
                acc_horizontal_x_pos = 0;
@@ -214,7 +226,7 @@ module Editor = struct
              }
               : (int * int * int * int * editor) rope_traversal_info)
         in
-        Printf.printf "closest y: %d" cy;
+        Printf.printf "closest x: %d, closest y: %d" cx cy;
         print_newline ();
         min crp (length (rope |> Option.get))
     | _ -> failwith "NOT FILE"
