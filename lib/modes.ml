@@ -228,8 +228,6 @@ module FileMode : Mode = struct
                       (x - digits_widths_summed, y)
                   else 0
                 in
-                Printf.printf "closest rp: %d" crp;
-                print_newline ();
                 let new_rope_wrapper =
                   Editor.File
                     {
@@ -301,13 +299,21 @@ module FileMode : Mode = struct
             (* print_newline (); *)
             editor
         | Some (MouseWheelEvt { y; _ }) ->
+            let num_lines =
+              if Option.is_some rope then Editor.num_lines (Option.get rope)
+              else 0
+            in
+            let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
+            let limit = window_width / editor.config_info.font_height in
             let new_rope_wrapper =
               Editor.File
                 {
                   rope;
                   cursor_pos;
                   file_name;
-                  vertical_scroll_y_offset = vertical_scroll_y_offset + y;
+                  vertical_scroll_y_offset =
+                    min limit
+                      (max (-num_lines + 1) (vertical_scroll_y_offset + y));
                   last_modification_time;
                   highlight;
                 }
