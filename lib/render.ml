@@ -168,7 +168,9 @@ module FileModeRendering = struct
                 :: acc)
               digits []
           in
-          (if acc.accumulation <= window_height / editor.config_info.font_height
+          (if
+             acc.accumulation + vertical_scroll_y_offset
+             <= window_height / editor.config_info.font_height
            then
              let curr_x_offset = ref 0 in
              List.iter
@@ -201,10 +203,12 @@ module FileModeRendering = struct
             Stubs.write_cursor_to_buffer ~cursor_buffer ~cursor_width:3
               ~cursor_height:editor.config_info.font_height
               ~window_dims:(window_width, window_height)
-              ~x:digits_widths_summed
+              ~x:
+                ((acc.acc_horizontal_x_pos mod window_width)
+                + digits_widths_summed)
               ~y:
                 (((acc.acc_horizontal_x_pos / window_width)
-                 + 1 + vertical_scroll_y_offset)
+                 + vertical_scroll_y_offset)
                 * editor.config_info.font_height);
           let div_ans =
             (acc.acc_horizontal_x_pos + window_width) / window_width
@@ -246,7 +250,7 @@ module FileModeRendering = struct
             rope_pos = acc.rope_pos + 1;
           }
     in
-    let _ =
+    let Editor.{ rope_pos; acc_horizontal_x_pos; _ } =
       Editor.traverse_rope r fold_fn_draw_cursor
         {
           accumulation = { editor; vertical_scroll_y_offset };
@@ -254,7 +258,14 @@ module FileModeRendering = struct
           rope_pos = 0;
         }
     in
-    ()
+    if rope_pos = cursor_pos then
+      Stubs.write_cursor_to_buffer ~cursor_buffer ~cursor_width:3
+        ~cursor_height:editor.config_info.font_height
+        ~window_dims:(window_width, window_height)
+        ~x:((acc_horizontal_x_pos mod window_width) + digits_widths_summed)
+        ~y:
+          (((acc_horizontal_x_pos / window_width) + vertical_scroll_y_offset)
+          * editor.config_info.font_height)
 end
 
 module Render = struct
