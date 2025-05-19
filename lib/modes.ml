@@ -494,79 +494,36 @@ module FileSearchMode : Mode = struct
                 Printf.printf "clicked y: %d, font_height: %d" used_y
                   editor.config_info.font_height;
                 print_newline ();
-                if used_y < editor.config_info.font_height * 2 then (
-                  let crp =
-                    if Option.is_some search_rope then
-                      Editor.find_closest_rope_pos_for_cursor_on_coords editor
-                        (x, y)
-                    else 0
+                let idx_value = (used_y / editor.config_info.font_height) - 1 in
+                let filename = List.nth_opt results idx_value in
+                if Option.is_some filename then
+                  let filename_unwrapped = Option.get filename in
+                  let find_file =
+                    List.find_mapi
+                      (fun idx mode_variant ->
+                        match mode_variant with
+                        | Editor.File { file_name; _ } ->
+                            if file_name = filename_unwrapped then
+                              Some (idx, mode_variant)
+                            else None
+                        | Editor.FileSearch _ -> None)
+                      editor.ropes
                   in
-                  Printf.printf "closest rp: %d" crp;
-                  print_newline ();
-                  let new_rope_wrapper =
-                    Editor.FileSearch { search_rope; cursor_pos = crp; results }
+                  let current_mod_time =
+                    Unix.stat filename_unwrapped |> fun s -> s.st_mtime
                   in
-                  let new_editor =
-                    {
-                      editor with
-                      ropes = new_rope_wrapper :: other_rope_wrappers;
-                      current_rope_idx = Some 0;
-                    }
-                  in
-                  Render.draw new_editor;
-                  new_editor)
-                else
-                  let filename =
-                    List.nth_opt results
-                      ((used_y / editor.config_info.font_height) - 2)
-                  in
-                  if Option.is_some filename then
-                    let filename_unwrapped = Option.get filename in
-                    let find_file =
-                      List.find_mapi
-                        (fun idx mode_variant ->
-                          match mode_variant with
-                          | Editor.File { file_name; _ } ->
-                              if file_name = filename_unwrapped then
-                                Some (idx, mode_variant)
-                              else None
-                          | Editor.FileSearch _ -> None)
-                        editor.ropes
-                    in
-                    let current_mod_time =
-                      Unix.stat filename_unwrapped |> fun s -> s.st_mtime
-                    in
-                    match find_file with
-                    | Some (idx, File { last_modification_time; _ }) ->
-                        if last_modification_time != current_mod_time then
-                          let new_rope_wrapper =
-                            Editor.File
-                              {
-                                rope =
-                                  Some (Editor.open_file filename_unwrapped);
-                                file_name = filename_unwrapped;
-                                cursor_pos = 0;
-                                vertical_scroll_y_offset = 0;
-                                last_modification_time = current_mod_time;
-                                highlight = None;
-                              }
-                          in
-                          {
-                            editor with
-                            ropes = new_rope_wrapper :: other_rope_wrappers;
-                            current_rope_idx = Some 0;
-                          }
-                        else { editor with current_rope_idx = Some idx }
-                    | None | _ ->
+                  match find_file with
+                  | Some (idx, File { last_modification_time; _ }) ->
+                      if last_modification_time != current_mod_time then
                         let new_rope_wrapper =
                           Editor.File
                             {
-                              highlight = None;
                               rope = Some (Editor.open_file filename_unwrapped);
                               file_name = filename_unwrapped;
                               cursor_pos = 0;
                               vertical_scroll_y_offset = 0;
                               last_modification_time = current_mod_time;
+                              highlight = None;
                             }
                         in
                         {
@@ -574,18 +531,30 @@ module FileSearchMode : Mode = struct
                           ropes = new_rope_wrapper :: other_rope_wrappers;
                           current_rope_idx = Some 0;
                         }
-                  else editor
+                      else { editor with current_rope_idx = Some idx }
+                  | None | _ ->
+                      let new_rope_wrapper =
+                        Editor.File
+                          {
+                            highlight = None;
+                            rope = Some (Editor.open_file filename_unwrapped);
+                            file_name = filename_unwrapped;
+                            cursor_pos = 0;
+                            vertical_scroll_y_offset = 0;
+                            last_modification_time = current_mod_time;
+                          }
+                      in
+                      {
+                        editor with
+                        ropes = new_rope_wrapper :: other_rope_wrappers;
+                        current_rope_idx = Some 0;
+                      }
+                else editor
             | Mouseup ->
                 Printf.printf "Mouseup: %d %d" x y;
                 print_newline ();
-                let crp =
-                  if Option.is_some search_rope then
-                    Editor.find_closest_rope_pos_for_cursor_on_coords editor
-                      (x, y)
-                  else 0
-                in
                 let new_rope_wrapper =
-                  Editor.FileSearch { search_rope; cursor_pos = crp; results }
+                  Editor.FileSearch { search_rope; results; cursor_pos }
                 in
                 let new_editor =
                   {
