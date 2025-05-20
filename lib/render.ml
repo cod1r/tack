@@ -310,7 +310,7 @@ module Render = struct
 
   let handle_glyph_for_file_mode (editor : Editor.editor)
       (acc : extra_rope_traversal_info Editor.rope_traversal_info) c window_dims
-      digits_widths_summed =
+      =
     let window_width, window_height = window_dims in
     let glyph_info_found =
       Array.find_opt
@@ -341,8 +341,7 @@ module Render = struct
           else acc.acc_horizontal_x_pos
         in
         (if y_pos <= window_height && y_pos >= 0 then
-           let processed_x =
-             (processed_acc_x_offset + digits_widths_summed) mod window_width
+           let processed_x = processed_acc_x_offset mod window_width
            and processed_y =
              ((if plus_x_advance > without_x_advance then plus_x_advance
                else without_x_advance)
@@ -380,20 +379,8 @@ module Render = struct
         match rope with
         | Some r ->
             let lines = Editor.num_lines r in
-            let str_lines = string_of_int lines in
-            let chars_with_glyphs =
-              String.fold_right (fun c acc -> c :: acc) str_lines []
-              |> List.map (fun c ->
-                     Array.find_opt
-                       (fun (c', _) -> c' = c)
-                       editor.config_info.glyph_info_with_char
-                     |> Option.get)
-            in
             let digits_widths_summed =
-              List.fold_left
-                (fun acc (_, gi) -> acc + FreeType.get_x_advance gi)
-                0 chars_with_glyphs
-              + 20
+              Editor.get_digits_widths_summed lines editor
             in
             FileModeRendering.draw_line_numbers ~editor ~r
               ~vertical_scroll_y_offset ~window_width ~window_height
@@ -416,9 +403,7 @@ module Render = struct
                    rope_pos = acc.rope_pos + 1;
                  }
                   : extra_rope_traversal_info Editor.rope_traversal_info)
-              else
-                handle_glyph_for_file_mode editor acc c window_dims
-                  digits_widths_summed
+              else handle_glyph_for_file_mode editor acc c window_dims
             in
             let _ =
               Editor.traverse_rope (rope |> Option.get) fold_fn

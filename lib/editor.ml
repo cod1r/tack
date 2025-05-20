@@ -2,6 +2,8 @@ open Freetype
 open Rope
 open Sdl
 
+let _LINE_NUMBER_RIGHT_PADDING = 20
+
 module Editor = struct
   type information_relating_to_config = {
     glyph_info_with_char : (char * FreeType.glyph_info) Array.t;
@@ -116,6 +118,7 @@ module Editor = struct
            :: acc)
          []
     |> List.fold_left (fun acc (_, gi) -> acc + FreeType.get_x_advance gi) 0
+    |> fun dws -> dws + _LINE_NUMBER_RIGHT_PADDING
 
   let find_closest_rope_pos_for_cursor_on_coords (editor : editor)
       ((x, y) : int * int) =

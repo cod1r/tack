@@ -209,25 +209,18 @@ module FileMode : Mode = struct
             let char_code = Char.code keysym in
             handle_kbd_evt_editor_mode editor ~char_code ~kbd_evt_type ~keysym
               ~file_path:file_name
-        | Some
-            (MouseButtonEvt
-               { mouse_evt_type; timestamp; x; y; windowID; button; clicks })
-          -> (
+        | Some (MouseButtonEvt { mouse_evt_type; x; y; _ }) -> (
             match mouse_evt_type with
             | Mousedown ->
-                Printf.printf "Mousedown %d, %d, %d, %d, %d, %d\n" x y windowID
-                  button clicks timestamp;
+                Printf.printf "Mousedown %d, %d\n" x y;
                 let crp =
                   if Option.is_some rope then
-                    let digits_widths_summed =
-                      Editor.get_digits_widths_summed
-                        (Editor.num_lines (rope |> Option.get))
-                        editor
-                    in
                     Editor.find_closest_rope_pos_for_cursor_on_coords editor
-                      (x - digits_widths_summed, y)
+                      (x, y)
                   else 0
                 in
+                Printf.printf "ROPE POS: %d" crp;
+                print_newline ();
                 let new_rope_wrapper =
                   Editor.File
                     {
@@ -252,27 +245,22 @@ module FileMode : Mode = struct
                 print_newline ();
                 let crp =
                   if Option.is_some rope then
-                    let digits_widths_summed =
-                      Editor.get_digits_widths_summed
-                        (Editor.num_lines (rope |> Option.get))
-                        editor
-                    in
                     Editor.find_closest_rope_pos_for_cursor_on_coords editor
-                      (x - digits_widths_summed, y)
+                      (x, y)
                   else 0
                 in
                 let new_rope_wrapper =
                   Editor.File
                     {
                       file_name;
-                      cursor_pos = crp;
+                      cursor_pos;
                       rope;
                       vertical_scroll_y_offset;
                       last_modification_time;
-                      highlight =
-                        (if crp != cursor_pos then
+                      highlight = None;
+                      (* (if crp != cursor_pos then
                            Some (min crp cursor_pos, max crp cursor_pos)
-                         else None);
+                         else None); *)
                     }
                 in
                 let new_editor =
