@@ -56,7 +56,8 @@ MOUSEDOWN handling needs to be more accurate
 rope data structure needs to be built in a way such that there is less depth for SPEED (basically balance between leaf length and tree depth)
 
 more things to do:
-  - LINE NUMBERS NEED TO BE IMPLEMENTED
+  - ORGANIZE LOGIC FOR GOING FROM SCREEN COORDS TO ROPE POSITION
+  - important to establish some kind of layout logic, where components/UI elements can know it's own width/height
   - for some reason, when switching to a file, text is highlighted from the beginning to where the last cursor click position was
   - There is too much nested state, so things are hard to read. this means another session of code cleanup
   - every file should keep track of its scroll position
@@ -64,6 +65,7 @@ more things to do:
     changes on disk
   - build some sort of a layout "engine"
   - make some ui elements that can handle text behaviors
+  - window width should not be used due to line numbers shifting text over to the right a bit
 
 findings about behavior on linux vs macos:
   - on linux, resize events are sent every time a slight change in size happens whereas on macos, the resize event is sent after the resizing is done
