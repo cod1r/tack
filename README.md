@@ -70,3 +70,7 @@ more things to do:
 findings about behavior on linux vs macos:
   - on linux, resize events are sent every time a slight change in size happens whereas on macos, the resize event is sent after the resizing is done
   - on linux, the opengl viewport is not resized to match the window size/resize but on macos, it is
+
+Current design thoughts:
+    The "editor" is a ui component that has line numbers and an area to display text.
+    It will be used to display anything that can be displayed with text; eg - file searching, etc
