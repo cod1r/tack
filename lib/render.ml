@@ -111,9 +111,11 @@ module FileModeRendering = struct
                 :: acc)
               digits []
           in
+          let line_num_with_vert_offset = line_num + vertical_scroll_y_offset in
           (if
-             line_num + vertical_scroll_y_offset
-             <= window_height / editor.config_info.font_height
+             line_num_with_vert_offset * editor.config_info.font_height >= editor.bounds.y
+             && line_num_with_vert_offset * editor.config_info.font_height
+                <= editor.bounds.y + editor.bounds.height
            then
              let curr_x_offset = ref 0 in
              List.iter
@@ -121,7 +123,7 @@ module FileModeRendering = struct
                  Stubs.write_glyph_to_text_buffer_value ~text_buffer
                    ~glyph_info:gi ~x_offset:!curr_x_offset
                    ~y_offset:
-                     ((line_num + vertical_scroll_y_offset)
+                     ((line_num_with_vert_offset)
                      * editor.config_info.font_height)
                    ~window_width ~window_height;
                  curr_x_offset := !curr_x_offset + FreeType.get_x_advance gi)
@@ -129,7 +131,7 @@ module FileModeRendering = struct
           line_num + 1
       | _ -> line_num
     in
-    let _ = Editor.traverse_rope r fold_fn_for_draw_line_numbers 0 in
+    let _ = Editor.traverse_rope r fold_fn_for_draw_line_numbers 1 in
     ()
 
   let draw_cursor ~(editor : Editor.editor) ~(r : Rope.rope) ~cursor_pos
@@ -144,7 +146,7 @@ module FileModeRendering = struct
               ~window_dims:(window_width, window_height)
               ~x:acc.x ~y:acc.y;
           {
-            x = 0;
+            x = digits_widths_summed;
             y = acc.y + editor.config_info.font_height;
             rope_pos = acc.rope_pos + 1;
           }
@@ -161,12 +163,14 @@ module FileModeRendering = struct
           in
           if
             acc.rope_pos = cursor_pos && y_pos >= editor.bounds.y
-            && y_pos <= editor.bounds.y + editor.bounds.height
+            && y_pos >= editor.bounds.y && y_pos <= editor.bounds.y + editor.bounds.height
+            && acc.x >= editor.bounds.x
+            && acc.x <= editor.bounds.x + editor.bounds.width
           then
             Stubs.write_cursor_to_buffer ~cursor_buffer ~cursor_width:3
               ~cursor_height:editor.config_info.font_height
               ~window_dims:(window_width, window_height)
-              ~x:acc.x ~y:acc.y;
+              ~x:acc.x ~y:y_pos;
           { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
     in
     let { rope_pos; x; y } =
@@ -189,7 +193,7 @@ module FileModeRendering = struct
     let fold_fn_for_drawing_text (acc : rope_traversal_info) c =
       if c = '\n' then
         {
-          acc with
+          x = digits_widths_summed;
           y = acc.y + editor.config_info.font_height;
           rope_pos = acc.rope_pos + 1;
         }
@@ -211,7 +215,7 @@ module FileModeRendering = struct
         in
         if y_pos <= editor.bounds.y + editor.bounds.height && y_pos >= 0 then
           Stubs.write_glyph_to_text_buffer_value ~text_buffer ~glyph_info:gi
-            ~x_offset:acc.x ~y_offset:acc.y ~window_width ~window_height;
+            ~x_offset:acc.x ~y_offset:y_pos ~window_width ~window_height;
         { rope_pos = acc.rope_pos + 1; x = new_x; y = new_y }
     in
     let _ =
@@ -219,7 +223,7 @@ module FileModeRendering = struct
         {
           rope_pos = 0;
           x = editor.bounds.x + digits_widths_summed;
-          y = editor.bounds.y;
+          y = editor.bounds.y + editor.config_info.font_height;
         }
     in
     ()
@@ -314,7 +318,6 @@ module Render = struct
               Stubs.write_search_to_text_buffer ~text_buffer ~glyph_info:gi
                 ~x_offset:acc.x ~window_width ~window_height
                 ~font_height:editor.config_info.font_height;
-
               { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
           | None -> failwith "NO GLYPH FOUND BRUH"
         in

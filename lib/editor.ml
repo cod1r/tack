@@ -75,12 +75,13 @@ module Editor = struct
     }
 
   let default_editor : editor =
+    let width, height = Sdl.sdl_gl_getdrawablesize () in
     {
       ropes = [];
       holding_ctrl = false;
       config_info = recalculate_info_relating_to_config ();
       current_rope_idx = None;
-      bounds = { width = 0; height = 0; x = 0; y = 0 };
+      bounds = { width; height; x = 0; y = 0 };
     }
 
   let rec traverse_rope (rope : Rope.rope) (handle_result : 'a -> char -> 'a)
