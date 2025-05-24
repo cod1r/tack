@@ -135,14 +135,9 @@ module Editor = struct
         else (closest_info.closest_col, closest_info.closest_rope)
     | None -> (None, -1)
 
-  let find_closest_rope_pos_for_cursor_on_coords ~(editor : editor) ~x ~y
-      ~digits_widths_summed =
-    let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
-    let window_width_without_high_dpi, _ = Sdl.sdl_get_window_size Sdl.w in
-    (* ratio is needed because the x,y coords given from MouseEvent is based on window without high dpi so scaling needs to happen *)
-    let ratio = window_width / window_width_without_high_dpi in
-    let x = x * ratio and y = y * ratio in
-    let fold_fn_for_close_y (closest_info : closest_information) c =
+  let find_closest_vertical_range ~(editor : editor) ~rope ~digits_widths_summed
+      ~y ~vertical_scroll_y_offset =
+    let fold_fn_for_vertical_range (closest_info : closest_information) c =
       match c with
       | '\n' ->
           {
@@ -182,6 +177,27 @@ module Editor = struct
                else closest_info.closest_vertical_range);
           }
     in
+    let lower_y =
+      editor.bounds.y
+      + (vertical_scroll_y_offset * editor.config_info.font_height)
+    in
+    let upper_y = lower_y + editor.config_info.font_height in
+    let { closest_vertical_range; _ } : closest_information =
+      traverse_rope rope fold_fn_for_vertical_range
+        {
+          lower_y;
+          upper_y;
+          closest_col = None;
+          x = editor.bounds.x + digits_widths_summed;
+          closest_rope = 0;
+          rope_pos = 0;
+          closest_vertical_range = None;
+        }
+    in
+    closest_vertical_range
+
+  let find_closest_horizontal_pos ~(editor : editor) ~rope ~x
+      ~digits_widths_summed ~vertical_scroll_y_offset ~closest_vertical_range =
     let fold_fn_for_close_x (closest_info : closest_information) c =
       match c with
       | '\n' ->
@@ -226,43 +242,46 @@ module Editor = struct
             rope_pos = closest_info.rope_pos + 1;
           }
     in
+    let lower_y =
+      editor.bounds.y
+      + (vertical_scroll_y_offset * editor.config_info.font_height)
+    in
+    let upper_y = lower_y + editor.config_info.font_height in
+    let { closest_rope; _ } : closest_information =
+      traverse_rope rope fold_fn_for_close_x
+        {
+          closest_rope = -1;
+          closest_col = None;
+          x = editor.bounds.x + digits_widths_summed;
+          lower_y;
+          upper_y;
+          rope_pos = 0;
+          closest_vertical_range;
+        }
+    in
+    closest_rope
+
+  let find_closest_rope_pos_for_cursor_on_coords ~(editor : editor) ~x ~y
+      ~digits_widths_summed =
+    let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
+    let window_width_without_high_dpi, _ = Sdl.sdl_get_window_size Sdl.w in
+    (* ratio is needed because the x,y coords given from MouseEvent is based on window without high dpi so scaling needs to happen *)
+    let ratio = window_width / window_width_without_high_dpi in
+    let x = x * ratio and y = y * ratio in
     let current_rope =
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
     in
     match current_rope with
     | File { rope; vertical_scroll_y_offset; _ } ->
         let rope = Option.get rope in
-        let lower_y =
-          editor.bounds.y
-          + (vertical_scroll_y_offset * editor.config_info.font_height)
+        let closest_vertical_range =
+          find_closest_vertical_range ~editor ~rope ~digits_widths_summed
+            ~vertical_scroll_y_offset ~y
         in
-        let upper_y = lower_y + editor.config_info.font_height in
-        let { closest_vertical_range; _ } : closest_information =
-          traverse_rope rope fold_fn_for_close_y
-            {
-              lower_y;
-              upper_y;
-              closest_col = None;
-              x = editor.bounds.x + digits_widths_summed;
-              closest_rope = 0;
-              rope_pos = 0;
-              closest_vertical_range = None;
-            }
+        let closest_rope =
+          find_closest_horizontal_pos ~editor ~rope ~digits_widths_summed
+            ~vertical_scroll_y_offset ~closest_vertical_range ~x
         in
-        let { closest_rope; closest_col; _ } : closest_information =
-          traverse_rope rope fold_fn_for_close_x
-            {
-              closest_rope = -1;
-              closest_col = None;
-              x = editor.bounds.x + digits_widths_summed;
-              lower_y;
-              upper_y;
-              rope_pos = 0;
-              closest_vertical_range;
-            }
-        in
-        Printf.printf "CLOSEST_COL: %d" (closest_col |> Option.get);
-        print_newline ();
         closest_rope
     | _ -> failwith "NOT FILE"
 end
