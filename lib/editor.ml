@@ -97,7 +97,7 @@ module Editor = struct
     let accumulation = traverse_rope rope fold_fn 0 in
     accumulation
 
-  let get_digits_widths_summed (num_lines : int) (editor : editor) =
+  let get_digits_widths_summed ~(num_lines : int) ~(editor : editor) =
     string_of_int num_lines
     |> String.fold_left
          (fun acc c ->
@@ -112,22 +112,157 @@ module Editor = struct
 
   type rope_traversal_info = { x : int; y : int; rope_pos : int }
 
-  let find_closest_rope_pos_for_cursor_on_coords (editor : editor)
-      ((x, y) : int * int) =
+  type closest_information = {
+    closest_col : int option;
+    x : int;
+    lower_y : int;
+    upper_y : int;
+    closest_vertical_range : (int * int) option;
+    closest_rope : int;
+    rope_pos : int;
+  }
+
+  let get_pair_col_and_rope_pos ~closest_info ~x =
+    match closest_info.closest_vertical_range with
+    | Some (s, e) ->
+        if closest_info.lower_y = s && closest_info.upper_y = e then
+          match closest_info.closest_col with
+          | Some closest_col ->
+              if abs (closest_col - x) < abs (closest_info.x - x) then
+                (closest_info.closest_col, closest_info.closest_rope)
+              else (Some closest_info.x, closest_info.rope_pos)
+          | None -> (Some closest_info.x, closest_info.rope_pos)
+        else (closest_info.closest_col, closest_info.closest_rope)
+    | None -> (None, -1)
+
+  let find_closest_rope_pos_for_cursor_on_coords ~(editor : editor) ~x ~y
+      ~digits_widths_summed =
     let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
     let window_width_without_high_dpi, _ = Sdl.sdl_get_window_size Sdl.w in
     (* ratio is needed because the x,y coords given from MouseEvent is based on window without high dpi so scaling needs to happen *)
     let ratio = window_width / window_width_without_high_dpi in
-    let fold_fn (traversal_info : rope_traversal_info) c = traversal_info in
+    let x = x * ratio and y = y * ratio in
+    let fold_fn_for_close_y (closest_info : closest_information) c =
+      match c with
+      | '\n' ->
+          {
+            closest_info with
+            lower_y = closest_info.lower_y + editor.config_info.font_height;
+            upper_y = closest_info.upper_y + editor.config_info.font_height;
+            x = editor.bounds.x + digits_widths_summed;
+            closest_vertical_range =
+              (if y >= closest_info.lower_y && y <= closest_info.upper_y then
+                 Some (closest_info.lower_y, closest_info.upper_y)
+               else closest_info.closest_vertical_range);
+          }
+      | _ ->
+          let _, gi =
+            Array.find_opt
+              (fun (c', _) -> c' = c)
+              editor.config_info.glyph_info_with_char
+            |> Option.get
+          in
+          let x_advance = FreeType.get_x_advance gi in
+          let new_x, new_y =
+            if
+              closest_info.x + x_advance > editor.bounds.x + editor.bounds.width
+            then
+              ( editor.bounds.x + digits_widths_summed,
+                closest_info.lower_y + editor.config_info.font_height )
+            else (closest_info.x + x_advance, closest_info.lower_y)
+          in
+          {
+            closest_info with
+            x = new_x;
+            lower_y = new_y;
+            upper_y = new_y + editor.config_info.font_height;
+            closest_vertical_range =
+              (if y >= closest_info.lower_y && y <= closest_info.upper_y then
+                 Some (closest_info.lower_y, closest_info.upper_y)
+               else closest_info.closest_vertical_range);
+          }
+    in
+    let fold_fn_for_close_x (closest_info : closest_information) c =
+      match c with
+      | '\n' ->
+          let closest_col, closest_rope =
+            get_pair_col_and_rope_pos ~closest_info ~x
+          in
+          {
+            closest_info with
+            lower_y = closest_info.lower_y + editor.config_info.font_height;
+            upper_y = closest_info.upper_y + editor.config_info.font_height;
+            x = editor.bounds.x + digits_widths_summed;
+            rope_pos = closest_info.rope_pos + 1;
+            closest_col;
+            closest_rope;
+          }
+      | _ ->
+          let _, gi =
+            Array.find_opt
+              (fun (c', _) -> c' = c)
+              editor.config_info.glyph_info_with_char
+            |> Option.get
+          in
+          let x_advance = FreeType.get_x_advance gi in
+          let closest_col, closest_rope =
+            get_pair_col_and_rope_pos ~closest_info ~x
+          in
+          let new_x, new_y =
+            if
+              closest_info.x + x_advance > editor.bounds.x + editor.bounds.width
+            then
+              ( editor.bounds.x + digits_widths_summed,
+                closest_info.lower_y + editor.config_info.font_height )
+            else (closest_info.x + x_advance, closest_info.lower_y)
+          in
+          {
+            closest_info with
+            x = new_x;
+            lower_y = new_y;
+            upper_y = new_y + editor.config_info.font_height;
+            closest_col;
+            closest_rope;
+            rope_pos = closest_info.rope_pos + 1;
+          }
+    in
     let current_rope =
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
     in
     match current_rope with
     | File { rope; vertical_scroll_y_offset; _ } ->
-        let _ =
-          traverse_rope (rope |> Option.get) fold_fn
-            ({ x = 0; y = 0; rope_pos = 0 } : rope_traversal_info)
+        let rope = Option.get rope in
+        let lower_y =
+          editor.bounds.y
+          + (vertical_scroll_y_offset * editor.config_info.font_height)
         in
-        0
+        let upper_y = lower_y + editor.config_info.font_height in
+        let { closest_vertical_range; _ } : closest_information =
+          traverse_rope rope fold_fn_for_close_y
+            {
+              lower_y;
+              upper_y;
+              closest_col = None;
+              x = editor.bounds.x + digits_widths_summed;
+              closest_rope = 0;
+              rope_pos = 0;
+              closest_vertical_range = None;
+            }
+        in
+        let { closest_rope; closest_col; _ } : closest_information =
+          traverse_rope rope fold_fn_for_close_x
+            {
+              closest_rope = -1;
+              closest_col = None;
+              x = editor.bounds.x + digits_widths_summed;
+              lower_y;
+              upper_y;
+              rope_pos = 0;
+              closest_vertical_range;
+            }
+        in
+        Printf.printf "CLOSEST_COL: %d" (closest_col |> Option.get);
+        print_newline ();
+        closest_rope
     | _ -> failwith "NOT FILE"
 end

@@ -215,8 +215,13 @@ module FileMode : Mode = struct
                 Printf.printf "Mousedown %d, %d\n" x y;
                 let crp =
                   if Option.is_some rope then
-                    Editor.find_closest_rope_pos_for_cursor_on_coords editor
-                      (x, y)
+                    let rope = Option.get rope in
+                    let num_lines = Editor.num_lines rope in
+                    let digits_widths_summed =
+                      Editor.get_digits_widths_summed ~num_lines ~editor
+                    in
+                    Editor.find_closest_rope_pos_for_cursor_on_coords ~editor ~x
+                      ~y ~digits_widths_summed
                   else 0
                 in
                 Printf.printf "ROPE POS: %d" crp;
@@ -243,12 +248,6 @@ module FileMode : Mode = struct
             | Mouseup ->
                 Printf.printf "Mouseup: %d %d" x y;
                 print_newline ();
-                let crp =
-                  if Option.is_some rope then
-                    Editor.find_closest_rope_pos_for_cursor_on_coords editor
-                      (x, y)
-                  else 0
-                in
                 let new_rope_wrapper =
                   Editor.File
                     {

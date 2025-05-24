@@ -113,7 +113,8 @@ module FileModeRendering = struct
           in
           let line_num_with_vert_offset = line_num + vertical_scroll_y_offset in
           (if
-             line_num_with_vert_offset * editor.config_info.font_height >= editor.bounds.y
+             line_num_with_vert_offset * editor.config_info.font_height
+             >= editor.bounds.y
              && line_num_with_vert_offset * editor.config_info.font_height
                 <= editor.bounds.y + editor.bounds.height
            then
@@ -123,8 +124,7 @@ module FileModeRendering = struct
                  Stubs.write_glyph_to_text_buffer_value ~text_buffer
                    ~glyph_info:gi ~x_offset:!curr_x_offset
                    ~y_offset:
-                     ((line_num_with_vert_offset)
-                     * editor.config_info.font_height)
+                     (line_num_with_vert_offset * editor.config_info.font_height)
                    ~window_width ~window_height;
                  curr_x_offset := !curr_x_offset + FreeType.get_x_advance gi)
                glyph_infos);
@@ -163,7 +163,8 @@ module FileModeRendering = struct
           in
           if
             acc.rope_pos = cursor_pos && y_pos >= editor.bounds.y
-            && y_pos >= editor.bounds.y && y_pos <= editor.bounds.y + editor.bounds.height
+            && y_pos >= editor.bounds.y
+            && y_pos <= editor.bounds.y + editor.bounds.height
             && acc.x >= editor.bounds.x
             && acc.x <= editor.bounds.x + editor.bounds.width
           then
@@ -289,7 +290,7 @@ module Render = struct
         | Some r ->
             let lines = Editor.num_lines r in
             let digits_widths_summed =
-              Editor.get_digits_widths_summed lines editor
+              Editor.get_digits_widths_summed ~num_lines:lines ~editor
             in
             FileModeRendering.draw_line_numbers ~editor ~r
               ~vertical_scroll_y_offset ~window_width ~window_height

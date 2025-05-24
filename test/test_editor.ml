@@ -25,11 +25,13 @@ let cursor_positioning_on_mousedown_test _ =
     }
   in
   let rope_pos =
-    Editor.find_closest_rope_pos_for_cursor_on_coords editor (200, 0)
+    Editor.find_closest_rope_pos_for_cursor_on_coords ~editor ~x:200 ~y:0
+      ~digits_widths_summed:0
   in
   assert_equal rope_pos 1;
   let rope_pos =
-    Editor.find_closest_rope_pos_for_cursor_on_coords editor (500, 500)
+    Editor.find_closest_rope_pos_for_cursor_on_coords ~editor ~x:500 ~y:500
+      ~digits_widths_summed:0
   in
   assert_equal rope_pos (Tack.Rope.length rope)
 
