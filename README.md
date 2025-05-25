@@ -72,5 +72,7 @@ findings about behavior on linux vs macos:
   - on linux, the opengl viewport is not resized to match the window size/resize but on macos, it is
 
 Current design thoughts:
-    The "editor" is a ui component that has line numbers and an area to display text.
-    It will be used to display anything that can be displayed with text; eg - file searching, etc
+- The "editor" is a ui component that has line numbers and an area to display text.
+It will be used to display anything that can be displayed with text; eg - file searching, etc
+- Maybe things should be built like a window manager but for text editing?
+- Binary Space Partition?

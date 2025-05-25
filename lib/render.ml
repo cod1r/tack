@@ -159,7 +159,7 @@ module FileModeRendering = struct
           in
           let x_advance = FreeType.get_x_advance glyph_info
           and y_pos =
-            acc.y + (vertical_scroll_y_offset * editor.config_info.font_height)
+            acc.y
           in
           if
             acc.rope_pos = cursor_pos && y_pos >= editor.bounds.y
@@ -178,7 +178,7 @@ module FileModeRendering = struct
       Editor.traverse_rope r fold_fn_draw_cursor
         {
           x = editor.bounds.x + digits_widths_summed;
-          y = editor.bounds.y;
+          y = editor.bounds.y + (vertical_scroll_y_offset * editor.config_info.font_height);
           rope_pos = 0;
         }
     in
