@@ -261,6 +261,16 @@ module Editor = struct
     in
     closest_rope
 
+  (*
+     The algorithm for finding the closest rope position in the rope data structure
+     given an x and a y from mousedown event:
+
+       1. Find the vertical range that the y value resides in by traversing the rope and
+          building up x and y values according to the screen coordinates. Top left is the origin
+          and far right is window_width (drawable size) and bottom most is window_height (drawable size).
+       2. Find the horizontal x position, that is built from traversing the rope again given the vertical range,
+          that is within the vertical range and is closest to the x value for the mousedown event.
+   *)
   let find_closest_rope_pos_for_cursor_on_coords ~(editor : editor) ~x ~y
       ~digits_widths_summed =
     let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
