@@ -30,5 +30,8 @@ module FreeType = struct
   external free_glyph_info : glyph_info -> unit
     = "free_glyph_info" "free_glyph_info"
 
+  external get_descender : ft_face -> int = "get_descender" "get_descender"
+
   let library = freetype_init_library ()
+
 end

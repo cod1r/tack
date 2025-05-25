@@ -124,7 +124,7 @@ module FileModeRendering = struct
                  Stubs.write_glyph_to_text_buffer_value ~text_buffer
                    ~glyph_info:gi ~x_offset:!curr_x_offset
                    ~y_offset:
-                     (line_num_with_vert_offset * editor.config_info.font_height)
+                     (line_num_with_vert_offset * editor.config_info.font_height + editor.config_info.descender)
                    ~window_width ~window_height;
                  curr_x_offset := !curr_x_offset + FreeType.get_x_advance gi)
                glyph_infos);
@@ -214,9 +214,11 @@ module FileModeRendering = struct
         let y_pos =
           acc.y + (vertical_scroll_y_offset * editor.config_info.font_height)
         in
+        (* descender is a negative value *)
+        let descender = editor.config_info.descender in
         if y_pos <= editor.bounds.y + editor.bounds.height && y_pos >= 0 then
           Stubs.write_glyph_to_text_buffer_value ~text_buffer ~glyph_info:gi
-            ~x_offset:acc.x ~y_offset:y_pos ~window_width ~window_height;
+            ~x_offset:acc.x ~y_offset:(y_pos + descender) ~window_width ~window_height;
         { rope_pos = acc.rope_pos + 1; x = new_x; y = new_y }
     in
     let _ =

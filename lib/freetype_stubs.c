@@ -10,6 +10,13 @@
 #include <string.h>
 #include "stubs.h"
 
+CAMLprim value get_descender(value face) {
+  CAMLparam1(face);
+  FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
+  int descender = (*face_c)->size->metrics.descender >> 6;
+  CAMLreturn(Val_int(descender));
+}
+
 CAMLprim value get_font_height(value face) {
   CAMLparam1(face);
   FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);

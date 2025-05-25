@@ -10,6 +10,7 @@ module Editor = struct
     ft_face : FreeType.ft_face;
     pixel_size : int;
     font_height : int;
+    descender : int;
   }
 
   type rope_wrapper =
@@ -64,6 +65,7 @@ module Editor = struct
     FreeType.freetype_set_pixel_sizes face font_pixel_size;
     (* need to call font_height after set_pixel_sizes *)
     let font_height = FreeType.get_font_height face in
+    let descender = FreeType.get_descender face in
     {
       glyph_info_with_char =
         Array.init
@@ -72,6 +74,7 @@ module Editor = struct
       ft_face = face;
       pixel_size = font_pixel_size;
       font_height;
+      descender;
     }
 
   let default_editor : editor =
