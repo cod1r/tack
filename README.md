@@ -56,6 +56,7 @@ MOUSEDOWN handling needs to be more accurate
 rope data structure needs to be built in a way such that there is less depth for SPEED (basically balance between leaf length and tree depth)
 
 more things to do:
+  - cursor movement with arrow keys
   - important to establish some kind of layout logic, where components/UI elements can know it's own width/height
   - for some reason, when switching to a file, text is highlighted from the beginning to where the last cursor click position was
   - There is too much nested state, so things are hard to read. this means another session of code cleanup

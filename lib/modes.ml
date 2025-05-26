@@ -36,6 +36,43 @@ module FileMode : Mode = struct
                 match kbd_evt_type with
                 | Sdl.Keydown -> { editor with holding_ctrl = true }
                 | Keyup -> { editor with holding_ctrl = false })
+            | 1073741904 (* left arrow key *) when kbd_evt_type = Keydown ->
+                let new_rope_wrapper =
+                  Editor.File
+                    {
+                      rope;
+                      cursor_pos = max 0 (cursor_pos - 1);
+                      file_name;
+                      vertical_scroll_y_offset;
+                      last_modification_time;
+                      highlight;
+                    }
+                in
+                let new_editor = { editor with ropes = new_rope_wrapper :: other_rope_wrappers } in
+                Render.draw new_editor;
+                new_editor
+            | 1073741906 (* up arrow key *) when kbd_evt_type = Keydown -> editor
+            | 1073741903 (* right arrow key *) when kbd_evt_type = Keydown ->
+                let new_rope_wrapper =
+                  Editor.File
+                    {
+                      rope;
+                      cursor_pos =
+                        min
+                          (if Option.is_some rope then
+                             Option.get rope |> Rope.length
+                           else 0)
+                          (cursor_pos + 1);
+                      file_name;
+                      vertical_scroll_y_offset;
+                      last_modification_time;
+                      highlight;
+                    }
+                in
+                let new_editor = { editor with ropes = new_rope_wrapper :: other_rope_wrappers } in
+                Render.draw new_editor;
+                new_editor
+            | 1073741905 (* down arrow key *) when kbd_evt_type = Keydown -> editor
             | _ -> (
                 match keysym with
                 | '\b' when kbd_evt_type = Keydown ->
@@ -290,8 +327,7 @@ module FileMode : Mode = struct
               if Option.is_some rope then Editor.num_lines (Option.get rope)
               else 0
             in
-            let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
-            let limit = window_width / editor.config_info.font_height in
+            let limit = 0 in
             let new_rope_wrapper =
               Editor.File
                 {

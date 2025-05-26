@@ -33,5 +33,4 @@ module FreeType = struct
   external get_descender : ft_face -> int = "get_descender" "get_descender"
 
   let library = freetype_init_library ()
-
 end
