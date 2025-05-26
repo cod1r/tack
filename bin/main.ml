@@ -15,17 +15,16 @@ let rec loop (editor_info : Editor.editor) =
     | None -> (editor_info, true)
     | _ -> (
         match editor_info.current_rope_idx with
-        | Some idx -> (
+        | Some idx ->
             let rope = List.nth editor_info.ropes idx in
-            let (editor, continue) = match rope with
-            | File _ -> (FileMode.handle_mode_evt editor_info evt, true)
-            | FileSearch _ ->
-                (FileSearchMode.handle_mode_evt editor_info evt, true)
-
+            let editor, continue =
+              match rope with
+              | File _ -> (FileMode.handle_mode_evt editor_info evt, true)
+              | FileSearch _ ->
+                  (FileSearchMode.handle_mode_evt editor_info evt, true)
             in
             Render.draw editor;
             (editor, continue)
-                )
         | None -> (editor_info, true))
   in
   if continue then loop new_editor else ()

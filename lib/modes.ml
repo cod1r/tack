@@ -48,9 +48,41 @@ module FileMode : Mode = struct
                       highlight;
                     }
                 in
-                let new_editor = { editor with ropes = new_rope_wrapper :: other_rope_wrappers } in
+                let new_editor =
+                  {
+                    editor with
+                    ropes = new_rope_wrapper :: other_rope_wrappers;
+                  }
+                in
                 new_editor
-            | 1073741906 (* up arrow key *) when kbd_evt_type = Keydown -> editor
+            | 1073741906 (* up arrow key *) when kbd_evt_type = Keydown ->
+                let Editor.{ x; y; _ } =
+                  Editor.find_coords_for_cursor_pos ~editor
+                in
+                let cursor_pos =
+                  Editor
+                  .find_closest_rope_pos_for_moving_cursor_in_vertical_range
+                    ~editor ~cursor_x:x
+                    ~lower_y:(max editor.bounds.y (y - editor.config_info.font_height))
+                in
+                let new_rope_wrapper =
+                  Editor.File
+                    {
+                      rope;
+                      cursor_pos;
+                      file_name;
+                      vertical_scroll_y_offset;
+                      last_modification_time;
+                      highlight;
+                    }
+                in
+                let new_editor =
+                  {
+                    editor with
+                    ropes = new_rope_wrapper :: other_rope_wrappers;
+                  }
+                in
+                new_editor
             | 1073741903 (* right arrow key *) when kbd_evt_type = Keydown ->
                 let new_rope_wrapper =
                   Editor.File
@@ -68,15 +100,47 @@ module FileMode : Mode = struct
                       highlight;
                     }
                 in
-                let new_editor = { editor with ropes = new_rope_wrapper :: other_rope_wrappers } in
+                let new_editor =
+                  {
+                    editor with
+                    ropes = new_rope_wrapper :: other_rope_wrappers;
+                  }
+                in
                 new_editor
-            | 1073741905 (* down arrow key *) when kbd_evt_type = Keydown -> editor
+            | 1073741905 (* down arrow key *) when kbd_evt_type = Keydown ->
+                let Editor.{ x; y; _ } =
+                  Editor.find_coords_for_cursor_pos ~editor
+                in
+                let cursor_pos =
+                  Editor
+                  .find_closest_rope_pos_for_moving_cursor_in_vertical_range
+                    ~editor ~cursor_x:x
+                    ~lower_y:(y + editor.config_info.font_height)
+                in
+                let new_rope_wrapper =
+                  Editor.File
+                    {
+                      rope;
+                      cursor_pos;
+                      file_name;
+                      vertical_scroll_y_offset;
+                      last_modification_time;
+                      highlight;
+                    }
+                in
+                let new_editor =
+                  {
+                    editor with
+                    ropes = new_rope_wrapper :: other_rope_wrappers;
+                  }
+                in
+                new_editor
             | _ -> (
                 match keysym with
                 | '\b' when kbd_evt_type = Keydown ->
                     (* backspace *)
                     let rope_len = Rope.length r in
-                    if rope_len > 0 && cursor_pos > 0 then (
+                    if rope_len > 0 && cursor_pos > 0 then
                       let new_rope =
                         Some
                           (match highlight with
@@ -102,7 +166,7 @@ module FileMode : Mode = struct
                           current_rope_idx = Some 0;
                         }
                       in
-                      new_editor)
+                      new_editor
                     else editor
                 | 'c' when kbd_evt_type = Keydown ->
                     (match (rope, highlight) with
@@ -398,7 +462,7 @@ module FileSearchMode : Mode = struct
                     | '\b' when kbd_evt_type = Keydown ->
                         (* backspace *)
                         let rope_len = Rope.length r in
-                        if rope_len > 0 && cursor_pos > 0 then (
+                        if rope_len > 0 && cursor_pos > 0 then
                           let new_rope =
                             Some (Rope.delete r ~start:(cursor_pos - 1) ~len:1)
                           in
@@ -417,7 +481,7 @@ module FileSearchMode : Mode = struct
                               current_rope_idx = Some 0;
                             }
                           in
-                          new_editor)
+                          new_editor
                         else editor
                     | 'c' when kbd_evt_type = Keydown -> editor
                     | 'v' when kbd_evt_type = Keydown -> (
