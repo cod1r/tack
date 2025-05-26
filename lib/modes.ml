@@ -59,19 +59,23 @@ module FileMode : Mode = struct
                 let Editor.{ x; y; _ } =
                   Editor.find_coords_for_cursor_pos ~editor
                 in
-                let cursor_pos =
+                let cursor_pos' =
                   Editor
                   .find_closest_rope_pos_for_moving_cursor_in_vertical_range
                     ~editor ~cursor_x:x
-                    ~lower_y:(max editor.bounds.y (y - editor.config_info.font_height))
+                    ~lower_y:
+                      (y - editor.config_info.font_height)
                 in
                 let new_rope_wrapper =
                   Editor.File
                     {
                       rope;
-                      cursor_pos;
+                      cursor_pos = max 0 cursor_pos';
                       file_name;
-                      vertical_scroll_y_offset;
+                      vertical_scroll_y_offset =
+                        (if y = editor.bounds.y then
+                           min 0 (vertical_scroll_y_offset + 1)
+                         else vertical_scroll_y_offset);
                       last_modification_time;
                       highlight;
                     }
@@ -108,33 +112,42 @@ module FileMode : Mode = struct
                 in
                 new_editor
             | 1073741905 (* down arrow key *) when kbd_evt_type = Keydown ->
-                let Editor.{ x; y; _ } =
-                  Editor.find_coords_for_cursor_pos ~editor
-                in
-                let cursor_pos =
-                  Editor
-                  .find_closest_rope_pos_for_moving_cursor_in_vertical_range
-                    ~editor ~cursor_x:x
-                    ~lower_y:(y + editor.config_info.font_height)
-                in
-                let new_rope_wrapper =
-                  Editor.File
+                if Option.is_some rope then
+                  let num_lines = Editor.num_lines (Option.get rope) in
+                  let Editor.{ x; y; _ } =
+                    Editor.find_coords_for_cursor_pos ~editor
+                  in
+                  let cursor_pos =
+                    Editor
+                    .find_closest_rope_pos_for_moving_cursor_in_vertical_range
+                      ~editor ~cursor_x:x
+                      ~lower_y:(y + editor.config_info.font_height)
+                  in
+                  let new_rope_wrapper =
+                    Editor.File
+                      {
+                        rope;
+                        cursor_pos;
+                        file_name;
+                        vertical_scroll_y_offset =
+                          (if
+                             y + editor.config_info.font_height
+                             = editor.bounds.y + editor.bounds.height
+                           then
+                             max (-num_lines + 1) (vertical_scroll_y_offset - 1)
+                           else vertical_scroll_y_offset);
+                        last_modification_time;
+                        highlight;
+                      }
+                  in
+                  let new_editor =
                     {
-                      rope;
-                      cursor_pos;
-                      file_name;
-                      vertical_scroll_y_offset;
-                      last_modification_time;
-                      highlight;
+                      editor with
+                      ropes = new_rope_wrapper :: other_rope_wrappers;
                     }
-                in
-                let new_editor =
-                  {
-                    editor with
-                    ropes = new_rope_wrapper :: other_rope_wrappers;
-                  }
-                in
-                new_editor
+                  in
+                  new_editor
+                else editor
             | _ -> (
                 match keysym with
                 | '\b' when kbd_evt_type = Keydown ->

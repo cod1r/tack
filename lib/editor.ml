@@ -301,7 +301,9 @@ module Editor = struct
   let calc_new_xy ~(char : char) ~(editor : editor) ~x ~y ~digits_widths_summed
       =
     match char with
-    | '\n' -> (editor.bounds.x + digits_widths_summed, y + editor.config_info.font_height)
+    | '\n' ->
+        ( editor.bounds.x + digits_widths_summed,
+          y + editor.config_info.font_height )
     | _ ->
         let _, gi =
           Array.find_opt
