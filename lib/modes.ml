@@ -49,7 +49,6 @@ module FileMode : Mode = struct
                     }
                 in
                 let new_editor = { editor with ropes = new_rope_wrapper :: other_rope_wrappers } in
-                Render.draw new_editor;
                 new_editor
             | 1073741906 (* up arrow key *) when kbd_evt_type = Keydown -> editor
             | 1073741903 (* right arrow key *) when kbd_evt_type = Keydown ->
@@ -70,7 +69,6 @@ module FileMode : Mode = struct
                     }
                 in
                 let new_editor = { editor with ropes = new_rope_wrapper :: other_rope_wrappers } in
-                Render.draw new_editor;
                 new_editor
             | 1073741905 (* down arrow key *) when kbd_evt_type = Keydown -> editor
             | _ -> (
@@ -104,7 +102,6 @@ module FileMode : Mode = struct
                           current_rope_idx = Some 0;
                         }
                       in
-                      Render.draw new_editor;
                       new_editor)
                     else editor
                 | 'c' when kbd_evt_type = Keydown ->
@@ -143,7 +140,6 @@ module FileMode : Mode = struct
                             current_rope_idx = Some 0;
                           }
                         in
-                        Render.draw new_editor;
                         new_editor
                     | false -> editor)
                 | 's' when kbd_evt_type = Keydown ->
@@ -177,7 +173,6 @@ module FileMode : Mode = struct
                         current_rope_idx = Some 0;
                       }
                     in
-                    Render.draw new_editor;
                     new_editor
                 | '\t' when kbd_evt_type = Keydown ->
                     (* horizontal tab will be two spaces *)
@@ -200,7 +195,6 @@ module FileMode : Mode = struct
                         current_rope_idx = Some 0;
                       }
                     in
-                    Render.draw new_editor;
                     new_editor
                 | 'p' when kbd_evt_type = Keydown && editor.holding_ctrl ->
                     let new_rope_wrapper =
@@ -213,7 +207,6 @@ module FileMode : Mode = struct
                         ropes = new_rope_wrapper :: other_rope_wrappers;
                       }
                     in
-                    Render.draw new_editor;
                     new_editor
                 | _ -> editor))
         | None -> editor)
@@ -280,7 +273,6 @@ module FileMode : Mode = struct
                     ropes = new_rope_wrapper :: other_rope_wrappers;
                   }
                 in
-                Render.draw new_editor;
                 new_editor
             | Mouseup ->
                 Printf.printf "Mouseup: %d %d" x y;
@@ -305,7 +297,6 @@ module FileMode : Mode = struct
                     ropes = new_rope_wrapper :: other_rope_wrappers;
                   }
                 in
-                Render.draw new_editor;
                 new_editor)
         | Some (WindowEvt { event; _ }) -> (
             match event with
@@ -315,7 +306,6 @@ module FileMode : Mode = struct
                   Sdl.sdl_gl_getdrawablesize ()
                 in
                 Opengl.gl_set_viewport 0 0 window_width window_height;
-                Render.draw editor;
                 editor
             | Unhandled -> editor)
         | Some (MouseMotionEvt _) ->
@@ -348,7 +338,6 @@ module FileMode : Mode = struct
                 current_rope_idx = Some 0;
               }
             in
-            Render.draw new_editor;
             new_editor
         | Some (TextInputEvt { text; _ }) ->
             let new_rope =
@@ -374,7 +363,6 @@ module FileMode : Mode = struct
                 current_rope_idx = Some 0;
               }
             in
-            Render.draw new_editor;
             new_editor
         | _ -> editor)
     | _ -> editor
@@ -429,7 +417,6 @@ module FileSearchMode : Mode = struct
                               current_rope_idx = Some 0;
                             }
                           in
-                          Render.draw new_editor;
                           new_editor)
                         else editor
                     | 'c' when kbd_evt_type = Keydown -> editor
@@ -464,7 +451,6 @@ module FileSearchMode : Mode = struct
                                 current_rope_idx = Some 0;
                               }
                             in
-                            Render.draw new_editor;
                             new_editor
                         | false -> editor)
                     | 's' when kbd_evt_type = Keydown -> editor
@@ -487,7 +473,6 @@ module FileSearchMode : Mode = struct
                             current_rope_idx = Some 0;
                           }
                         in
-                        Render.draw new_editor;
                         new_editor
                     | _ -> editor))
             | None -> (
@@ -586,7 +571,6 @@ module FileSearchMode : Mode = struct
                     current_rope_idx = Some 0;
                   }
                 in
-                Render.draw new_editor;
                 new_editor)
         | Some (WindowEvt { event; _ }) -> (
             match event with
@@ -596,7 +580,6 @@ module FileSearchMode : Mode = struct
                   Sdl.sdl_gl_getdrawablesize ()
                 in
                 Opengl.gl_set_viewport 0 0 window_width window_height;
-                Render.draw editor;
                 editor
             | Unhandled -> editor)
         | Some (MouseMotionEvt _) ->
@@ -632,7 +615,6 @@ module FileSearchMode : Mode = struct
                 current_rope_idx = Some 0;
               }
             in
-            Render.draw new_editor;
             new_editor
         | _ -> editor)
     | _ -> failwith "NOT FILE SEARCH"
