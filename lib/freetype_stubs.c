@@ -4,6 +4,7 @@
 #include <caml/memory.h>
 #include <caml/alloc.h>
 #include <caml/fail.h>
+#include <caml/bigarray.h>
 #include <SDL.h>
 #include <hb.h>
 #include <stdio.h>
@@ -37,6 +38,54 @@ CAMLprim value get_x_advance(value glyph_info) {
   CAMLparam1(glyph_info);
   struct GlyphInfo* glyph_info_c = *(struct GlyphInfo**)Data_abstract_val(glyph_info);
   CAMLreturn(Val_int(glyph_info_c->x_advance));
+}
+
+CAMLprim value get_ascii_char_glyph_info_(value face, value ascii) {
+  CAMLparam2(face, ascii);
+  CAMLlocal1(glyph_info);
+  CAMLlocal1(tuple);
+  CAMLlocal1(bytes);
+
+  int ascii_value = Int_val(ascii);
+  if (ascii_value < 32 || ascii_value > 126) caml_failwith("ascii value out of range");
+
+  FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
+
+  FT_UInt glyph_index = FT_Get_Char_Index(*face_c, ascii_value);
+  int result = FT_Load_Glyph(*face_c, glyph_index, FT_LOAD_RENDER | FT_LOAD_TARGET_LCD);
+  if (result) {
+    caml_failwith("ascii FT_Load_Glyph failed");
+  }
+
+  glyph_info = caml_alloc(5, 0);
+  tuple = caml_alloc(2, 0);
+
+  FT_Bitmap bitmap = (*face_c)->glyph->bitmap;
+
+  int size = bitmap.rows * bitmap.width * 3;
+
+  bytes = caml_alloc_string(size);
+
+  int buffer_idx = 0;
+  for (int y = 0; y < bitmap.rows; ++y) {
+    for (int x = 0; x < bitmap.width; ++x) {
+      unsigned char alpha = bitmap.buffer[y * bitmap.pitch + x];
+      Bytes_val(bytes)[buffer_idx] = x;
+      Bytes_val(bytes)[buffer_idx + 1] = y;
+      Bytes_val(bytes)[buffer_idx + 2] = alpha;
+      buffer_idx += 3;
+    }
+  }
+
+  Store_field(glyph_info, 0, Val_int((*face_c)->glyph->metrics.horiBearingX >> 6));
+  Store_field(glyph_info, 1, Val_int((*face_c)->glyph->metrics.horiBearingY >> 6));
+  Store_field(glyph_info, 2, Val_int((*face_c)->glyph->advance.x >> 6));
+  Store_field(glyph_info, 3, Val_int((*face_c)->glyph->advance.y >> 6));
+  Store_field(glyph_info, 4, bytes);
+
+  Store_field(tuple, 0, Val_int(ascii_value));
+  Store_field(tuple, 1, glyph_info);
+  CAMLreturn(tuple);
 }
 
 CAMLprim value get_ascii_char_glyph(value face, value ascii) {

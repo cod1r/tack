@@ -37,7 +37,7 @@ let gl_gen_one_buffer_test _ =
 
 let timing_test_writing_bigarray _ =
   let start = Unix.gettimeofday () in
-  let bigarray = Bigarray.Array1.create Float32 C_layout 10_000_000 in
+  let bigarray = Bigarray.Array1.create Float32 C_layout 100_000_000 in
   for i = 0 to Bigarray.Array1.dim bigarray - 1 do
     bigarray.{i} <- i |> Int.to_float
   done;
@@ -46,12 +46,14 @@ let timing_test_writing_bigarray _ =
     ("Writing "
     ^ Int.to_string (Bigarray.Array1.dim bigarray)
     ^ "i times in big array slow")
-    (end' < 0.09)
+    (end' < 0.10)
 
 let tests =
   "render tests"
-  >::: [ (*"gl set up" >:: timing_test_opengl_works;*)
+  >::: [
+         (*"gl set up" >:: timing_test_opengl_works;*)
          (* "gl_gen_one_buffer test" >:: gl_gen_one_buffer_test; *)
-         (* "writing to bigarray time test" >:: timing_test_writing_bigarray; *) ]
+         "writing to bigarray time test" >:: timing_test_writing_bigarray;
+       ]
 
 let () = run_test_tt_main tests

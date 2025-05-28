@@ -42,6 +42,56 @@ let compile_shaders_and_return_program ~vertex_id ~fragment_id ~vertex_src
 
 type rope_traversal_info = { x : int; y : int; rope_pos : int }
 
+type render_buffer =
+  (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t
+
+type render_buffer_wrapper = { text_buf : render_buffer; mutable length : int }
+
+let better_text_buffer : render_buffer_wrapper =
+  {
+    text_buf =
+      Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
+        (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT);
+    length = 0;
+  }
+
+let write_to_render_buffer ~(render_buf_container : render_buffer_wrapper)
+    ~(glyph_info : FreeType.glyph_info_) ~x ~y ~window_width ~window_height =
+  let start = render_buf_container.length in
+  let new_x =
+    ((Bytes.get glyph_info.bytes (render_buf_container.length - start))
+    |> Char.code |> Float.of_int)
+    /. 3.
+    +. Float.of_int x
+    +. Float.of_int glyph_info.horiBearingX
+  in
+  let new_x = new_x /. Float.of_int window_width in
+  let new_x = new_x -. 1. in
+  render_buf_container.text_buf.{render_buf_container.length} <- new_x;
+  render_buf_container.length <- render_buf_container.length + 1;
+  let new_y =
+    -.((Bytes.get glyph_info.bytes (render_buf_container.length - start)
+       |> Char.code |> Float.of_int)
+      +. Float.of_int y)
+    +. Float.of_int glyph_info.horiBearingY
+  in
+  let new_y = new_y /. Float.of_int window_height in
+  let new_y = new_y +. 1. in
+  render_buf_container.text_buf.{render_buf_container.length} <- new_y;
+  render_buf_container.length <- render_buf_container.length + 1;
+  let alpha_value =
+    Bytes.get glyph_info.bytes (render_buf_container.length - start)
+    |> Char.code |> Float.of_int
+  in
+  render_buf_container.text_buf.{render_buf_container.length} <- 0.;
+  render_buf_container.length <- render_buf_container.length + 1;
+  render_buf_container.text_buf.{render_buf_container.length} <- 0.;
+  render_buf_container.length <- render_buf_container.length + 1;
+  render_buf_container.text_buf.{render_buf_container.length} <- 0.;
+  render_buf_container.length <- render_buf_container.length + 1;
+  render_buf_container.text_buf.{render_buf_container.length} <- alpha_value;
+  render_buf_container.length <- render_buf_container.length + 1
+
 module FileModeRendering = struct
   let draw_highlight ~(editor : Editor.editor) ~(r : Rope.rope) ~highlight
       ~vertical_scroll_y_offset ~window_width ~window_height ~highlight_buffer
@@ -216,10 +266,19 @@ module FileModeRendering = struct
         in
         (* descender is a negative value *)
         let descender = editor.config_info.descender in
-        if y_pos <= editor.bounds.y + editor.bounds.height && y_pos >= 0 then
-          Stubs.write_glyph_to_text_buffer_value ~text_buffer ~glyph_info:gi
-            ~x_offset:acc.x ~y_offset:(y_pos + descender) ~window_width
-            ~window_height;
+        let _, ogi =
+          Array.find_opt
+            (fun (c', _) -> c' = c)
+            editor.config_info.other_glyph_info_with_char
+          |> Option.get
+        in
+        if y_pos <= editor.bounds.y + editor.bounds.height && y_pos >= 0 && Bytes.length ogi.bytes > 0 then
+          (* Stubs.write_glyph_to_text_buffer_value ~text_buffer ~glyph_info:gi *)
+          (*   ~x_offset:acc.x ~y_offset:(y_pos + descender) ~window_width *)
+          (*   ~window_height *)
+          write_to_render_buffer ~render_buf_container:better_text_buffer
+            ~x:acc.x ~y:(y_pos + descender) ~window_width ~window_height
+            ~glyph_info:ogi;
         { rope_pos = acc.rope_pos + 1; x = new_x; y = new_y }
     in
     let _ =

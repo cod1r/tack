@@ -63,8 +63,7 @@ module FileMode : Mode = struct
                   Editor
                   .find_closest_rope_pos_for_moving_cursor_in_vertical_range
                     ~editor ~cursor_x:x
-                    ~lower_y:
-                      (y - editor.config_info.font_height)
+                    ~lower_y:(y - editor.config_info.font_height)
                 in
                 let new_rope_wrapper =
                   Editor.File

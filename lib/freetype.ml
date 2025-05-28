@@ -4,6 +4,14 @@ module FreeType = struct
   type ft_bitmap
   type glyph_info
 
+  type glyph_info_ = {
+    horiBearingX : int;
+    horiBearingY : int;
+    x_advance : int;
+    y_advance : int;
+    bytes : bytes;
+  }
+
   external get_font_height : ft_face -> int
     = "get_font_height" "get_font_height"
 
@@ -11,6 +19,9 @@ module FreeType = struct
 
   external get_horiBearingX : glyph_info -> int
     = "get_horiBearingX" "get_horiBearingX"
+
+  external get_ascii_char_glyph_info_ : ft_face -> int -> char * glyph_info_
+    = "get_ascii_char_glyph_info_" "get_ascii_char_glyph_info_"
 
   external get_ascii_char_glyph : ft_face -> int -> char * glyph_info
     = "get_ascii_char_glyph" "get_ascii_char_glyph"
