@@ -68,9 +68,9 @@ module Editor = struct
     let font_height = FreeType.get_font_height face in
     let descender = FreeType.get_descender face in
     let other_glyph_info_with_char =
-        Array.init
-          (126 - 32 + 1)
-          (fun i -> FreeType.get_ascii_char_glyph_info_ face (i + 32))
+      Array.init
+        (126 - 32 + 1)
+        (fun i -> FreeType.get_ascii_char_glyph_info_ face (i + 32))
     in
     {
       other_glyph_info_with_char;

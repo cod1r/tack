@@ -1,6 +1,9 @@
 (* abstract data type for a float32 array in c *)
 type buffer
 
+type render_buffer =
+  (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t
+
 let _EACH_POINT_FLOAT_AMOUNT = 6
 
 external gl_enable_blending : unit -> unit
@@ -56,6 +59,14 @@ external gl_get_shader_compile_status : int -> bool
   = "gl_get_shader_compile_status" "gl_get_shader_compile_status"
 
 external gl_buffer_data : buffer -> unit = "gl_buffer_data" "gl_buffer_data"
+
+external gl_buffer_data_big_array :
+  render_buffer:render_buffer -> capacity:int -> unit
+  = "gl_buffer_data_big_array" "gl_buffer_data_big_array"
+
+external gl_buffer_subdata_big_array :
+  render_buffer:render_buffer -> length:int -> unit
+  = "gl_buffer_subdata_big_array" "gl_buffer_subdata_big_array"
 
 external gl_buffer_subdata : buffer -> unit
   = "gl_buffer_subdata" "gl_buffer_subdata"

@@ -50,8 +50,18 @@ let initial_editor : Editor.editor =
   {
     Editor.default_editor with
     ropes =
-      (* [ File { rope = Some file_rope; cursor_pos = 0; file_name = real_path } ]; *)
-      [ FileSearch { search_rope = None; cursor_pos = 0; results = [] } ];
+      [
+        File
+          {
+            rope = Some file_rope;
+            cursor_pos = 0;
+            file_name = real_path;
+            last_modification_time = 0.;
+            vertical_scroll_y_offset = 0;
+            highlight = None;
+          };
+      ];
+    (* [ FileSearch { search_rope = None; cursor_pos = 0; results = [] } ]; *)
     current_rope_idx = Some 0;
   }
 

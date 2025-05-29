@@ -113,6 +113,18 @@ CAMLprim value gl_buffer_data(value buffer) {
   CAMLreturn(Val_unit);
 }
 
+CAMLprim value gl_buffer_data_big_array(value bigarray, value capacity) {
+  CAMLparam2(bigarray, capacity);
+  glBufferData(GL_ARRAY_BUFFER, Int_val(capacity) * sizeof(float), (float *)Caml_ba_data_val(bigarray), GL_DYNAMIC_DRAW);
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value gl_buffer_subdata_big_array(value bigarray, value length) {
+  CAMLparam2(bigarray, length);
+  glBufferSubData(GL_ARRAY_BUFFER, 0, Int_val(length) * sizeof(float), (float *)Caml_ba_data_val(bigarray));
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value gl_buffer_subdata(value buffer) {
   CAMLparam1(buffer);
   struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);

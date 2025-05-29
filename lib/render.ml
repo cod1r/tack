@@ -42,10 +42,10 @@ let compile_shaders_and_return_program ~vertex_id ~fragment_id ~vertex_src
 
 type rope_traversal_info = { x : int; y : int; rope_pos : int }
 
-type render_buffer =
-  (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t
-
-type render_buffer_wrapper = { text_buf : render_buffer; mutable length : int }
+type render_buffer_wrapper = {
+  text_buf : Opengl.render_buffer;
+  mutable length : int;
+}
 
 let better_text_buffer : render_buffer_wrapper =
   {
@@ -58,39 +58,44 @@ let better_text_buffer : render_buffer_wrapper =
 let write_to_render_buffer ~(render_buf_container : render_buffer_wrapper)
     ~(glyph_info : FreeType.glyph_info_) ~x ~y ~window_width ~window_height =
   let start = render_buf_container.length in
-  let new_x =
-    ((Bytes.get glyph_info.bytes (render_buf_container.length - start))
-    |> Char.code |> Float.of_int)
-    /. 3.
-    +. Float.of_int x
-    +. Float.of_int glyph_info.horiBearingX
-  in
-  let new_x = new_x /. Float.of_int window_width in
-  let new_x = new_x -. 1. in
-  render_buf_container.text_buf.{render_buf_container.length} <- new_x;
-  render_buf_container.length <- render_buf_container.length + 1;
-  let new_y =
-    -.((Bytes.get glyph_info.bytes (render_buf_container.length - start)
-       |> Char.code |> Float.of_int)
-      +. Float.of_int y)
-    +. Float.of_int glyph_info.horiBearingY
-  in
-  let new_y = new_y /. Float.of_int window_height in
-  let new_y = new_y +. 1. in
-  render_buf_container.text_buf.{render_buf_container.length} <- new_y;
-  render_buf_container.length <- render_buf_container.length + 1;
-  let alpha_value =
-    Bytes.get glyph_info.bytes (render_buf_container.length - start)
-    |> Char.code |> Float.of_int
-  in
-  render_buf_container.text_buf.{render_buf_container.length} <- 0.;
-  render_buf_container.length <- render_buf_container.length + 1;
-  render_buf_container.text_buf.{render_buf_container.length} <- 0.;
-  render_buf_container.length <- render_buf_container.length + 1;
-  render_buf_container.text_buf.{render_buf_container.length} <- 0.;
-  render_buf_container.length <- render_buf_container.length + 1;
-  render_buf_container.text_buf.{render_buf_container.length} <- alpha_value;
-  render_buf_container.length <- render_buf_container.length + 1
+  let bytes_index = ref start in
+  while !bytes_index < start + Bytes.length glyph_info.bytes do
+    let first = !bytes_index
+    and second = !bytes_index + 1
+    and third = !bytes_index + 2 in
+    let new_x =
+      (Bytes.get glyph_info.bytes (first - start) |> Char.code |> Float.of_int)
+      /. 3.
+      +. Float.of_int x
+      +. Float.of_int glyph_info.horiBearingX
+    in
+    let new_x = new_x /. Float.of_int (window_width / 2) in
+    let new_x = new_x -. 1. in
+    let new_y =
+      -.((Bytes.get glyph_info.bytes (second - start)
+         |> Char.code |> Float.of_int)
+        +. Float.of_int y)
+      +. Float.of_int glyph_info.horiBearingY
+    in
+    let new_y = new_y /. Float.of_int (window_height / 2) in
+    let new_y = new_y +. 1. in
+    let alpha_value =
+      Bytes.get glyph_info.bytes (third - start) |> Char.code |> Float.of_int
+    in
+    render_buf_container.text_buf.{render_buf_container.length} <- new_x;
+    render_buf_container.length <- render_buf_container.length + 1;
+    render_buf_container.text_buf.{render_buf_container.length} <- new_y;
+    render_buf_container.length <- render_buf_container.length + 1;
+    render_buf_container.text_buf.{render_buf_container.length} <- 0.;
+    render_buf_container.length <- render_buf_container.length + 1;
+    render_buf_container.text_buf.{render_buf_container.length} <- 0.;
+    render_buf_container.length <- render_buf_container.length + 1;
+    render_buf_container.text_buf.{render_buf_container.length} <- 0.;
+    render_buf_container.length <- render_buf_container.length + 1;
+    render_buf_container.text_buf.{render_buf_container.length} <- alpha_value /. 255.;
+    render_buf_container.length <- render_buf_container.length + 1;
+    bytes_index := !bytes_index + 3
+  done
 
 module FileModeRendering = struct
   let draw_highlight ~(editor : Editor.editor) ~(r : Rope.rope) ~highlight
@@ -171,12 +176,12 @@ module FileModeRendering = struct
              let curr_x_offset = ref 0 in
              List.iter
                (fun (_, gi) ->
-                 Stubs.write_glyph_to_text_buffer_value ~text_buffer
-                   ~glyph_info:gi ~x_offset:!curr_x_offset
-                   ~y_offset:
-                     (line_num_with_vert_offset * editor.config_info.font_height
-                     + editor.config_info.descender)
-                   ~window_width ~window_height;
+                 (* Stubs.write_glyph_to_text_buffer_value ~text_buffer *)
+                 (*   ~glyph_info:gi ~x_offset:!curr_x_offset *)
+                 (*   ~y_offset: *)
+                 (*     (line_num_with_vert_offset * editor.config_info.font_height *)
+                 (*     + editor.config_info.descender) *)
+                 (*   ~window_width ~window_height; *)
                  curr_x_offset := !curr_x_offset + FreeType.get_x_advance gi)
                glyph_infos);
           line_num + 1
@@ -272,7 +277,11 @@ module FileModeRendering = struct
             editor.config_info.other_glyph_info_with_char
           |> Option.get
         in
-        if y_pos <= editor.bounds.y + editor.bounds.height && y_pos >= 0 && Bytes.length ogi.bytes > 0 then
+        if
+          y_pos <= editor.bounds.y + editor.bounds.height
+          && y_pos >= 0
+          && Bytes.length ogi.bytes > 0
+        then
           (* Stubs.write_glyph_to_text_buffer_value ~text_buffer ~glyph_info:gi *)
           (*   ~x_offset:acc.x ~y_offset:(y_pos + descender) ~window_width *)
           (*   ~window_height *)
@@ -439,7 +448,9 @@ module Render = struct
     gl_enable_vertex_attrib_array location_point_vertex;
     gl_enable_vertex_attrib_array location_color;
     gl_bind_buffer gl_buffer_obj;
-    gl_buffer_data text_buffer;
+    (* gl_buffer_data text_buffer; *)
+    gl_buffer_data_big_array ~render_buffer:better_text_buffer.text_buf
+      ~capacity:(Bigarray.Array1.dim better_text_buffer.text_buf);
     gl_bind_buffer gl_buffer_cursor;
     gl_buffer_data cursor_buffer;
     gl_bind_buffer gl_buffer_highlight;
@@ -477,13 +488,16 @@ module Render = struct
     gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
       ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
 
-    gl_buffer_subdata text_buffer;
-    let buffer_size = Stubs.get_buffer_size text_buffer in
+    (* gl_buffer_subdata text_buffer; *)
+    (* let buffer_size = Stubs.get_buffer_size text_buffer in *)
+    (* gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT); *)
+    gl_buffer_subdata_big_array ~render_buffer:better_text_buffer.text_buf
+      ~length:better_text_buffer.length;
+    gl_draw_arrays (better_text_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
 
-    gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT);
+    better_text_buffer.length <- 0;
 
-    Stubs.reset_buffer text_buffer;
-
+    (* Stubs.reset_buffer text_buffer; *)
     gl_bind_buffer gl_buffer_cursor;
 
     gl_vertex_attrib_pointer_float_type ~location:location_point_vertex ~size:2
