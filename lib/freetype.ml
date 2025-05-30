@@ -10,6 +10,8 @@ module FreeType = struct
     x_advance : int;
     y_advance : int;
     bytes : bytes;
+    width : int;
+    rows : int;
   }
 
   external get_font_height : ft_face -> int
@@ -42,6 +44,8 @@ module FreeType = struct
     = "free_glyph_info" "free_glyph_info"
 
   external get_descender : ft_face -> int = "get_descender" "get_descender"
+
+  external get_ascender : ft_face -> int = "get_ascender" "get_ascender"
 
   let library = freetype_init_library ()
 end

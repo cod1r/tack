@@ -65,6 +65,7 @@ let initial_editor : Editor.editor =
     current_rope_idx = Some 0;
   }
 
+let () = Render.setup_glyph_texture ~editor:initial_editor
 let () = Render.draw initial_editor
 let () = Sdl.sdl_create_and_set_system_cursor ()
 let () = loop initial_editor

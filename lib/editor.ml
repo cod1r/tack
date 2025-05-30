@@ -12,6 +12,7 @@ module Editor = struct
     pixel_size : int;
     font_height : int;
     descender : int;
+    font_glyph_texture_atlas : bytes;
   }
 
   type rope_wrapper =
@@ -67,10 +68,34 @@ module Editor = struct
     (* need to call font_height after set_pixel_sizes *)
     let font_height = FreeType.get_font_height face in
     let descender = FreeType.get_descender face in
+    let ascender = FreeType.get_ascender face in
     let other_glyph_info_with_char =
       Array.init
         (126 - 32 + 1)
         (fun i -> FreeType.get_ascii_char_glyph_info_ face (i + 32))
+    in
+    let widths_summed =
+      Array.fold_left
+        (fun acc (_, gi) -> acc + gi.FreeType.width)
+        0 other_glyph_info_with_char
+    in
+    let global_font_height = ascender - descender in
+    let bytes_texture_atlas = Bytes.create (widths_summed * global_font_height) in
+    (*
+       the font glyph texture atlas is all of the glyphs that is loaded
+       concatenated into a large bytes array
+
+       widths of glyphs summed * font height
+       ex:
+         ABCDEF...
+     *)
+    let font_glyph_texture_atlas, _ =
+      Array.fold_left
+        (fun (bytes, curr_idx) (_, gi) ->
+          let gi_len = Bytes.length gi.FreeType.bytes in
+          Bytes.blit gi.FreeType.bytes 0 bytes curr_idx gi_len;
+          (bytes, curr_idx + gi_len))
+        (bytes_texture_atlas, 0) other_glyph_info_with_char
     in
     {
       other_glyph_info_with_char;
@@ -82,6 +107,7 @@ module Editor = struct
       pixel_size = font_pixel_size;
       font_height;
       descender;
+      font_glyph_texture_atlas;
     }
 
   let default_editor : editor =

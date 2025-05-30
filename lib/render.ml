@@ -3,6 +3,32 @@ open Sdl
 open Opengl
 open Editor
 
+let text_vertex_shader =
+  {|
+  #version 120
+  attribute vec2 vertex;
+  attribute vec3 color;
+  attribute vec2 tex_coord;
+  varying vec3 color_frag;
+  varying vec2 tex_coord_frag;
+  void main() {
+    color_frag = color;
+    tex_coord_frag = tex_coord;
+    gl_Position = vec4(vertex, 0.0, 1.0);
+  }
+  |}
+
+let text_fragment_shader =
+  {|
+  #version 120
+  varying vec2 tex_coord;
+  varying vec3 color;
+  uniform sampler2d sampler;
+  void main() {
+    gl_FragColor = vec4(color, texture(sampler, tex_coord));
+  }
+  |}
+
 let generic_vertex_shader =
   {|
   #version 120
@@ -92,7 +118,8 @@ let write_to_render_buffer ~(render_buf_container : render_buffer_wrapper)
     render_buf_container.length <- render_buf_container.length + 1;
     render_buf_container.text_buf.{render_buf_container.length} <- 0.;
     render_buf_container.length <- render_buf_container.length + 1;
-    render_buf_container.text_buf.{render_buf_container.length} <- alpha_value /. 255.;
+    render_buf_container.text_buf.{render_buf_container.length} <-
+      alpha_value /. 255.;
     render_buf_container.length <- render_buf_container.length + 1;
     bytes_index := !bytes_index + 3
   done
@@ -315,6 +342,7 @@ module Render = struct
   let highlight_buffer =
     Stubs.init_buffer_with_capacity (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT)
 
+  let _ = gl_enable_texture_2d ()
   let _ = gl_enable_blending ()
 
   let fragment =
@@ -338,6 +366,21 @@ module Render = struct
 
   let fragment_highlight =
     match gl_create_fragment_shader () with Ok v -> v | Error e -> failwith e
+
+  let text_vertex_id =
+    match gl_create_vertex_shader () with
+    | Ok v -> v
+    | Error e -> failwith (e ^ "; couldn't create vertex shader for text")
+
+  let text_fragment_id =
+    match gl_create_fragment_shader () with
+    | Ok v -> v
+    | Error e -> failwith (e ^ "; couldn't create vertex shader for text")
+
+  let text_shader_program =
+    compile_shaders_and_return_program ~vertex_id:text_vertex_id
+      ~fragment_id:text_fragment_id ~vertex_src:text_vertex_shader
+      ~fragment_src:text_fragment_shader
 
   let program =
     compile_shaders_and_return_program ~vertex_id:vertex ~fragment_id:fragment
@@ -433,6 +476,7 @@ module Render = struct
   let gl_buffer_obj = gl_gen_one_buffer ()
   let gl_buffer_cursor = gl_gen_one_buffer ()
   let gl_buffer_highlight = gl_gen_one_buffer ()
+  let gl_buffer_glyph_texture_atlas = gl_gen_texture ()
 
   let location_point_vertex =
     match gl_getattriblocation program "point_vertex" with
@@ -443,6 +487,18 @@ module Render = struct
     match gl_getattriblocation program "color_attrib" with
     | Ok l -> l
     | Error e -> failwith e
+
+  let setup_glyph_texture ~(editor : Editor.editor) =
+    let widths_summed =
+      Array.fold_left
+        (fun acc (_, gi) -> acc + gi.FreeType.width)
+        0 editor.config_info.other_glyph_info_with_char
+    in
+    let descender = FreeType.get_descender editor.config_info.ft_face in
+    let ascender = FreeType.get_ascender editor.config_info.ft_face in
+    gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
+    gl_teximage_2d ~bytes:editor.config_info.font_glyph_texture_atlas
+      ~width:widths_summed ~height:(ascender - descender)
 
   let () =
     gl_enable_vertex_attrib_array location_point_vertex;

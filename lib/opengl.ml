@@ -6,6 +6,17 @@ type render_buffer =
 
 let _EACH_POINT_FLOAT_AMOUNT = 6
 
+external gl_gen_texture : unit -> int = "gl_gen_texture" "gl_gen_texture"
+
+external gl_bind_texture : texture_id:int -> unit
+  = "gl_bind_texture" "gl_bind_texture"
+
+external gl_teximage_2d : bytes:bytes -> width:int -> height:int -> unit
+  = "gl_teximage_2d" "gl_teximage_2d"
+
+external gl_enable_texture_2d : unit -> unit
+  = "gl_enable_texture_2d" "gl_enable_texture_2d"
+
 external gl_enable_blending : unit -> unit
   = "gl_enable_blending" "gl_enable_blending"
 

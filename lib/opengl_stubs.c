@@ -73,6 +73,41 @@ case GL_TABLE_TOO_LARGE:
   }
 }
 
+CAMLprim value gl_gen_texture() {
+  CAMLparam0();
+  GLuint texture;
+  glGenTextures(1, &texture);
+  CAMLreturn(Val_int(texture));
+}
+
+CAMLprim value gl_bind_texture(value texture_id) {
+  CAMLparam1(texture_id);
+  glBindTexture(GL_TEXTURE_2D, Int_val(texture_id));
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value gl_teximage_2d(value bytes, value width, value height) {
+  CAMLparam3(bytes, width, height);
+  glTexImage2D(
+    GL_TEXTURE_2D,
+    0,
+    GL_ALPHA,
+    Int_val(width),
+    Int_val(height),
+    0,
+    GL_ALPHA,
+    GL_UNSIGNED_BYTE,
+    Bytes_val(bytes)
+  );
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value gl_enable_texture_2d() {
+  CAMLparam0();
+  glEnable(GL_TEXTURE_2D);
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value gl_enable_blending(value unit) {
   CAMLparam1(unit);
   glEnable(GL_BLEND);

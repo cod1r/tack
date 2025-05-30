@@ -11,6 +11,13 @@
 #include <string.h>
 #include "stubs.h"
 
+CAMLprim value get_ascender(value face) {
+  CAMLparam1(face);
+  FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
+  int ascender = (*face_c)->size->metrics.ascender >> 6;
+  CAMLreturn(Val_int(ascender));
+}
+
 CAMLprim value get_descender(value face) {
   CAMLparam1(face);
   FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
@@ -57,12 +64,12 @@ CAMLprim value get_ascii_char_glyph_info_(value face, value ascii) {
     caml_failwith("ascii FT_Load_Glyph failed");
   }
 
-  glyph_info = caml_alloc(5, 0);
+  glyph_info = caml_alloc(7, 0);
   tuple = caml_alloc(2, 0);
 
   FT_Bitmap bitmap = (*face_c)->glyph->bitmap;
 
-  int size = bitmap.rows * bitmap.width * 3;
+  int size = bitmap.rows * bitmap.width;
 
   bytes = caml_alloc_string(size);
 
@@ -70,10 +77,7 @@ CAMLprim value get_ascii_char_glyph_info_(value face, value ascii) {
   for (int y = 0; y < bitmap.rows; ++y) {
     for (int x = 0; x < bitmap.width; ++x) {
       unsigned char alpha = bitmap.buffer[y * bitmap.pitch + x];
-      Bytes_val(bytes)[buffer_idx] = x;
-      Bytes_val(bytes)[buffer_idx + 1] = y;
-      Bytes_val(bytes)[buffer_idx + 2] = alpha;
-      buffer_idx += 3;
+      Bytes_val(bytes)[buffer_idx++] = alpha;
     }
   }
 
@@ -82,6 +86,8 @@ CAMLprim value get_ascii_char_glyph_info_(value face, value ascii) {
   Store_field(glyph_info, 2, Val_int((*face_c)->glyph->advance.x >> 6));
   Store_field(glyph_info, 3, Val_int((*face_c)->glyph->advance.y >> 6));
   Store_field(glyph_info, 4, bytes);
+  Store_field(glyph_info, 5, Val_int(bitmap.width));
+  Store_field(glyph_info, 6, Val_int(bitmap.rows));
 
   Store_field(tuple, 0, Val_int(ascii_value));
   Store_field(tuple, 1, glyph_info);
