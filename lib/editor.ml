@@ -93,19 +93,30 @@ module Editor = struct
        ex:
          ABCDEF...
      *)
-    let font_glyph_texture_atlas_bytes, _ =
+    let _ =
       Array.fold_left
-        (fun (bytes, curr_idx) (_, gi) ->
+        (fun current_width (c, gi) ->
           let gi_len = Bytes.length gi.FreeType.bytes in
-          Bytes.blit gi.FreeType.bytes 0 bytes curr_idx gi_len;
-          (bytes, curr_idx + gi_len))
-        (bytes_texture_atlas, 0) other_glyph_info_with_char
+          (if gi.width > 0 then
+             let lst =
+               List.init (gi_len / gi.width) (fun i ->
+                   Bytes.init gi.width (fun i' ->
+                       Bytes.get gi.bytes ((i * gi.width) + i')))
+             in
+             List.iteri
+               (fun idx b ->
+                 Bytes.blit b 0 bytes_texture_atlas
+                   ((idx * widths_summed) + current_width)
+                   (Bytes.length b))
+               lst);
+          current_width + gi.width)
+        0 other_glyph_info_with_char
     in
     let font_glyph_texture_atlas_info =
       {
         width = widths_summed;
         height = global_font_height;
-        bytes = font_glyph_texture_atlas_bytes;
+        bytes = bytes_texture_atlas;
       }
     in
     {
