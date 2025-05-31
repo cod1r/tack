@@ -7,7 +7,9 @@ type render_buffer =
 external set_gl_tex_parameters : unit -> unit
   = "set_gl_tex_parameters" "set_gl_tex_parameters"
 
-external gl_uniform_1i : int -> int -> unit = "gl_uniform_1i" "gl_uniform_1i"
+external gl_uniform_1i : location:int -> value:int -> unit
+  = "gl_uniform_1i" "gl_uniform_1i"
+
 external gl_gen_texture : unit -> int = "gl_gen_texture" "gl_gen_texture"
 
 external gl_bind_texture : texture_id:int -> unit

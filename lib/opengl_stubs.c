@@ -23,6 +23,9 @@ CAMLprim value set_gl_tex_parameters() {
   CAMLparam0();
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
   CAMLreturn(Val_unit);
 }
 
@@ -112,7 +115,6 @@ CAMLprim value gl_teximage_2d(value bytes, value width, value height) {
     GL_UNSIGNED_BYTE,
     Bytes_val(bytes)
   );
-  check_error();
   CAMLreturn(Val_unit);
 }
 

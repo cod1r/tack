@@ -20,7 +20,7 @@ let text_vertex_shader =
   void main() {
     color_frag = color;
     tex_coord_frag = tex_coord;
-    gl_Position = vec4(vertex, 0.0, 1.0);
+    gl_Position = vec4(vertex.x, vertex.y, 0.0, 1.0);
   }
   |}
 
@@ -34,7 +34,7 @@ let text_fragment_shader =
   uniform sampler2D sampler;
 
   void main() {
-    gl_FragColor = vec4(color_frag, texture2D(sampler, tex_coord_frag).a);
+    gl_FragColor = vec4(color_frag.r, color_frag.g, color_frag.b, texture2D(sampler, tex_coord_frag).a);
   }
   |}
 
@@ -136,6 +136,18 @@ let write_to_render_buffer ~(render_buf_container : render_buffer_wrapper)
   and horiBearing_X_Scaled =
     Float.of_int glyph_info.horiBearingX /. Float.of_int (window_width / 2)
   in
+  (*
+     layout of the values list is:
+       vertex x
+       vertex y
+       r
+       g
+       b
+       texel coord x
+       texel coord y
+
+      that is repeated for the 4 points of the quad
+   *)
   let values =
     [
       x_scaled +. horiBearing_X_Scaled -. 1.;
@@ -621,7 +633,8 @@ module Render = struct
 
     gl_use_program text_shader_program;
 
-    gl_uniform_1i text_shader_program sampler_text_location;
+    (* 0 is default texture unit; reminder that sampler is not location but texture unit *)
+    gl_uniform_1i ~location:sampler_text_location ~value:0;
 
     gl_bind_buffer gl_buffer_obj;
 

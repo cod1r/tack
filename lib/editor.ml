@@ -83,7 +83,7 @@ module Editor = struct
     in
     let global_font_height = ascender - descender in
     let bytes_texture_atlas =
-      Bytes.create (widths_summed * global_font_height)
+      Bytes.init (widths_summed * global_font_height) (fun _ -> Char.chr 0)
     in
     (*
        the font glyph texture atlas is all of the glyphs that is loaded
