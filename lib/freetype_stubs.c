@@ -59,7 +59,7 @@ CAMLprim value get_ascii_char_glyph_info_(value face, value ascii) {
   FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
 
   FT_UInt glyph_index = FT_Get_Char_Index(*face_c, ascii_value);
-  int result = FT_Load_Glyph(*face_c, glyph_index, FT_LOAD_RENDER);
+  int result = FT_Load_Glyph(*face_c, glyph_index, FT_LOAD_RENDER | FT_LOAD_TARGET_LCD);
   if (result) {
     caml_failwith("ascii FT_Load_Glyph failed");
   }
