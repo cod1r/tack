@@ -19,6 +19,13 @@
 #include <string.h>
 #include "stubs.h"
 
+CAMLprim value set_gl_tex_parameters() {
+  CAMLparam0();
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value gl_set_viewport(value x_val, value y_val, value width_val, value height_val) {
   CAMLparam4(x_val, y_val, width_val, height_val);
   int x = Int_val(x_val);
@@ -105,6 +112,7 @@ CAMLprim value gl_teximage_2d(value bytes, value width, value height) {
     GL_UNSIGNED_BYTE,
     Bytes_val(bytes)
   );
+  check_error();
   CAMLreturn(Val_unit);
 }
 

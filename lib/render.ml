@@ -34,7 +34,7 @@ let text_fragment_shader =
   uniform sampler2D sampler;
 
   void main() {
-    gl_FragColor = vec4(color_frag, texture2D(sampler, tex_coord_frag));
+    gl_FragColor = vec4(color_frag, texture2D(sampler, tex_coord_frag).a);
   }
   |}
 
@@ -130,32 +130,37 @@ let write_to_render_buffer ~(render_buf_container : render_buffer_wrapper)
   and height_scaled =
     Float.of_int glyph_info.rows /. Float.of_int (window_height / 2)
   in
-  let left, right, top, bottom = get_tex_coords ~editor ~glyph ~glyph_info in
+  let left, right, top, bottom = get_tex_coords ~editor ~glyph ~glyph_info
+  and horiBearing_Y_Scaled =
+    Float.of_int glyph_info.horiBearingY /. Float.of_int (window_height / 2)
+  and horiBearing_X_Scaled =
+    Float.of_int glyph_info.horiBearingX /. Float.of_int (window_width / 2)
+  in
   let values =
     [
-      x_scaled;
-      y_scaled;
-      0.;
-      0.;
-      0.;
-      left;
-      top;
-      x_scaled +. width_scaled;
-      y_scaled;
-      0.;
-      0.;
-      0.;
-      right;
-      top;
-      x_scaled;
-      y_scaled +. height_scaled;
+      x_scaled +. horiBearing_X_Scaled -. 1.;
+      -.(y_scaled +. height_scaled) +. horiBearing_Y_Scaled +. 1.;
       0.;
       0.;
       0.;
       left;
       bottom;
-      x_scaled +. width_scaled;
-      y_scaled +. height_scaled;
+      x_scaled +. horiBearing_X_Scaled -. 1.;
+      -.y_scaled +. horiBearing_Y_Scaled +. 1.;
+      0.;
+      0.;
+      0.;
+      left;
+      top;
+      x_scaled +. width_scaled +. horiBearing_X_Scaled -. 1.;
+      -.y_scaled +. horiBearing_Y_Scaled +. 1.;
+      0.;
+      0.;
+      0.;
+      right;
+      top;
+      x_scaled +. width_scaled +. horiBearing_X_Scaled -. 1.;
+      -.(y_scaled +. height_scaled) +. horiBearing_Y_Scaled +. 1.;
       0.;
       0.;
       0.;
@@ -554,6 +559,7 @@ module Render = struct
 
   let setup_glyph_texture ~(editor : Editor.editor) =
     gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
+    set_gl_tex_parameters ();
     gl_teximage_2d ~bytes:editor.config_info.font_glyph_texture_atlas_info.bytes
       ~width:editor.config_info.font_glyph_texture_atlas_info.width
       ~height:editor.config_info.font_glyph_texture_atlas_info.height
