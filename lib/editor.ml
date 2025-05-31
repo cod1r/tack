@@ -5,6 +5,8 @@ open Sdl
 let _LINE_NUMBER_RIGHT_PADDING = 20
 
 module Editor = struct
+  type texture_atlas_info = { width : int; height : int; bytes : bytes }
+
   type information_relating_to_config = {
     other_glyph_info_with_char : (char * FreeType.glyph_info_) Array.t;
     glyph_info_with_char : (char * FreeType.glyph_info) Array.t;
@@ -12,7 +14,7 @@ module Editor = struct
     pixel_size : int;
     font_height : int;
     descender : int;
-    font_glyph_texture_atlas : bytes;
+    font_glyph_texture_atlas_info : texture_atlas_info;
   }
 
   type rope_wrapper =
@@ -80,7 +82,9 @@ module Editor = struct
         0 other_glyph_info_with_char
     in
     let global_font_height = ascender - descender in
-    let bytes_texture_atlas = Bytes.create (widths_summed * global_font_height) in
+    let bytes_texture_atlas =
+      Bytes.create (widths_summed * global_font_height)
+    in
     (*
        the font glyph texture atlas is all of the glyphs that is loaded
        concatenated into a large bytes array
@@ -89,13 +93,20 @@ module Editor = struct
        ex:
          ABCDEF...
      *)
-    let font_glyph_texture_atlas, _ =
+    let font_glyph_texture_atlas_bytes, _ =
       Array.fold_left
         (fun (bytes, curr_idx) (_, gi) ->
           let gi_len = Bytes.length gi.FreeType.bytes in
           Bytes.blit gi.FreeType.bytes 0 bytes curr_idx gi_len;
           (bytes, curr_idx + gi_len))
         (bytes_texture_atlas, 0) other_glyph_info_with_char
+    in
+    let font_glyph_texture_atlas_info =
+      {
+        width = widths_summed;
+        height = global_font_height;
+        bytes = font_glyph_texture_atlas_bytes;
+      }
     in
     {
       other_glyph_info_with_char;
@@ -107,7 +118,7 @@ module Editor = struct
       pixel_size = font_pixel_size;
       font_height;
       descender;
-      font_glyph_texture_atlas;
+      font_glyph_texture_atlas_info;
     }
 
   let default_editor : editor =

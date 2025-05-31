@@ -4,8 +4,7 @@ type buffer
 type render_buffer =
   (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t
 
-let _EACH_POINT_FLOAT_AMOUNT = 6
-
+external gl_uniform_1i : int -> int -> unit = "gl_uniform_1i" "gl_uniform_1i"
 external gl_gen_texture : unit -> int = "gl_gen_texture" "gl_gen_texture"
 
 external gl_bind_texture : texture_id:int -> unit
@@ -50,6 +49,9 @@ external gl_draw_arrays_with_quads : int -> unit
 
 external gl_draw_arrays : int -> unit = "gl_draw_arrays" "gl_draw_arrays"
 external gl_bind_buffer : int -> unit = "gl_bind_buffer" "gl_bind_buffer"
+
+external gl_getuniformlocation : int -> string -> (int, string) result
+  = "gl_getuniformlocation" "gl_getuniformlocation"
 
 external gl_getattriblocation : int -> string -> (int, string) result
   = "gl_getattriblocation" "gl_getattriblocation"

@@ -3,14 +3,20 @@ open Sdl
 open Opengl
 open Editor
 
+let _EACH_POINT_FLOAT_AMOUNT = 6
+let _EACH_POINT_FLOAT_AMOUNT_TEXT = 7
+
 let text_vertex_shader =
   {|
   #version 120
+
   attribute vec2 vertex;
   attribute vec3 color;
   attribute vec2 tex_coord;
+
   varying vec3 color_frag;
   varying vec2 tex_coord_frag;
+
   void main() {
     color_frag = color;
     tex_coord_frag = tex_coord;
@@ -21,20 +27,26 @@ let text_vertex_shader =
 let text_fragment_shader =
   {|
   #version 120
-  varying vec2 tex_coord;
-  varying vec3 color;
-  uniform sampler2d sampler;
+
+  varying vec2 tex_coord_frag;
+  varying vec3 color_frag;
+
+  uniform sampler2D sampler;
+
   void main() {
-    gl_FragColor = vec4(color, texture(sampler, tex_coord));
+    gl_FragColor = vec4(color_frag, texture2D(sampler, tex_coord_frag));
   }
   |}
 
 let generic_vertex_shader =
   {|
   #version 120
+
   attribute vec2 point_vertex;
   attribute vec4 color_attrib;
+
   varying vec4 color;
+
   void main() {
     gl_Position = vec4(point_vertex.x, point_vertex.y, 0.0, 1.0);
     color = color_attrib;
@@ -81,48 +93,81 @@ let better_text_buffer : render_buffer_wrapper =
     length = 0;
   }
 
+let get_tex_coords ~(editor : Editor.editor) ~(glyph : char)
+    ~(glyph_info : FreeType.glyph_info_) =
+  let _, starting_x =
+    Array.fold_left
+      (fun (found, acc) (c, gi) ->
+        if c = glyph || found then (true, acc)
+        else (false, acc + gi.FreeType.width))
+      (false, 0) editor.config_info.other_glyph_info_with_char
+  in
+  let starting_x, ending_x =
+    (starting_x, starting_x + glyph_info.FreeType.width - 1)
+  in
+  let width_float =
+    Float.of_int editor.config_info.font_glyph_texture_atlas_info.width
+  in
+  let height_float =
+    Float.of_int editor.config_info.font_glyph_texture_atlas_info.height
+  in
+  let left = Float.of_int starting_x /. width_float in
+  let right = Float.of_int ending_x /. width_float in
+  (left, right, 0., Float.of_int glyph_info.rows /. height_float)
+
 let write_to_render_buffer ~(render_buf_container : render_buffer_wrapper)
-    ~(glyph_info : FreeType.glyph_info_) ~x ~y ~window_width ~window_height =
+    ~(glyph_info : FreeType.glyph_info_) ~x ~y ~window_width ~window_height
+    ~(editor : Editor.editor) ~(glyph : char) =
+  let x_scaled, y_scaled =
+    List.map (fun v -> Float.of_int v) [ x; y ] |> function
+    | first :: second :: _ ->
+        ( first /. Float.of_int (window_width / 2),
+          second /. Float.of_int (window_height / 2) )
+    | _ -> failwith "failed to match list"
+  in
+  let width_scaled =
+    Float.of_int glyph_info.width /. Float.of_int (window_width / 2)
+  and height_scaled =
+    Float.of_int glyph_info.rows /. Float.of_int (window_height / 2)
+  in
+  let left, right, top, bottom = get_tex_coords ~editor ~glyph ~glyph_info in
+  let values =
+    [
+      x_scaled;
+      y_scaled;
+      0.;
+      0.;
+      0.;
+      left;
+      top;
+      x_scaled +. width_scaled;
+      y_scaled;
+      0.;
+      0.;
+      0.;
+      right;
+      top;
+      x_scaled;
+      y_scaled +. height_scaled;
+      0.;
+      0.;
+      0.;
+      left;
+      bottom;
+      x_scaled +. width_scaled;
+      y_scaled +. height_scaled;
+      0.;
+      0.;
+      0.;
+      right;
+      bottom;
+    ]
+  in
   let start = render_buf_container.length in
-  let bytes_index = ref start in
-  while !bytes_index < start + Bytes.length glyph_info.bytes do
-    let first = !bytes_index
-    and second = !bytes_index + 1
-    and third = !bytes_index + 2 in
-    let new_x =
-      (Bytes.get glyph_info.bytes (first - start) |> Char.code |> Float.of_int)
-      /. 3.
-      +. Float.of_int x
-      +. Float.of_int glyph_info.horiBearingX
-    in
-    let new_x = new_x /. Float.of_int (window_width / 2) in
-    let new_x = new_x -. 1. in
-    let new_y =
-      -.((Bytes.get glyph_info.bytes (second - start)
-         |> Char.code |> Float.of_int)
-        +. Float.of_int y)
-      +. Float.of_int glyph_info.horiBearingY
-    in
-    let new_y = new_y /. Float.of_int (window_height / 2) in
-    let new_y = new_y +. 1. in
-    let alpha_value =
-      Bytes.get glyph_info.bytes (third - start) |> Char.code |> Float.of_int
-    in
-    render_buf_container.text_buf.{render_buf_container.length} <- new_x;
-    render_buf_container.length <- render_buf_container.length + 1;
-    render_buf_container.text_buf.{render_buf_container.length} <- new_y;
-    render_buf_container.length <- render_buf_container.length + 1;
-    render_buf_container.text_buf.{render_buf_container.length} <- 0.;
-    render_buf_container.length <- render_buf_container.length + 1;
-    render_buf_container.text_buf.{render_buf_container.length} <- 0.;
-    render_buf_container.length <- render_buf_container.length + 1;
-    render_buf_container.text_buf.{render_buf_container.length} <- 0.;
-    render_buf_container.length <- render_buf_container.length + 1;
-    render_buf_container.text_buf.{render_buf_container.length} <-
-      alpha_value /. 255.;
-    render_buf_container.length <- render_buf_container.length + 1;
-    bytes_index := !bytes_index + 3
-  done
+  List.iteri
+    (fun idx v -> render_buf_container.text_buf.{idx + start} <- v)
+    values;
+  render_buf_container.length <- start + List.length values
 
 module FileModeRendering = struct
   let draw_highlight ~(editor : Editor.editor) ~(r : Rope.rope) ~highlight
@@ -314,7 +359,7 @@ module FileModeRendering = struct
           (*   ~window_height *)
           write_to_render_buffer ~render_buf_container:better_text_buffer
             ~x:acc.x ~y:(y_pos + descender) ~window_width ~window_height
-            ~glyph_info:ogi;
+            ~glyph_info:ogi ~glyph:c ~editor;
         { rope_pos = acc.rope_pos + 1; x = new_x; y = new_y }
     in
     let _ =
@@ -329,8 +374,7 @@ module FileModeRendering = struct
 end
 
 module Render = struct
-  let text_buffer =
-    Stubs.init_buffer ~floats_per_point:Opengl._EACH_POINT_FLOAT_AMOUNT
+  let text_buffer = Stubs.init_buffer ~floats_per_point:_EACH_POINT_FLOAT_AMOUNT
 
   (* 3000x3000 (seems big enough) * 2 floats per pixel
      We need it pretty big in the case of multiple cursors
@@ -488,19 +532,36 @@ module Render = struct
     | Ok l -> l
     | Error e -> failwith e
 
+  let vertex_text_location =
+    match gl_getattriblocation text_shader_program "vertex" with
+    | Ok l -> l
+    | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
+
+  let color_text_location =
+    match gl_getattriblocation text_shader_program "color" with
+    | Ok l -> l
+    | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
+
+  let tex_coord_text_location =
+    match gl_getattriblocation text_shader_program "tex_coord" with
+    | Ok l -> l
+    | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
+
+  let sampler_text_location =
+    match gl_getuniformlocation text_shader_program "sampler" with
+    | Ok l -> l
+    | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
+
   let setup_glyph_texture ~(editor : Editor.editor) =
-    let widths_summed =
-      Array.fold_left
-        (fun acc (_, gi) -> acc + gi.FreeType.width)
-        0 editor.config_info.other_glyph_info_with_char
-    in
-    let descender = FreeType.get_descender editor.config_info.ft_face in
-    let ascender = FreeType.get_ascender editor.config_info.ft_face in
     gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
-    gl_teximage_2d ~bytes:editor.config_info.font_glyph_texture_atlas
-      ~width:widths_summed ~height:(ascender - descender)
+    gl_teximage_2d ~bytes:editor.config_info.font_glyph_texture_atlas_info.bytes
+      ~width:editor.config_info.font_glyph_texture_atlas_info.width
+      ~height:editor.config_info.font_glyph_texture_atlas_info.height
 
   let () =
+    gl_enable_vertex_attrib_array vertex_text_location;
+    gl_enable_vertex_attrib_array color_text_location;
+    gl_enable_vertex_attrib_array tex_coord_text_location;
     gl_enable_vertex_attrib_array location_point_vertex;
     gl_enable_vertex_attrib_array location_color;
     gl_bind_buffer gl_buffer_obj;
@@ -536,24 +597,6 @@ module Render = struct
 
     Stubs.reset_buffer highlight_buffer;
 
-    gl_bind_buffer gl_buffer_obj;
-
-    gl_vertex_attrib_pointer_float_type ~location:location_point_vertex ~size:2
-      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
-
-    gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
-      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
-
-    (* gl_buffer_subdata text_buffer; *)
-    (* let buffer_size = Stubs.get_buffer_size text_buffer in *)
-    (* gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT); *)
-    gl_buffer_subdata_big_array ~render_buffer:better_text_buffer.text_buf
-      ~length:better_text_buffer.length;
-    gl_draw_arrays (better_text_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
-
-    better_text_buffer.length <- 0;
-
-    (* Stubs.reset_buffer text_buffer; *)
     gl_bind_buffer gl_buffer_cursor;
 
     gl_vertex_attrib_pointer_float_type ~location:location_point_vertex ~size:2
@@ -569,6 +612,30 @@ module Render = struct
     gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT);
 
     Stubs.reset_buffer cursor_buffer;
+
+    gl_use_program text_shader_program;
+
+    gl_uniform_1i text_shader_program sampler_text_location;
+
+    gl_bind_buffer gl_buffer_obj;
+
+    gl_vertex_attrib_pointer_float_type ~location:vertex_text_location ~size:2
+      ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:0;
+
+    gl_vertex_attrib_pointer_float_type ~location:color_text_location ~size:3
+      ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:2;
+
+    gl_vertex_attrib_pointer_float_type ~location:tex_coord_text_location
+      ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
+      ~start_idx:5;
+
+    gl_buffer_subdata_big_array ~render_buffer:better_text_buffer.text_buf
+      ~length:better_text_buffer.length;
+
+    gl_draw_arrays_with_quads
+      (better_text_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
+
+    better_text_buffer.length <- 0;
 
     match Sdl.sdl_gl_swapwindow Sdl.w with Ok () -> () | Error e -> failwith e
 end

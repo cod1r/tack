@@ -73,6 +73,12 @@ case GL_TABLE_TOO_LARGE:
   }
 }
 
+CAMLprim value gl_uniform_1i(value location, value val) {
+  CAMLparam2(location, val);
+  glUniform1i(Int_val(location), Int_val(val));
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value gl_gen_texture() {
   CAMLparam0();
   GLuint texture;
@@ -239,6 +245,20 @@ CAMLprim value gl_clear(value unit) {
   CAMLparam1(unit);
   glClear(GL_COLOR_BUFFER_BIT);
   CAMLreturn(Val_unit);
+}
+
+CAMLprim value gl_getuniformlocation(value program, value name) {
+  CAMLparam2(program, name);
+  CAMLlocal1(result);
+  GLint location = glGetUniformLocation(Int_val(program), String_val(name));
+  if (location == -1) {
+    result = caml_alloc(1, 1);
+    Store_field(result, 0, caml_copy_string("named attribute variable is not an active attribute or name starts with 'gl_'"));
+    CAMLreturn(result);
+  }
+  result = caml_alloc(1, 0);
+  Store_field(result, 0, Val_int(location));
+  CAMLreturn(result);
 }
 
 CAMLprim value gl_getattriblocation(value program, value name) {
