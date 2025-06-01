@@ -83,7 +83,7 @@ module Editor = struct
     in
     let global_font_height = ascender - descender in
     let bytes_texture_atlas =
-      Bytes.init (widths_summed * global_font_height) (fun _ -> Char.chr 0)
+      Bytes.create (widths_summed * global_font_height)
     in
     (*
        the font glyph texture atlas is all of the glyphs that is loaded
@@ -93,25 +93,15 @@ module Editor = struct
        ex:
          ABCDEF...
      *)
-    let _ =
-      Array.fold_left
-        (fun current_width (c, gi) ->
-          let gi_len = Bytes.length gi.FreeType.bytes in
-          (if gi.width > 0 then
-             let lst =
-               List.init (gi_len / gi.width) (fun i ->
-                   Bytes.init gi.width (fun i' ->
-                       Bytes.get gi.bytes ((i * gi.width) + i')))
-             in
-             List.iteri
-               (fun idx b ->
-                 Bytes.blit b 0 bytes_texture_atlas
-                   ((idx * widths_summed) + current_width)
-                   (Bytes.length b))
-               lst);
-          current_width + gi.width)
-        0 other_glyph_info_with_char
-    in
+    let current_width = ref 0 in
+    for glyph_info_index = 0 to Array.length other_glyph_info_with_char - 1 do
+      let (_, glyph_info) = other_glyph_info_with_char.(glyph_info_index) in
+      for row = 0 to glyph_info.rows - 1 do
+        let slice = Bytes.sub glyph_info.bytes (row * glyph_info.width) glyph_info.width in
+        Bytes.blit slice 0 bytes_texture_atlas (!current_width + widths_summed * row) glyph_info.width
+      done;
+      current_width := !current_width + glyph_info.width
+    done;
     let font_glyph_texture_atlas_info =
       {
         width = widths_summed;

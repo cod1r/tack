@@ -104,6 +104,7 @@ CAMLprim value gl_bind_texture(value texture_id) {
 
 CAMLprim value gl_teximage_2d(value bytes, value width, value height) {
   CAMLparam3(bytes, width, height);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   glTexImage2D(
     GL_TEXTURE_2D,
     0,
