@@ -127,7 +127,7 @@ let write_to_render_buffer ~(render_buf_container : render_buffer_wrapper)
   in
   let width_scaled =
     (* dividing by 3 because of FT_LOAD_TARGET_LCD *)
-    Float.of_int glyph_info.width /. 3. /. Float.of_int (window_width / 2)
+    Float.of_int glyph_info.width /. Float.of_int (window_width / 2)
   and height_scaled =
     Float.of_int glyph_info.rows /. Float.of_int (window_height / 2)
   in
