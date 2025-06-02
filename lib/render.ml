@@ -81,63 +81,56 @@ let compile_shaders_and_return_program ~vertex_id ~fragment_id ~vertex_src
 type rope_traversal_info = { x : int; y : int; rope_pos : int }
 
 type render_buffer_wrapper = {
-  text_buf : Opengl.render_buffer;
+  buffer : Opengl.render_buffer;
   mutable length : int;
 }
 
-let better_text_buffer : render_buffer_wrapper =
-  {
-    text_buf =
-      Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
-        (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT);
-    length = 0;
-  }
+module FileModeRendering = struct
+  let get_tex_coords ~(editor : Editor.editor) ~(glyph : char)
+      ~(glyph_info : FreeType.glyph_info_) =
+    let _, starting_x =
+      Array.fold_left
+        (fun (found, acc) (c, gi) ->
+          if c = glyph || found then (true, acc)
+          else (false, acc + gi.FreeType.width))
+        (false, 0) editor.config_info.glyph_info_with_char
+    in
+    let starting_x, ending_x =
+      (starting_x, starting_x + glyph_info.FreeType.width - 1)
+    in
+    let width_float =
+      Float.of_int editor.config_info.font_glyph_texture_atlas_info.width
+    in
+    let height_float =
+      Float.of_int editor.config_info.font_glyph_texture_atlas_info.height
+    in
+    let left = Float.of_int starting_x /. width_float in
+    let right = Float.of_int ending_x /. width_float in
+    (left, right, 0., Float.of_int glyph_info.rows /. height_float)
 
-let get_tex_coords ~(editor : Editor.editor) ~(glyph : char)
-    ~(glyph_info : FreeType.glyph_info_) =
-  let _, starting_x =
-    Array.fold_left
-      (fun (found, acc) (c, gi) ->
-        if c = glyph || found then (true, acc)
-        else (false, acc + gi.FreeType.width))
-      (false, 0) editor.config_info.other_glyph_info_with_char
-  in
-  let starting_x, ending_x =
-    (starting_x, starting_x + glyph_info.FreeType.width - 1)
-  in
-  let width_float =
-    Float.of_int editor.config_info.font_glyph_texture_atlas_info.width
-  in
-  let height_float =
-    Float.of_int editor.config_info.font_glyph_texture_atlas_info.height
-  in
-  let left = Float.of_int starting_x /. width_float in
-  let right = Float.of_int ending_x /. width_float in
-  (left, right, 0., Float.of_int glyph_info.rows /. height_float)
-
-let write_to_render_buffer ~(render_buf_container : render_buffer_wrapper)
-    ~(glyph_info : FreeType.glyph_info_) ~x ~y ~window_width ~window_height
-    ~(editor : Editor.editor) ~(glyph : char) =
-  let x_scaled, y_scaled =
-    List.map (fun v -> Float.of_int v) [ x; y ] |> function
-    | first :: second :: _ ->
-        ( first /. Float.of_int (window_width / 2),
-          second /. Float.of_int (window_height / 2) )
-    | _ -> failwith "failed to match list"
-  in
-  let width_scaled =
-    (* dividing by 3 because of FT_LOAD_TARGET_LCD *)
-    Float.of_int glyph_info.width /. Float.of_int (window_width / 2)
-  and height_scaled =
-    Float.of_int glyph_info.rows /. Float.of_int (window_height / 2)
-  in
-  let left, right, top, bottom = get_tex_coords ~editor ~glyph ~glyph_info
-  and horiBearing_Y_Scaled =
-    Float.of_int glyph_info.horiBearingY /. Float.of_int (window_height / 2)
-  and horiBearing_X_Scaled =
-    Float.of_int glyph_info.horiBearingX /. Float.of_int (window_width / 2)
-  in
-  (*
+  let write_to_text_buffer ~(render_buf_container : render_buffer_wrapper)
+      ~(glyph_info : FreeType.glyph_info_) ~x ~y ~window_width ~window_height
+      ~(editor : Editor.editor) ~(glyph : char) =
+    let x_scaled, y_scaled =
+      List.map (fun v -> Float.of_int v) [ x; y ] |> function
+      | first :: second :: _ ->
+          ( first /. Float.of_int (window_width / 2),
+            second /. Float.of_int (window_height / 2) )
+      | _ -> failwith "failed to match list"
+    in
+    let width_scaled =
+      (* dividing by 3 because of FT_LOAD_TARGET_LCD *)
+      Float.of_int glyph_info.width /. Float.of_int (window_width / 2)
+    and height_scaled =
+      Float.of_int glyph_info.rows /. Float.of_int (window_height / 2)
+    in
+    let left, right, top, bottom = get_tex_coords ~editor ~glyph ~glyph_info
+    and horiBearing_Y_Scaled =
+      Float.of_int glyph_info.horiBearingY /. Float.of_int (window_height / 2)
+    and horiBearing_X_Scaled =
+      Float.of_int glyph_info.horiBearingX /. Float.of_int (window_width / 2)
+    in
+    (*
      layout of the values list is:
        vertex x
        vertex y
@@ -149,45 +142,44 @@ let write_to_render_buffer ~(render_buf_container : render_buffer_wrapper)
 
       that is repeated for the 4 points of the quad
    *)
-  let values =
-    [
-      x_scaled +. horiBearing_X_Scaled -. 1.;
-      -.(y_scaled +. height_scaled) +. horiBearing_Y_Scaled +. 1.;
-      0.;
-      0.;
-      0.;
-      left;
-      bottom;
-      x_scaled +. horiBearing_X_Scaled -. 1.;
-      -.y_scaled +. horiBearing_Y_Scaled +. 1.;
-      0.;
-      0.;
-      0.;
-      left;
-      top;
-      x_scaled +. width_scaled +. horiBearing_X_Scaled -. 1.;
-      -.y_scaled +. horiBearing_Y_Scaled +. 1.;
-      0.;
-      0.;
-      0.;
-      right;
-      top;
-      x_scaled +. width_scaled +. horiBearing_X_Scaled -. 1.;
-      -.(y_scaled +. height_scaled) +. horiBearing_Y_Scaled +. 1.;
-      0.;
-      0.;
-      0.;
-      right;
-      bottom;
-    ]
-  in
-  let start = render_buf_container.length in
-  List.iteri
-    (fun idx v -> render_buf_container.text_buf.{idx + start} <- v)
-    values;
-  render_buf_container.length <- start + List.length values
+    let values =
+      [
+        x_scaled +. horiBearing_X_Scaled -. 1.;
+        -.(y_scaled +. height_scaled) +. horiBearing_Y_Scaled +. 1.;
+        0.;
+        0.;
+        0.;
+        left;
+        bottom;
+        x_scaled +. horiBearing_X_Scaled -. 1.;
+        -.y_scaled +. horiBearing_Y_Scaled +. 1.;
+        0.;
+        0.;
+        0.;
+        left;
+        top;
+        x_scaled +. width_scaled +. horiBearing_X_Scaled -. 1.;
+        -.y_scaled +. horiBearing_Y_Scaled +. 1.;
+        0.;
+        0.;
+        0.;
+        right;
+        top;
+        x_scaled +. width_scaled +. horiBearing_X_Scaled -. 1.;
+        -.(y_scaled +. height_scaled) +. horiBearing_Y_Scaled +. 1.;
+        0.;
+        0.;
+        0.;
+        right;
+        bottom;
+      ]
+    in
+    let start = render_buf_container.length in
+    List.iteri
+      (fun idx v -> render_buf_container.buffer.{idx + start} <- v)
+      values;
+    render_buf_container.length <- start + List.length values
 
-module FileModeRendering = struct
   let draw_highlight ~(editor : Editor.editor) ~(r : Rope.rope) ~highlight
       ~vertical_scroll_y_offset ~window_width ~window_height ~highlight_buffer
       ~digits_widths_summed =
@@ -203,7 +195,7 @@ module FileModeRendering = struct
                   editor.config_info.glyph_info_with_char
                 |> Option.get
               in
-              let x_advance = FreeType.get_x_advance glyph_info_found in
+              let x_advance = glyph_info_found.x_advance in
               let next_y = acc.y + editor.config_info.font_height in
               let new_x, new_y =
                 if acc.x + x_advance > editor.bounds.x + editor.bounds.width
@@ -223,12 +215,7 @@ module FileModeRendering = struct
                  in
                  List.iter
                    (fun (x, y) ->
-                     Stubs.write_to_highlight_buffer ~buffer:highlight_buffer ~x
-                       ~y:
-                         (y
-                         + vertical_scroll_y_offset
-                           * editor.config_info.font_height)
-                       ~window_width ~window_height)
+                     failwith "TODO: write highlight info into ui buffer")
                    points);
               { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
         in
@@ -265,14 +252,14 @@ module FileModeRendering = struct
            then
              let curr_x_offset = ref 0 in
              List.iter
-               (fun (_, gi) ->
-                 (* Stubs.write_glyph_to_text_buffer_value ~text_buffer *)
-                 (*   ~glyph_info:gi ~x_offset:!curr_x_offset *)
-                 (*   ~y_offset: *)
-                 (*     (line_num_with_vert_offset * editor.config_info.font_height *)
-                 (*     + editor.config_info.descender) *)
-                 (*   ~window_width ~window_height; *)
-                 curr_x_offset := !curr_x_offset + FreeType.get_x_advance gi)
+               (fun (c', gi) ->
+                 write_to_text_buffer ~render_buf_container:text_buffer
+                   ~glyph_info:gi ~x:!curr_x_offset
+                   ~y:
+                     (line_num_with_vert_offset * editor.config_info.font_height
+                     + editor.config_info.descender)
+                   ~window_width ~window_height ~editor ~glyph:c';
+                 curr_x_offset := !curr_x_offset + gi.FreeType.x_advance)
                glyph_infos);
           line_num + 1
       | _ -> line_num
@@ -287,10 +274,7 @@ module FileModeRendering = struct
       match c with
       | '\n' ->
           if acc.rope_pos = cursor_pos then
-            Stubs.write_cursor_to_buffer ~cursor_buffer ~cursor_width:3
-              ~cursor_height:editor.config_info.font_height
-              ~window_dims:(window_width, window_height)
-              ~x:acc.x ~y:acc.y;
+            failwith "TODO: write cursor info to ui buffer";
           {
             x = digits_widths_summed;
             y = acc.y + editor.config_info.font_height;
@@ -303,7 +287,7 @@ module FileModeRendering = struct
               editor.config_info.glyph_info_with_char
             |> Option.get
           in
-          let x_advance = FreeType.get_x_advance glyph_info and y_pos = acc.y in
+          let x_advance = glyph_info.x_advance and y_pos = acc.y in
           if
             acc.rope_pos = cursor_pos && y_pos >= editor.bounds.y
             && y_pos >= editor.bounds.y
@@ -311,10 +295,7 @@ module FileModeRendering = struct
             && acc.x >= editor.bounds.x
             && acc.x <= editor.bounds.x + editor.bounds.width
           then
-            Stubs.write_cursor_to_buffer ~cursor_buffer ~cursor_width:3
-              ~cursor_height:editor.config_info.font_height
-              ~window_dims:(window_width, window_height)
-              ~x:acc.x ~y:y_pos;
+            failwith "TODO: write cursor info to ui buffer";
           { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
     in
     let { rope_pos; x; y } =
@@ -328,14 +309,11 @@ module FileModeRendering = struct
         }
     in
     if rope_pos = cursor_pos then
-      Stubs.write_cursor_to_buffer ~cursor_buffer ~cursor_width:3
-        ~cursor_height:editor.config_info.font_height
-        ~window_dims:(window_width, window_height)
-        ~x ~y
+      failwith "TODO: writei cursor info to ui buffer"
 
-  let draw_text ~(editor : Editor.editor) ~(rope : Rope.rope)
-      ~(text_buffer : Opengl.buffer) ~window_width ~window_height
-      ~digits_widths_summed ~vertical_scroll_y_offset =
+  let draw_text ~(editor : Editor.editor) ~(rope : Rope.rope) ~text_buffer
+      ~window_width ~window_height ~digits_widths_summed
+      ~vertical_scroll_y_offset =
     let fold_fn_for_drawing_text (acc : rope_traversal_info) c =
       if c = '\n' then
         {
@@ -350,7 +328,7 @@ module FileModeRendering = struct
             editor.config_info.glyph_info_with_char
           |> Option.get
         in
-        let x_advance = FreeType.get_x_advance gi in
+        let x_advance = gi.x_advance in
         let new_x, new_y =
           if acc.x + x_advance > editor.bounds.x + editor.bounds.width then
             (digits_widths_summed, acc.y + editor.config_info.font_height)
@@ -364,7 +342,7 @@ module FileModeRendering = struct
         let _, ogi =
           Array.find_opt
             (fun (c', _) -> c' = c)
-            editor.config_info.other_glyph_info_with_char
+            editor.config_info.glyph_info_with_char
           |> Option.get
         in
         if
@@ -372,37 +350,36 @@ module FileModeRendering = struct
           && y_pos >= 0
           && Bytes.length ogi.bytes > 0
         then
-          (* Stubs.write_glyph_to_text_buffer_value ~text_buffer ~glyph_info:gi *)
-          (*   ~x_offset:acc.x ~y_offset:(y_pos + descender) ~window_width *)
-          (*   ~window_height *)
-          write_to_render_buffer ~render_buf_container:better_text_buffer
-            ~x:acc.x ~y:(y_pos + descender) ~window_width ~window_height
-            ~glyph_info:ogi ~glyph:c ~editor;
+          write_to_text_buffer ~render_buf_container:text_buffer ~x:acc.x
+            ~y:(y_pos + descender) ~window_width ~window_height ~glyph_info:ogi
+            ~glyph:c ~editor;
         { rope_pos = acc.rope_pos + 1; x = new_x; y = new_y }
     in
-    let _ =
-      Editor.traverse_rope rope fold_fn_for_drawing_text
-        {
-          rope_pos = 0;
-          x = editor.bounds.x + digits_widths_summed;
-          y = editor.bounds.y + editor.config_info.font_height;
-        }
-    in
-    ()
+    let _ = Editor.traverse_rope rope fold_fn_for_drawing_text
+      {
+        rope_pos = 0;
+        x = editor.bounds.x + digits_widths_summed;
+        y = editor.bounds.y + editor.config_info.font_height;
+      } in ()
 end
 
 module Render = struct
-  let text_buffer = Stubs.init_buffer ~floats_per_point:_EACH_POINT_FLOAT_AMOUNT
-
-  (* 3000x3000 (seems big enough) * 2 floats per pixel
-     We need it pretty big in the case of multiple cursors
-   *)
-  let cursor_buffer =
-    Stubs.init_buffer_with_capacity (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT)
+  let better_text_buffer : render_buffer_wrapper =
+    {
+      buffer =
+        Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
+          (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT);
+      length = 0;
+    }
 
   (* 3000x3000 times 2 floats per point *)
-  let highlight_buffer =
-    Stubs.init_buffer_with_capacity (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT)
+  let ui_buffer =
+    {
+      buffer =
+        Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
+          (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT);
+      length = 0;
+    }
 
   let _ = gl_enable_texture_2d ()
   let _ = gl_enable_blending ()
@@ -470,16 +447,16 @@ module Render = struct
             in
             FileModeRendering.draw_line_numbers ~editor ~r
               ~vertical_scroll_y_offset ~window_width ~window_height
-              ~text_buffer;
+              ~text_buffer:better_text_buffer;
             FileModeRendering.draw_highlight ~editor ~r
               ~vertical_scroll_y_offset ~highlight ~window_width ~window_height
-              ~highlight_buffer ~digits_widths_summed;
-            FileModeRendering.draw_cursor ~editor ~r ~cursor_buffer ~cursor_pos
-              ~vertical_scroll_y_offset ~window_width ~window_height
+              ~highlight_buffer:ui_buffer ~digits_widths_summed;
+            FileModeRendering.draw_cursor ~editor ~r ~cursor_buffer:ui_buffer
+              ~cursor_pos ~vertical_scroll_y_offset ~window_width ~window_height
               ~digits_widths_summed;
-            FileModeRendering.draw_text ~editor ~rope:r ~text_buffer
-              ~window_width ~window_height ~digits_widths_summed
-              ~vertical_scroll_y_offset
+            FileModeRendering.draw_text ~editor ~rope:r ~window_width
+              ~window_height ~digits_widths_summed ~vertical_scroll_y_offset
+              ~text_buffer:better_text_buffer
         | None -> ())
     | FileSearch { search_rope; results; _ } -> (
         (* todo -> implement filesearch writing to buffer logic for drawing *)
@@ -491,10 +468,8 @@ module Render = struct
           in
           match found_glyph with
           | Some (_, gi) ->
-              let x_advance = FreeType.get_x_advance gi in
-              Stubs.write_search_to_text_buffer ~text_buffer ~glyph_info:gi
-                ~x_offset:acc.x ~window_width ~window_height
-                ~font_height:editor.config_info.font_height;
+              let x_advance = gi.x_advance in
+              failwith "write search to text buffer";
               { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
           | None -> failwith "NO GLYPH FOUND BRUH"
         in
@@ -525,10 +500,8 @@ module Render = struct
                       in
                       match gi with
                       | Some (_, gi') ->
-                          let x_advance = FreeType.get_x_advance gi' in
-                          Stubs.write_glyph_to_text_buffer_value ~text_buffer
-                            ~glyph_info:gi' ~x_offset:!x_offset
-                            ~y_offset:row_pos ~window_width ~window_height;
+                          let x_advance = gi'.x_advance in
+                          failwith "TODO: implement file search mode functions for writing search to text buffer"
                           x_offset := !x_offset + x_advance
                       | None -> ())
                     file)
@@ -536,8 +509,7 @@ module Render = struct
         | None -> ())
 
   let gl_buffer_obj = gl_gen_one_buffer ()
-  let gl_buffer_cursor = gl_gen_one_buffer ()
-  let gl_buffer_highlight = gl_gen_one_buffer ()
+  let gl_buffer_ui = gl_gen_one_buffer ()
   let gl_buffer_glyph_texture_atlas = gl_gen_texture ()
 
   let location_point_vertex =
@@ -584,13 +556,10 @@ module Render = struct
     gl_enable_vertex_attrib_array location_point_vertex;
     gl_enable_vertex_attrib_array location_color;
     gl_bind_buffer gl_buffer_obj;
-    (* gl_buffer_data text_buffer; *)
-    gl_buffer_data_big_array ~render_buffer:better_text_buffer.text_buf
-      ~capacity:(Bigarray.Array1.dim better_text_buffer.text_buf);
-    gl_bind_buffer gl_buffer_cursor;
-    gl_buffer_data cursor_buffer;
-    gl_bind_buffer gl_buffer_highlight;
-    gl_buffer_data highlight_buffer
+    gl_buffer_data_big_array ~render_buffer:better_text_buffer.buffer
+      ~capacity:(Bigarray.Array1.dim better_text_buffer.buffer);
+    gl_bind_buffer gl_buffer_ui;
+    gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
 
   let draw (editor : Editor.editor) =
     gl_clear_color 1. 1. 1. 1.;
@@ -600,37 +569,13 @@ module Render = struct
 
     gl_use_program program;
 
-    gl_bind_buffer gl_buffer_highlight;
+    gl_bind_buffer gl_buffer_ui;
 
     gl_vertex_attrib_pointer_float_type ~location:location_point_vertex ~size:2
       ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
 
     gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
       ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
-
-    gl_buffer_subdata highlight_buffer;
-
-    let buffer_size = Stubs.get_buffer_size highlight_buffer in
-
-    gl_draw_arrays_with_quads (buffer_size / _EACH_POINT_FLOAT_AMOUNT);
-
-    Stubs.reset_buffer highlight_buffer;
-
-    gl_bind_buffer gl_buffer_cursor;
-
-    gl_vertex_attrib_pointer_float_type ~location:location_point_vertex ~size:2
-      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
-
-    gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
-      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
-
-    gl_buffer_subdata cursor_buffer;
-
-    let buffer_size = Stubs.get_buffer_size cursor_buffer in
-
-    gl_draw_arrays (buffer_size / _EACH_POINT_FLOAT_AMOUNT);
-
-    Stubs.reset_buffer cursor_buffer;
 
     gl_use_program text_shader_program;
 
@@ -649,7 +594,7 @@ module Render = struct
       ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
       ~start_idx:5;
 
-    gl_buffer_subdata_big_array ~render_buffer:better_text_buffer.text_buf
+    gl_buffer_subdata_big_array ~render_buffer:better_text_buffer.buffer
       ~length:better_text_buffer.length;
 
     gl_draw_arrays_with_quads

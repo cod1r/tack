@@ -8,8 +8,7 @@ module Editor = struct
   type texture_atlas_info = { width : int; height : int; bytes : bytes }
 
   type information_relating_to_config = {
-    other_glyph_info_with_char : (char * FreeType.glyph_info_) Array.t;
-    glyph_info_with_char : (char * FreeType.glyph_info) Array.t;
+    glyph_info_with_char : (char * FreeType.glyph_info_) Array.t;
     ft_face : FreeType.ft_face;
     pixel_size : int;
     font_height : int;
@@ -71,7 +70,7 @@ module Editor = struct
     let font_height = FreeType.get_font_height face in
     let descender = FreeType.get_descender face in
     let ascender = FreeType.get_ascender face in
-    let other_glyph_info_with_char =
+    let glyph_info_with_char =
       Array.init
         (126 - 32 + 1)
         (fun i -> FreeType.get_ascii_char_glyph_info_ face (i + 32))
@@ -79,7 +78,7 @@ module Editor = struct
     let widths_summed =
       Array.fold_left
         (fun acc (_, gi) -> acc + gi.FreeType.width)
-        0 other_glyph_info_with_char
+        0 glyph_info_with_char
     in
     let global_font_height = ascender - descender in
     let bytes_texture_atlas =
@@ -94,11 +93,15 @@ module Editor = struct
          ABCDEF...
      *)
     let current_width = ref 0 in
-    for glyph_info_index = 0 to Array.length other_glyph_info_with_char - 1 do
-      let (_, glyph_info) = other_glyph_info_with_char.(glyph_info_index) in
+    for glyph_info_index = 0 to Array.length glyph_info_with_char - 1 do
+      let _, glyph_info = glyph_info_with_char.(glyph_info_index) in
       for row = 0 to glyph_info.rows - 1 do
-        let slice = Bytes.sub glyph_info.bytes (row * glyph_info.width) glyph_info.width in
-        Bytes.blit slice 0 bytes_texture_atlas (!current_width + widths_summed * row) glyph_info.width
+        let slice =
+          Bytes.sub glyph_info.bytes (row * glyph_info.width) glyph_info.width
+        in
+        Bytes.blit slice 0 bytes_texture_atlas
+          (!current_width + (widths_summed * row))
+          glyph_info.width
       done;
       current_width := !current_width + glyph_info.width
     done;
@@ -110,11 +113,7 @@ module Editor = struct
       }
     in
     {
-      other_glyph_info_with_char;
-      glyph_info_with_char =
-        Array.init
-          (126 - 32 + 1)
-          (fun i -> FreeType.get_ascii_char_glyph face (i + 32));
+      glyph_info_with_char;
       ft_face = face;
       pixel_size = font_pixel_size;
       font_height;
@@ -155,7 +154,7 @@ module Editor = struct
            |> Option.get)
            :: acc)
          []
-    |> List.fold_left (fun acc (_, gi) -> acc + FreeType.get_x_advance gi) 0
+    |> List.fold_left (fun acc (_, gi) -> acc + gi.FreeType.x_advance) 0
     |> fun dws -> dws + _LINE_NUMBER_RIGHT_PADDING
 
   type rope_traversal_info = { x : int; y : int; rope_pos : int }
@@ -205,7 +204,7 @@ module Editor = struct
               editor.config_info.glyph_info_with_char
             |> Option.get
           in
-          let x_advance = FreeType.get_x_advance gi in
+          let x_advance = gi.x_advance in
           let new_x, new_y =
             if
               closest_info.x + x_advance > editor.bounds.x + editor.bounds.width
@@ -268,7 +267,7 @@ module Editor = struct
               editor.config_info.glyph_info_with_char
             |> Option.get
           in
-          let x_advance = FreeType.get_x_advance gi in
+          let x_advance = gi.x_advance in
           let closest_col, closest_rope =
             get_pair_col_and_rope_pos ~closest_info ~x
           in
@@ -356,7 +355,7 @@ module Editor = struct
             editor.config_info.glyph_info_with_char
           |> Option.get
         in
-        let x_advance = FreeType.get_x_advance gi in
+        let x_advance = gi.x_advance in
         if x + x_advance > editor.bounds.x + editor.bounds.width then
           ( editor.bounds.x + digits_widths_summed,
             y + editor.config_info.font_height )
