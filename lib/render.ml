@@ -78,7 +78,13 @@ let compile_shaders_and_return_program ~vertex_id ~fragment_id ~vertex_src
   gl_linkprogram p;
   p
 
-type rope_traversal_info = { x : int; y : int; rope_pos : int }
+type rope_traversal_info = {
+  x : int;
+  y : int;
+  rope_pos : int;
+  line_num : int;
+  line_number_placements : (int * int) list;
+}
 
 type render_buffer_wrapper = {
   buffer : Opengl.render_buffer;
@@ -217,55 +223,54 @@ module FileModeRendering = struct
                    (fun (x, y) ->
                      failwith "TODO: write highlight info into ui buffer")
                    points);
-              { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
+              { acc with x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
         in
         let _ =
           Editor.traverse_rope r fold_fn_for_draw_highlight
-            ({ x = editor.bounds.x; y = editor.bounds.y; rope_pos = 0 }
+            ({
+               x = editor.bounds.x;
+               y = editor.bounds.y;
+               rope_pos = 0;
+               line_number_placements = [];
+               line_num = 0;
+             }
               : rope_traversal_info)
         in
         ()
     | None -> ()
 
-  let draw_line_numbers ~(editor : Editor.editor) ~(r : Rope.rope)
-      ~vertical_scroll_y_offset ~window_width ~window_height ~text_buffer =
-    let fold_fn_for_draw_line_numbers line_num c =
-      match c with
-      | '\n' ->
-          let digits = string_of_int line_num in
-          let glyph_infos =
-            String.fold_right
-              (fun c' acc ->
-                (Array.find_opt
-                   (fun (c'', _) -> c'' = c')
-                   editor.config_info.glyph_info_with_char
-                |> Option.get)
-                :: acc)
-              digits []
-          in
-          let line_num_with_vert_offset = line_num + vertical_scroll_y_offset in
-          (if
-             line_num_with_vert_offset * editor.config_info.font_height
-             >= editor.bounds.y
-             && line_num_with_vert_offset * editor.config_info.font_height
-                <= editor.bounds.y + editor.bounds.height
-           then
-             let curr_x_offset = ref 0 in
-             List.iter
-               (fun (c', gi) ->
-                 write_to_text_buffer ~render_buf_container:text_buffer
-                   ~glyph_info:gi ~x:!curr_x_offset
-                   ~y:
-                     (line_num_with_vert_offset * editor.config_info.font_height
-                     + editor.config_info.descender)
-                   ~window_width ~window_height ~editor ~glyph:c';
-                 curr_x_offset := !curr_x_offset + gi.FreeType.x_advance)
-               glyph_infos);
-          line_num + 1
-      | _ -> line_num
-    in
-    let _ = Editor.traverse_rope r fold_fn_for_draw_line_numbers 1 in
-    ()
+  let draw_line_numbers ~(editor : Editor.editor) ~vertical_scroll_y_offset
+      ~window_width ~window_height ~text_buffer ~line_number_placements =
+    List.iter
+      (fun (line_num, start_y) ->
+        let digits = string_of_int line_num in
+        let glyph_infos =
+          String.fold_right
+            (fun c' acc ->
+              (Array.find_opt
+                 (fun (c'', _) -> c'' = c')
+                 editor.config_info.glyph_info_with_char
+              |> Option.get)
+              :: acc)
+            digits []
+        in
+        let y_pos =
+          (vertical_scroll_y_offset * editor.config_info.font_height) + start_y
+        in
+        if
+          y_pos >= editor.bounds.y
+          && y_pos <= editor.bounds.y + editor.bounds.height
+        then
+          let curr_x_offset = ref 0 in
+          List.iter
+            (fun (c', gi) ->
+              write_to_text_buffer ~render_buf_container:text_buffer
+                ~glyph_info:gi ~x:!curr_x_offset
+                ~y:(y_pos + editor.config_info.descender)
+                ~window_width ~window_height ~editor ~glyph:c';
+              curr_x_offset := !curr_x_offset + gi.FreeType.x_advance)
+            glyph_infos)
+      line_number_placements
 
   let draw_cursor ~(editor : Editor.editor) ~(r : Rope.rope) ~cursor_pos
       ~cursor_buffer ~vertical_scroll_y_offset ~window_width ~window_height
@@ -274,8 +279,9 @@ module FileModeRendering = struct
       match c with
       | '\n' ->
           if acc.rope_pos = cursor_pos then
-            failwith "TODO: write cursor info to ui buffer";
+            Printf.eprintf "TODO: write cursor info to ui buffer\n";
           {
+            acc with
             x = digits_widths_summed;
             y = acc.y + editor.config_info.font_height;
             rope_pos = acc.rope_pos + 1;
@@ -294,22 +300,23 @@ module FileModeRendering = struct
             && y_pos <= editor.bounds.y + editor.bounds.height
             && acc.x >= editor.bounds.x
             && acc.x <= editor.bounds.x + editor.bounds.width
-          then
-            failwith "TODO: write cursor info to ui buffer";
+          then Printf.eprintf "TODO: write cursor info to ui buffer\n";
           { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
     in
-    let { rope_pos; x; y } =
+    let { rope_pos; _ } =
       Editor.traverse_rope r fold_fn_draw_cursor
         {
+          line_number_placements = [];
           x = editor.bounds.x + digits_widths_summed;
           y =
             editor.bounds.y
             + (vertical_scroll_y_offset * editor.config_info.font_height);
           rope_pos = 0;
+          line_num = 0;
         }
     in
     if rope_pos = cursor_pos then
-      failwith "TODO: writei cursor info to ui buffer"
+      Printf.eprintf "TODO: writei cursor info to ui buffer\n"
 
   let draw_text ~(editor : Editor.editor) ~(rope : Rope.rope) ~text_buffer
       ~window_width ~window_height ~digits_widths_summed
@@ -320,6 +327,10 @@ module FileModeRendering = struct
           x = digits_widths_summed;
           y = acc.y + editor.config_info.font_height;
           rope_pos = acc.rope_pos + 1;
+          line_num = acc.line_num + 1;
+          line_number_placements =
+            (acc.line_num + 1, acc.y + editor.config_info.font_height)
+            :: acc.line_number_placements;
         }
       else
         let _, gi =
@@ -329,9 +340,11 @@ module FileModeRendering = struct
           |> Option.get
         in
         let x_advance = gi.x_advance in
+        let wraps = acc.x + x_advance > editor.bounds.x + editor.bounds.width in
         let new_x, new_y =
-          if acc.x + x_advance > editor.bounds.x + editor.bounds.width then
-            (digits_widths_summed, acc.y + editor.config_info.font_height)
+          if wraps then
+            ( digits_widths_summed + x_advance,
+              acc.y + editor.config_info.font_height )
           else (acc.x + x_advance, acc.y)
         in
         let y_pos =
@@ -350,17 +363,22 @@ module FileModeRendering = struct
           && y_pos >= 0
           && Bytes.length ogi.bytes > 0
         then
-          write_to_text_buffer ~render_buf_container:text_buffer ~x:acc.x
-            ~y:(y_pos + descender) ~window_width ~window_height ~glyph_info:ogi
-            ~glyph:c ~editor;
-        { rope_pos = acc.rope_pos + 1; x = new_x; y = new_y }
+          write_to_text_buffer ~render_buf_container:text_buffer
+            ~x:(if wraps then digits_widths_summed else acc.x)
+            ~y:
+              (y_pos + descender
+              + if wraps then editor.config_info.font_height else 0)
+            ~window_width ~window_height ~glyph_info:ogi ~glyph:c ~editor;
+        { acc with rope_pos = acc.rope_pos + 1; x = new_x; y = new_y }
     in
-    let _ = Editor.traverse_rope rope fold_fn_for_drawing_text
+    Editor.traverse_rope rope fold_fn_for_drawing_text
       {
+        line_number_placements = [ (1, editor.config_info.font_height) ];
         rope_pos = 0;
         x = editor.bounds.x + digits_widths_summed;
         y = editor.bounds.y + editor.config_info.font_height;
-      } in ()
+        line_num = 1;
+      }
 end
 
 module Render = struct
@@ -445,18 +463,20 @@ module Render = struct
             let digits_widths_summed =
               Editor.get_digits_widths_summed ~num_lines:lines ~editor
             in
-            FileModeRendering.draw_line_numbers ~editor ~r
+            let { line_number_placements; _ } =
+              FileModeRendering.draw_text ~editor ~rope:r ~window_width
+                ~window_height ~digits_widths_summed ~vertical_scroll_y_offset
+                ~text_buffer:better_text_buffer
+            in
+            FileModeRendering.draw_line_numbers ~editor
               ~vertical_scroll_y_offset ~window_width ~window_height
-              ~text_buffer:better_text_buffer;
+              ~text_buffer:better_text_buffer ~line_number_placements;
             FileModeRendering.draw_highlight ~editor ~r
               ~vertical_scroll_y_offset ~highlight ~window_width ~window_height
               ~highlight_buffer:ui_buffer ~digits_widths_summed;
             FileModeRendering.draw_cursor ~editor ~r ~cursor_buffer:ui_buffer
               ~cursor_pos ~vertical_scroll_y_offset ~window_width ~window_height
-              ~digits_widths_summed;
-            FileModeRendering.draw_text ~editor ~rope:r ~window_width
-              ~window_height ~digits_widths_summed ~vertical_scroll_y_offset
-              ~text_buffer:better_text_buffer
+              ~digits_widths_summed
         | None -> ())
     | FileSearch { search_rope; results; _ } -> (
         (* todo -> implement filesearch writing to buffer logic for drawing *)
@@ -469,7 +489,7 @@ module Render = struct
           match found_glyph with
           | Some (_, gi) ->
               let x_advance = gi.x_advance in
-              failwith "write search to text buffer";
+              Printf.eprintf "write search to text buffer\n";
               { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
           | None -> failwith "NO GLYPH FOUND BRUH"
         in
@@ -477,7 +497,13 @@ module Render = struct
         | Some r ->
             let _ =
               Editor.traverse_rope r fold_fn
-                { rope_pos = 0; x = editor.bounds.x; y = editor.bounds.y }
+                {
+                  rope_pos = 0;
+                  x = editor.bounds.x;
+                  y = editor.bounds.y;
+                  line_num = 0;
+                  line_number_placements = [];
+                }
             in
             ();
 
@@ -501,7 +527,9 @@ module Render = struct
                       match gi with
                       | Some (_, gi') ->
                           let x_advance = gi'.x_advance in
-                          failwith "TODO: implement file search mode functions for writing search to text buffer"
+                          failwith
+                            "TODO: implement file search mode functions for \
+                             writing search to text buffer";
                           x_offset := !x_offset + x_advance
                       | None -> ())
                     file)
@@ -559,7 +587,8 @@ module Render = struct
     gl_buffer_data_big_array ~render_buffer:better_text_buffer.buffer
       ~capacity:(Bigarray.Array1.dim better_text_buffer.buffer);
     gl_bind_buffer gl_buffer_ui;
-    gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
+    gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
+      ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
 
   let draw (editor : Editor.editor) =
     gl_clear_color 1. 1. 1. 1.;
