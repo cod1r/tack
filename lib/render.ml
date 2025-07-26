@@ -333,12 +333,15 @@ module FileModeRendering = struct
             :: acc.line_number_placements;
         }
       else
-        let _, gi =
-          Array.find_opt
-            (fun (c', _) -> c' = c)
-            editor.config_info.glyph_info_with_char
-          |> Option.get
-        in
+        let gi = ref None in
+        let len = Array.length editor.config_info.glyph_info_with_char in
+        for glyph_info_index = 0 to len - 1 do
+          let c', gi' =
+            editor.config_info.glyph_info_with_char.(glyph_info_index)
+          in
+          if c' = c then gi := Some gi'
+        done;
+        let gi = Option.get !gi in
         let x_advance = gi.x_advance in
         let wraps = acc.x + x_advance > editor.bounds.x + editor.bounds.width in
         let new_x, new_y =
