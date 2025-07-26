@@ -339,7 +339,7 @@ module Editor = struct
           find_closest_horizontal_pos ~editor ~rope ~digits_widths_summed
             ~vertical_scroll_y_offset ~closest_vertical_range ~x
         in
-        closest_rope
+        if closest_rope = -1 then length rope else closest_rope
     | _ -> failwith "NOT FILE"
 
   let calc_new_xy ~(char : char) ~(editor : editor) ~x ~y ~digits_widths_summed
