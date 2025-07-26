@@ -352,23 +352,17 @@ module FileModeRendering = struct
         in
         (* descender is a negative value *)
         let descender = editor.config_info.descender in
-        let _, ogi =
-          Array.find_opt
-            (fun (c', _) -> c' = c)
-            editor.config_info.glyph_info_with_char
-          |> Option.get
-        in
         if
           y_pos <= editor.bounds.y + editor.bounds.height
           && y_pos >= 0
-          && Bytes.length ogi.bytes > 0
+          && Bytes.length gi.bytes > 0
         then
           write_to_text_buffer ~render_buf_container:text_buffer
             ~x:(if wraps then digits_widths_summed else acc.x)
             ~y:
               (y_pos + descender
               + if wraps then editor.config_info.font_height else 0)
-            ~window_width ~window_height ~glyph_info:ogi ~glyph:c ~editor;
+            ~window_width ~window_height ~glyph_info:gi ~glyph:c ~editor;
         { acc with rope_pos = acc.rope_pos + 1; x = new_x; y = new_y }
     in
     Editor.traverse_rope rope fold_fn_for_drawing_text
@@ -387,6 +381,15 @@ module Render = struct
       buffer =
         Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
           (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT);
+      length = 0;
+    }
+
+  let zero_buffer : render_buffer_wrapper =
+    {
+      buffer =
+        Bigarray.Array1.init Bigarray.Float32 Bigarray.c_layout
+          (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT)
+          (fun _ -> 0.);
       length = 0;
     }
 
@@ -628,6 +631,9 @@ module Render = struct
 
     gl_draw_arrays_with_quads
       (better_text_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
+
+    gl_buffer_subdata_big_array ~render_buffer:zero_buffer.buffer
+      ~length:better_text_buffer.length;
 
     better_text_buffer.length <- 0;
 
