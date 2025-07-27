@@ -152,17 +152,18 @@ module Editor = struct
     accumulation
 
   let get_digits_widths_summed ~(num_lines : int) ~(editor : editor) =
-    string_of_int num_lines
-    |> String.fold_left
-         (fun acc c ->
-           (Array.find_opt
-              (fun (c', _) -> c' = c)
-              editor.config_info.glyph_info_with_char
-           |> Option.get)
-           :: acc)
-         []
-    |> List.fold_left (fun acc (_, gi) -> acc + gi.FreeType.x_advance) 0
-    |> fun dws -> dws + _LINE_NUMBER_RIGHT_PADDING
+    let glyph_list = Array.to_list editor.config_info.glyph_info_with_char in
+    let str = string_of_int num_lines in
+    let len = String.length str in
+    let glyphs = ref [] in
+    for str_i = 0 to len - 1 do
+      let glyph = List.find (fun (c', _) -> c' = str.[str_i]) glyph_list in
+      glyphs := glyph :: !glyphs
+    done;
+    let digit_widths_summed =
+      List.fold_left (fun acc (_, gi) -> acc + gi.FreeType.x_advance) 0 !glyphs
+    in
+    digit_widths_summed + _LINE_NUMBER_RIGHT_PADDING
 
   type rope_traversal_info = { x : int; y : int; rope_pos : int }
 
