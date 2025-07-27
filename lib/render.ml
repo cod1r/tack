@@ -149,7 +149,7 @@ module FileModeRendering = struct
       that is repeated for the 4 points of the quad
    *)
     let values =
-      [
+      [|
         x_scaled +. horiBearing_X_Scaled -. 1.;
         -.(y_scaled +. height_scaled) +. horiBearing_Y_Scaled +. 1.;
         0.;
@@ -178,13 +178,13 @@ module FileModeRendering = struct
         0.;
         right;
         bottom;
-      ]
+      |]
     in
     let start = render_buf_container.length in
-    List.iteri
+    Array.iteri
       (fun idx v -> render_buf_container.buffer.{idx + start} <- v)
       values;
-    render_buf_container.length <- start + List.length values
+    render_buf_container.length <- start + Array.length values
 
   let draw_highlight ~(editor : Editor.editor) ~(r : Rope.rope) ~highlight
       ~vertical_scroll_y_offset ~window_width ~window_height ~highlight_buffer
