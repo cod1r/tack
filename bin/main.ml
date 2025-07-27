@@ -47,7 +47,12 @@ let file_contents =
 let split = String.split_on_char ' ' file_contents
 
 let rope =
-  List.fold_left (fun acc s -> concat acc (of_string (s ^ " "))) (Leaf "") split
+  List.fold_left
+    (fun acc s ->
+      let res = Option.value acc ~default:(Leaf (s ^ " ")) in
+      if acc = None then Some res else Some (concat res (of_string (s ^ " "))))
+    None split
+  |> Option.get
 
 let file_rope = rope |> rebalance
 

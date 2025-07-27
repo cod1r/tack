@@ -7,8 +7,12 @@ type rope =
 let length = function Leaf l -> String.length l | Node { length; _ } -> length
 let of_string s = Leaf s
 
+let rec length_of_everything_left = function
+  | Leaf _ as leaf -> length leaf
+  | Node { right; length; _ } -> length + length_of_everything_left right
+
 let concat r1 r2 =
-  Node { left = r1; right = r2; length = length r1 + length r2 }
+  Node { left = r1; right = r2; length = length_of_everything_left r1 }
 
 let rec to_string = function
   | Leaf l -> l
