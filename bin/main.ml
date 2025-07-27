@@ -44,7 +44,12 @@ let file_contents =
   in
   List.fold_left (fun acc line -> acc ^ line ^ "\n") "" lines
 
-let file_rope = of_string file_contents |> rebalance
+let split = String.split_on_char ' ' file_contents
+
+let rope =
+  List.fold_left (fun acc s -> concat acc (of_string (s ^ " "))) (Leaf "") split
+
+let file_rope = rope |> rebalance
 
 let initial_editor : Editor.editor =
   {
