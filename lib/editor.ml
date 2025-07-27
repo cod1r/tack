@@ -134,7 +134,14 @@ module Editor = struct
   let rec traverse_rope (rope : Rope.rope) (handle_result : 'a -> char -> 'a)
       (result : 'a) =
     match rope with
-    | Leaf l -> String.fold_left handle_result result l
+    | Leaf l ->
+        let acc = ref result in
+        let len = String.length l in
+        for i = 0 to len - 1 do
+          let temp = handle_result !acc l.[i] in
+          acc := temp
+        done;
+        !acc
     | Node { left; right; _ } ->
         let left_result = traverse_rope left handle_result result in
         traverse_rope right handle_result left_result
