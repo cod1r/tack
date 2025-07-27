@@ -78,14 +78,6 @@ let compile_shaders_and_return_program ~vertex_id ~fragment_id ~vertex_src
   gl_linkprogram p;
   p
 
-type rope_traversal_info = {
-  x : int;
-  y : int;
-  rope_pos : int;
-  line_num : int;
-  line_number_placements : (int * int) list;
-}
-
 type render_buffer_wrapper = {
   buffer : Opengl.render_buffer;
   mutable length : int;
@@ -191,9 +183,13 @@ module FileModeRendering = struct
       ~digits_widths_summed =
     match highlight with
     | Some (highlight_start, highlight_end) ->
-        let fold_fn_for_draw_highlight (acc : rope_traversal_info) c =
+        let fold_fn_for_draw_highlight
+            (acc : Editor.rope_traversal_info_ Editor.traverse_info) c =
+          let (Editor.Rope_Traversal_Info acc) = acc in
           match c with
-          | '\n' -> { acc with y = acc.y + 1; rope_pos = acc.rope_pos + 1 }
+          | '\n' ->
+              Editor.Rope_Traversal_Info
+                { acc with y = acc.y + 1; rope_pos = acc.rope_pos + 1 }
           | _ ->
               let _, glyph_info_found =
                 Array.find_opt
@@ -223,18 +219,19 @@ module FileModeRendering = struct
                    (fun (x, y) ->
                      failwith "TODO: write highlight info into ui buffer")
                    points);
-              { acc with x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
+              Editor.Rope_Traversal_Info
+                { acc with x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
         in
         let _ =
           Editor.traverse_rope r fold_fn_for_draw_highlight
-            ({
-               x = editor.bounds.x;
-               y = editor.bounds.y;
-               rope_pos = 0;
-               line_number_placements = [];
-               line_num = 0;
-             }
-              : rope_traversal_info)
+            (Rope_Traversal_Info
+               {
+                 x = editor.bounds.x;
+                 y = editor.bounds.y;
+                 rope_pos = 0;
+                 line_number_placements = [];
+                 line_num = 0;
+               })
         in
         ()
     | None -> ()
@@ -275,17 +272,20 @@ module FileModeRendering = struct
   let draw_cursor ~(editor : Editor.editor) ~(r : Rope.rope) ~cursor_pos
       ~cursor_buffer ~vertical_scroll_y_offset ~window_width ~window_height
       ~digits_widths_summed =
-    let fold_fn_draw_cursor (acc : rope_traversal_info) c =
+    let fold_fn_draw_cursor
+        (acc : Editor.rope_traversal_info_ Editor.traverse_info) c =
+      let (Editor.Rope_Traversal_Info acc) = acc in
       match c with
       | '\n' ->
           if acc.rope_pos = cursor_pos then
             Printf.eprintf "TODO: write cursor info to ui buffer\n";
-          {
-            acc with
-            x = digits_widths_summed;
-            y = acc.y + editor.config_info.font_height;
-            rope_pos = acc.rope_pos + 1;
-          }
+          Editor.Rope_Traversal_Info
+            {
+              acc with
+              x = digits_widths_summed;
+              y = acc.y + editor.config_info.font_height;
+              rope_pos = acc.rope_pos + 1;
+            }
       | _ ->
           let _, glyph_info =
             Array.find_opt
@@ -301,37 +301,42 @@ module FileModeRendering = struct
             && acc.x >= editor.bounds.x
             && acc.x <= editor.bounds.x + editor.bounds.width
           then Printf.eprintf "TODO: write cursor info to ui buffer\n";
-          { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
+          Editor.Rope_Traversal_Info
+            { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
     in
-    let { rope_pos; _ } =
+    let res =
       Editor.traverse_rope r fold_fn_draw_cursor
-        {
-          line_number_placements = [];
-          x = editor.bounds.x + digits_widths_summed;
-          y =
-            editor.bounds.y
-            + (vertical_scroll_y_offset * editor.config_info.font_height);
-          rope_pos = 0;
-          line_num = 0;
-        }
+        (Editor.Rope_Traversal_Info
+           {
+             line_number_placements = [];
+             x = editor.bounds.x + digits_widths_summed;
+             y =
+               editor.bounds.y
+               + (vertical_scroll_y_offset * editor.config_info.font_height);
+             rope_pos = 0;
+             line_num = 0;
+           })
     in
-    if rope_pos = cursor_pos then
+    if res.rope_pos = cursor_pos then
       Printf.eprintf "TODO: writei cursor info to ui buffer\n"
 
   let draw_text ~(editor : Editor.editor) ~(rope : Rope.rope) ~text_buffer
       ~window_width ~window_height ~digits_widths_summed
       ~vertical_scroll_y_offset =
-    let fold_fn_for_drawing_text (acc : rope_traversal_info) c =
+    let fold_fn_for_drawing_text
+        (acc : Editor.rope_traversal_info_ Editor.traverse_info) c =
+      let (Editor.Rope_Traversal_Info acc) = acc in
       if c = '\n' then
-        {
-          x = digits_widths_summed;
-          y = acc.y + editor.config_info.font_height;
-          rope_pos = acc.rope_pos + 1;
-          line_num = acc.line_num + 1;
-          line_number_placements =
-            (acc.line_num + 1, acc.y + editor.config_info.font_height)
-            :: acc.line_number_placements;
-        }
+        Editor.Rope_Traversal_Info
+          {
+            x = digits_widths_summed;
+            y = acc.y + editor.config_info.font_height;
+            rope_pos = acc.rope_pos + 1;
+            line_num = acc.line_num + 1;
+            line_number_placements =
+              (acc.line_num + 1, acc.y + editor.config_info.font_height)
+              :: acc.line_number_placements;
+          }
       else
         let gi = ref None in
         let len = Array.length editor.config_info.glyph_info_with_char in
@@ -366,16 +371,18 @@ module FileModeRendering = struct
               (y_pos + descender
               + if wraps then editor.config_info.font_height else 0)
             ~window_width ~window_height ~glyph_info:gi ~glyph:c ~editor;
-        { acc with rope_pos = acc.rope_pos + 1; x = new_x; y = new_y }
+        Editor.Rope_Traversal_Info
+          { acc with rope_pos = acc.rope_pos + 1; x = new_x; y = new_y }
     in
     Editor.traverse_rope rope fold_fn_for_drawing_text
-      {
-        line_number_placements = [ (1, editor.config_info.font_height) ];
-        rope_pos = 0;
-        x = editor.bounds.x + digits_widths_summed;
-        y = editor.bounds.y + editor.config_info.font_height;
-        line_num = 1;
-      }
+      (Editor.Rope_Traversal_Info
+         {
+           line_number_placements = [ (1, editor.config_info.font_height) ];
+           rope_pos = 0;
+           x = editor.bounds.x + digits_widths_summed;
+           y = editor.bounds.y + editor.config_info.font_height;
+           line_num = 1;
+         })
 end
 
 module Render = struct
@@ -469,7 +476,7 @@ module Render = struct
             let digits_widths_summed =
               Editor.get_digits_widths_summed ~num_lines:lines ~editor
             in
-            let { line_number_placements; _ } =
+            let Editor.{ line_number_placements; _ } =
               FileModeRendering.draw_text ~editor ~rope:r ~window_width
                 ~window_height ~digits_widths_summed ~vertical_scroll_y_offset
                 ~text_buffer:better_text_buffer
@@ -486,7 +493,8 @@ module Render = struct
         | None -> ())
     | FileSearch { search_rope; results; _ } -> (
         (* todo -> implement filesearch writing to buffer logic for drawing *)
-        let fold_fn (acc : rope_traversal_info) c =
+        let fold_fn (acc : Editor.rope_traversal_info_ Editor.traverse_info) c =
+          let (Editor.Rope_Traversal_Info acc) = acc in
           let found_glyph =
             Array.find_opt
               (fun (c', _) -> c' = c)
@@ -496,20 +504,22 @@ module Render = struct
           | Some (_, gi) ->
               let x_advance = gi.x_advance in
               Printf.eprintf "write search to text buffer\n";
-              { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
+              Editor.Rope_Traversal_Info
+                { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
           | None -> failwith "NO GLYPH FOUND BRUH"
         in
         match search_rope with
         | Some r ->
             let _ =
               Editor.traverse_rope r fold_fn
-                {
-                  rope_pos = 0;
-                  x = editor.bounds.x;
-                  y = editor.bounds.y;
-                  line_num = 0;
-                  line_number_placements = [];
-                }
+                (Editor.Rope_Traversal_Info
+                   {
+                     rope_pos = 0;
+                     x = editor.bounds.x;
+                     y = editor.bounds.y;
+                     line_num = 0;
+                     line_number_placements = [];
+                   })
             in
             ();
 

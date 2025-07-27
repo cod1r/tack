@@ -39,6 +39,36 @@ module Editor = struct
     bounds : Ui.bounding_box;
   }
 
+  type rope_traversal_info_ = {
+    x : int;
+    y : int;
+    rope_pos : int;
+    line_num : int;
+    line_number_placements : (int * int) list;
+  }
+
+  type closest_information = {
+    closest_col : int option;
+    x : int;
+    lower_y : int;
+    upper_y : int;
+    closest_vertical_range : (int * int) option;
+    closest_rope : int;
+    rope_pos : int;
+  }
+
+  type rope_traversal_info = { x : int; y : int; rope_pos : int }
+
+  type _ traverse_info =
+    | Rope_Traversal_Info :
+        rope_traversal_info_
+        -> rope_traversal_info_ traverse_info
+    | Num_Lines : int -> int traverse_info
+    | Finding_Cursor : closest_information -> closest_information traverse_info
+    | Finding_Coords_Cursor :
+        rope_traversal_info
+        -> rope_traversal_info traverse_info
+
   let open_file file_name =
     Printf.printf "Trying to open %s" file_name;
     print_newline ();
@@ -131,24 +161,90 @@ module Editor = struct
       bounds = { width; height; x = 0; y = 0 };
     }
 
-  let rec traverse_rope (rope : Rope.rope) (handle_result : 'a -> char -> 'a)
-      (result : 'a) =
+  let rec traverse_rope : type p.
+      _ -> (p traverse_info -> char -> p traverse_info) -> p traverse_info -> p
+      =
+   fun (rope : Rope.rope)
+       (handle_result : p traverse_info -> char -> p traverse_info)
+       (result : p traverse_info) ->
     match rope with
-    | Leaf l ->
-        let acc = ref result in
-        let len = String.length l in
-        for i = 0 to len - 1 do
-          let temp = handle_result !acc l.[i] in
-          acc := temp
-        done;
-        !acc
-    | Node { left; right; _ } ->
-        let left_result = traverse_rope left handle_result result in
-        traverse_rope right handle_result left_result
+    | Leaf l -> (
+        match result with
+        | Rope_Traversal_Info r ->
+            let acc = ref r in
+            let len = String.length l in
+            for i = 0 to len - 1 do
+              let (Rope_Traversal_Info temp) =
+                handle_result (Rope_Traversal_Info !acc) l.[i]
+              in
+              acc := temp
+            done;
+            !acc
+        | Finding_Coords_Cursor r ->
+            let acc = ref r in
+            let len = String.length l in
+            for i = 0 to len - 1 do
+              let (Finding_Coords_Cursor temp) =
+                handle_result (Finding_Coords_Cursor !acc) l.[i]
+              in
+              acc := temp
+            done;
+            !acc
+        | Finding_Cursor r ->
+            let acc = ref r in
+            let len = String.length l in
+            for i = 0 to len - 1 do
+              let (Finding_Cursor temp) =
+                handle_result (Finding_Cursor !acc) l.[i]
+              in
+              acc := temp
+            done;
+            !acc
+        | Num_Lines r ->
+            let acc = ref r in
+            let len = String.length l in
+            for i = 0 to len - 1 do
+              let (Num_Lines temp) = handle_result (Num_Lines !acc) l.[i] in
+              acc := temp
+            done;
+            !acc)
+    | Node { left; right; _ } -> (
+        match result with
+        | Rope_Traversal_Info _ ->
+            let left_result = traverse_rope left handle_result result in
+            let right_result =
+              traverse_rope right handle_result
+                (Rope_Traversal_Info left_result)
+            in
+            right_result
+        | Finding_Coords_Cursor _ ->
+            let left_result = traverse_rope left handle_result result in
+            let right_result =
+              traverse_rope right handle_result
+                (Finding_Coords_Cursor left_result)
+            in
+            right_result
+        | Finding_Cursor _ ->
+            let left_result = traverse_rope left handle_result result in
+            let right_result =
+              traverse_rope right handle_result (Finding_Cursor left_result)
+            in
+            right_result
+        | Num_Lines _ ->
+            let left_result = traverse_rope left handle_result result in
+            let right_result =
+              traverse_rope right handle_result (Num_Lines left_result)
+            in
+            right_result)
 
   let num_lines (rope : Rope.rope) =
-    let fold_fn (acc : int) ch = if ch = '\n' then acc + 1 else acc in
-    let accumulation = traverse_rope rope fold_fn 0 in
+    let fold_fn (acc : int traverse_info) ch =
+      if ch = '\n' then
+        let (Num_Lines l) = acc in
+        Num_Lines (l + 1)
+      else acc
+    in
+    let accumulation = traverse_rope rope fold_fn (Num_Lines 0) in
     accumulation
 
   let get_digits_widths_summed ~(num_lines : int) ~(editor : editor) =
@@ -165,18 +261,6 @@ module Editor = struct
     in
     digit_widths_summed + _LINE_NUMBER_RIGHT_PADDING
 
-  type rope_traversal_info = { x : int; y : int; rope_pos : int }
-
-  type closest_information = {
-    closest_col : int option;
-    x : int;
-    lower_y : int;
-    upper_y : int;
-    closest_vertical_range : (int * int) option;
-    closest_rope : int;
-    rope_pos : int;
-  }
-
   let get_pair_col_and_rope_pos ~closest_info ~x =
     match closest_info.closest_vertical_range with
     | Some (s, e) ->
@@ -192,19 +276,22 @@ module Editor = struct
 
   let find_closest_vertical_range ~(editor : editor) ~rope ~digits_widths_summed
       ~y ~vertical_scroll_y_offset =
-    let fold_fn_for_vertical_range (closest_info : closest_information) c =
+    let fold_fn_for_vertical_range
+        (closest_info : closest_information traverse_info) c =
+      let (Finding_Cursor closest_info) = closest_info in
       match c with
       | '\n' ->
-          {
-            closest_info with
-            lower_y = closest_info.lower_y + editor.config_info.font_height;
-            upper_y = closest_info.upper_y + editor.config_info.font_height;
-            x = editor.bounds.x + digits_widths_summed;
-            closest_vertical_range =
-              (if y >= closest_info.lower_y && y <= closest_info.upper_y then
-                 Some (closest_info.lower_y, closest_info.upper_y)
-               else closest_info.closest_vertical_range);
-          }
+          Finding_Cursor
+            {
+              closest_info with
+              lower_y = closest_info.lower_y + editor.config_info.font_height;
+              upper_y = closest_info.upper_y + editor.config_info.font_height;
+              x = editor.bounds.x + digits_widths_summed;
+              closest_vertical_range =
+                (if y >= closest_info.lower_y && y <= closest_info.upper_y then
+                   Some (closest_info.lower_y, closest_info.upper_y)
+                 else closest_info.closest_vertical_range);
+            }
       | _ ->
           let _, gi =
             Array.find_opt
@@ -221,16 +308,17 @@ module Editor = struct
                 closest_info.lower_y + editor.config_info.font_height )
             else (closest_info.x + x_advance, closest_info.lower_y)
           in
-          {
-            closest_info with
-            x = new_x;
-            lower_y = new_y;
-            upper_y = new_y + editor.config_info.font_height;
-            closest_vertical_range =
-              (if y >= closest_info.lower_y && y <= closest_info.upper_y then
-                 Some (closest_info.lower_y, closest_info.upper_y)
-               else closest_info.closest_vertical_range);
-          }
+          Finding_Cursor
+            {
+              closest_info with
+              x = new_x;
+              lower_y = new_y;
+              upper_y = new_y + editor.config_info.font_height;
+              closest_vertical_range =
+                (if y >= closest_info.lower_y && y <= closest_info.upper_y then
+                   Some (closest_info.lower_y, closest_info.upper_y)
+                 else closest_info.closest_vertical_range);
+            }
     in
     let lower_y =
       editor.bounds.y
@@ -239,35 +327,39 @@ module Editor = struct
     let upper_y = lower_y + editor.config_info.font_height in
     let { closest_vertical_range; _ } : closest_information =
       traverse_rope rope fold_fn_for_vertical_range
-        {
-          lower_y;
-          upper_y;
-          closest_col = None;
-          x = editor.bounds.x + digits_widths_summed;
-          closest_rope = 0;
-          rope_pos = 0;
-          closest_vertical_range = None;
-        }
+        (Finding_Cursor
+           {
+             lower_y;
+             upper_y;
+             closest_col = None;
+             x = editor.bounds.x + digits_widths_summed;
+             closest_rope = 0;
+             rope_pos = 0;
+             closest_vertical_range = None;
+           })
     in
     closest_vertical_range
 
   let find_closest_horizontal_pos ~(editor : editor) ~rope ~x
       ~digits_widths_summed ~vertical_scroll_y_offset ~closest_vertical_range =
-    let fold_fn_for_close_x (closest_info : closest_information) c =
+    let fold_fn_for_close_x (closest_info : closest_information traverse_info) c
+        =
+      let (Finding_Cursor closest_info) = closest_info in
       match c with
       | '\n' ->
           let closest_col, closest_rope =
             get_pair_col_and_rope_pos ~closest_info ~x
           in
-          {
-            closest_info with
-            lower_y = closest_info.lower_y + editor.config_info.font_height;
-            upper_y = closest_info.upper_y + editor.config_info.font_height;
-            x = editor.bounds.x + digits_widths_summed;
-            rope_pos = closest_info.rope_pos + 1;
-            closest_col;
-            closest_rope;
-          }
+          Finding_Cursor
+            {
+              closest_info with
+              lower_y = closest_info.lower_y + editor.config_info.font_height;
+              upper_y = closest_info.upper_y + editor.config_info.font_height;
+              x = editor.bounds.x + digits_widths_summed;
+              rope_pos = closest_info.rope_pos + 1;
+              closest_col;
+              closest_rope;
+            }
       | _ ->
           let _, gi =
             Array.find_opt
@@ -287,15 +379,16 @@ module Editor = struct
                 closest_info.lower_y + editor.config_info.font_height )
             else (closest_info.x + x_advance, closest_info.lower_y)
           in
-          {
-            closest_info with
-            x = new_x;
-            lower_y = new_y;
-            upper_y = new_y + editor.config_info.font_height;
-            closest_col;
-            closest_rope;
-            rope_pos = closest_info.rope_pos + 1;
-          }
+          Finding_Cursor
+            {
+              closest_info with
+              x = new_x;
+              lower_y = new_y;
+              upper_y = new_y + editor.config_info.font_height;
+              closest_col;
+              closest_rope;
+              rope_pos = closest_info.rope_pos + 1;
+            }
     in
     let lower_y =
       editor.bounds.y
@@ -304,15 +397,16 @@ module Editor = struct
     let upper_y = lower_y + editor.config_info.font_height in
     let { closest_rope; _ } : closest_information =
       traverse_rope rope fold_fn_for_close_x
-        {
-          closest_rope = -1;
-          closest_col = None;
-          x = editor.bounds.x + digits_widths_summed;
-          lower_y;
-          upper_y;
-          rope_pos = 0;
-          closest_vertical_range;
-        }
+        (Finding_Cursor
+           {
+             closest_rope = -1;
+             closest_col = None;
+             x = editor.bounds.x + digits_widths_summed;
+             lower_y;
+             upper_y;
+             rope_pos = 0;
+             closest_vertical_range;
+           })
     in
     closest_rope
 
@@ -369,8 +463,6 @@ module Editor = struct
             y + editor.config_info.font_height )
         else (x + x_advance, y)
 
-  type finding_cursor_pos_info = { x : int; y : int; rope_pos : int }
-
   let find_coords_for_cursor_pos ~(editor : editor) =
     let current_rope =
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
@@ -382,24 +474,28 @@ module Editor = struct
         let digits_widths_summed =
           get_digits_widths_summed ~num_lines ~editor
         in
-        let fold_fn_for_finding_coords acc c =
+        let fold_fn_for_finding_coords (acc : rope_traversal_info traverse_info)
+            c =
+          let (Finding_Coords_Cursor acc) = acc in
           if acc.rope_pos != cursor_pos then
             let new_x, new_y =
               calc_new_xy ~editor ~x:acc.x ~y:acc.y ~digits_widths_summed
                 ~char:c
             in
-            { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
-          else acc
+            Finding_Coords_Cursor
+              { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
+          else Finding_Coords_Cursor acc
         in
         let res =
           traverse_rope rope fold_fn_for_finding_coords
-            {
-              x = editor.bounds.x + digits_widths_summed;
-              y =
-                editor.bounds.y
-                + (vertical_scroll_y_offset * editor.config_info.font_height);
-              rope_pos = 0;
-            }
+            (Finding_Coords_Cursor
+               {
+                 x = editor.bounds.x + digits_widths_summed;
+                 y =
+                   editor.bounds.y
+                   + (vertical_scroll_y_offset * editor.config_info.font_height);
+                 rope_pos = 0;
+               })
         in
         res
     | _ ->
