@@ -76,8 +76,7 @@ module Sdl = struct
   external get_clipboard_text : unit -> string
     = "get_clipboard_text" "get_clipboard_text"
 
-  external sdl_gl_swapwindow : window -> unit
-    = "sdl_gl_swapwindow" [@@noalloc]
+  external sdl_gl_swapwindow : window -> unit = "sdl_gl_swapwindow" [@@noalloc]
 
   external sdl_gl_make_current : window -> (unit, string) result
     = "sdl_gl_make_current" "sdl_gl_make_current"
@@ -143,8 +142,11 @@ module Sdl = struct
   external sdl_create_and_set_system_cursor : unit -> unit
     = "sdl_create_and_set_system_cursor" "sdl_create_and_set_system_cursor"
 
-  external sdl_gl_getswapinterval : unit -> int = "sdl_gl_getswapinterval" [@@noalloc]
-  external sdl_gl_setswapinterval : int -> unit = "sdl_gl_setswapinterval" [@@noalloc]
+  external sdl_gl_getswapinterval : unit -> int = "sdl_gl_getswapinterval"
+  [@@noalloc]
+
+  external sdl_gl_setswapinterval : int -> unit = "sdl_gl_setswapinterval"
+  [@@noalloc]
 
   let actually_init_sdl () =
     (match init_sdl () with Ok () -> () | Error e -> failwith e);

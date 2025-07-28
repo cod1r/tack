@@ -6,7 +6,6 @@ open Tack.Modes
 
 let s = Another.hi
 let () = print_endline s
-
 let () = Sdl.sdl_gl_setswapinterval 0
 
 let rec loop (editor_info : Editor.editor) =

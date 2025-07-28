@@ -22,13 +22,13 @@ let timing_test_opengl_works _ =
   for _ = 0 to 100_000 do
     Tack.Opengl.gl_clear_color 1. 0. 0. 1.;
     Tack.Opengl.gl_clear ();
-    (Sdl.sdl_gl_swapwindow w);
+    Sdl.sdl_gl_swapwindow w;
     Tack.Opengl.gl_clear_color 0. 1. 0. 1.;
     Tack.Opengl.gl_clear ();
-    (Sdl.sdl_gl_swapwindow w);
+    Sdl.sdl_gl_swapwindow w;
     Tack.Opengl.gl_clear_color 0. 0. 1. 1.;
     Tack.Opengl.gl_clear ();
-    (Sdl.sdl_gl_swapwindow w);
+    Sdl.sdl_gl_swapwindow w
   done
 
 let gl_gen_one_buffer_test _ =
