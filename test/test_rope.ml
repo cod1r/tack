@@ -13,7 +13,7 @@ let delete_test _ =
   let r3 = Tack.Rope.concat r1 r2 in
   let r4 = Tack.Rope.delete r3 ~start:4 ~len:1 in
   let s = Tack.Rope.to_string r4 in
-  assert_equal ~msg:(s ^ " is not equal to 'Hell '") s "Hell World"
+  assert_equal ~msg:(s ^ " is not equal to " ^ "Hell World") s "Hell World"
 
 let length_test _ =
   let r1 = Tack.Rope.of_string "Hello " in
@@ -96,8 +96,8 @@ let insertion_rope_test _ =
 let tests =
   "rope tests"
   >::: [
-         "concat test" >:: concat_test;
          "delete test" >:: delete_test;
+         "concat test" >:: concat_test;
          "length test" >:: length_test;
          "substring test" >:: substring_test;
          "rope concatenation time" >:: timing_test_concatenation;

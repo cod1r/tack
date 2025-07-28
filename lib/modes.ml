@@ -384,9 +384,9 @@ module FileMode : Mode = struct
                 Opengl.gl_set_viewport 0 0 window_width window_height;
                 editor
             | Unhandled -> editor)
-        | Some (MouseMotionEvt { x; y; _ }) ->
-            Printf.printf "Mousemotion %d %d" x y;
-            print_newline ();
+        | Some (MouseMotionEvt _) ->
+            (* Printf.printf "Mousemotion %d %d" x y;
+            print_newline (); *)
             editor
         | Some (MouseWheelEvt { y; _ }) ->
             let num_lines =

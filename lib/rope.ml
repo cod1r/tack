@@ -2,17 +2,20 @@ open Freetype
 
 type rope =
   | Leaf of string
-  | Node of { left : rope; right : rope; length : int }
+  | Node of { left : rope; right : rope; weight : int }
 
-let length = function Leaf l -> String.length l | Node { length; _ } -> length
+let rec length = function
+  | Leaf l -> String.length l
+  | Node { weight; right; _ } -> length right + weight
+
 let of_string s = Leaf s
 
 let rec length_of_everything_left = function
   | Leaf _ as leaf -> length leaf
-  | Node { right; length; _ } -> length + length_of_everything_left right
+  | Node { right; weight; _ } -> weight + length_of_everything_left right
 
 let concat r1 r2 =
-  Node { left = r1; right = r2; length = length_of_everything_left r1 }
+  Node { left = r1; right = r2; weight = length_of_everything_left r1 }
 
 let rec to_string = function
   | Leaf l -> l
