@@ -34,19 +34,27 @@ CAMLprim value sdl_create_and_set_system_cursor(value unit) {
   CAMLreturn(Val_unit);
 }
 
+CAMLprim value sdl_gl_setswapinterval(value interval) {
+  CAMLparam1(interval);
+  int ivl = Int_val(interval);
+  int res = SDL_GL_SetSwapInterval(ivl);
+  if (res == -1) caml_failwith(SDL_GetError());
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value sdl_gl_getswapinterval() {
+  CAMLparam0();
+  CAMLreturn(Val_int(SDL_GL_GetSwapInterval()));
+}
+
 CAMLprim value sdl_gl_swapwindow(value window) {
   CAMLparam1(window);
-  CAMLlocal1(result);
   SDL_Window* w = SDL_GetWindowFromID(Int_val(Field(window, 0)));
   if (w == NULL) {
-    result = caml_alloc(1, 1);
-    Store_field(result, 0, caml_copy_string(SDL_GetError()));
-    CAMLreturn(result);
+    caml_failwith(SDL_GetError());
   }
   SDL_GL_SwapWindow(w);
-  result = caml_alloc(1, 0);
-  Store_field(result, 0, Val_unit);
-  CAMLreturn(result);
+  CAMLreturn(Val_unit);
 }
 
 CAMLprim value sdl_gl_make_current(value window) {

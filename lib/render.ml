@@ -650,5 +650,5 @@ module Render = struct
 
     better_text_buffer.length <- 0;
 
-    match Sdl.sdl_gl_swapwindow Sdl.w with Ok () -> () | Error e -> failwith e
+    Sdl.sdl_gl_swapwindow Sdl.w
 end

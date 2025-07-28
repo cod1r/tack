@@ -34,7 +34,7 @@ external gl_clear_color :
 external gl_enable_vertex_attrib_array : int -> unit
   = "gl_enable_vertex_attrib_array" "gl_enable_vertex_attrib_array"
 
-external gl_use_program : int -> unit = "gl_use_program" "gl_use_program"
+external gl_use_program : int -> unit = "gl_use_program" [@@noalloc]
 external gl_clear : unit -> unit = "gl_clear" "gl_clear"
 
 external gl_gen_one_buffer : unit -> int
