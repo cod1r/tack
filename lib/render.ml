@@ -117,7 +117,6 @@ module FileModeRendering = struct
       | _ -> failwith "failed to match list"
     in
     let width_scaled =
-      (* dividing by 3 because of FT_LOAD_TARGET_LCD *)
       Float.of_int glyph_info.width /. Float.of_int (window_width / 2)
     and height_scaled =
       Float.of_int glyph_info.rows /. Float.of_int (window_height / 2)
@@ -177,6 +176,29 @@ module FileModeRendering = struct
       (fun idx v -> render_buf_container.buffer.{idx + start} <- v)
       values;
     render_buf_container.length <- start + Array.length values
+
+  let write_to_cursor_buffer ~(cursor_buffer : render_buffer_wrapper) ~x ~y
+      ~window_width ~window_height ~digits_widths_summed =
+    let x = digits_widths_summed + x in
+    let points = [ (x, y); (x + 10, y); (x, y + 10); (x + 10, y + 10) ] in
+    let values = Array.init 24 (fun _ -> 0.) in
+    List.iteri
+      (fun idx (x, y) ->
+        let x = Float.of_int x /. Float.of_int (window_width / 2) in
+        let x = x -. 1. in
+        let y = Float.of_int y /. Float.of_int (window_height / 2) in
+        let y = -.y +. 1. in
+        let start = idx * 6 in
+        values.(start) <- x;
+        values.(start + 1) <- y;
+        values.(start + 2) <- 0.;
+        values.(start + 3) <- 0.;
+        values.(start + 4) <- 0.;
+        values.(start + 5) <- 1.)
+      points;
+    let start = cursor_buffer.length in
+    Array.iteri (fun idx v -> cursor_buffer.buffer.{idx + start} <- v) values;
+    cursor_buffer.length <- start + Array.length values
 
   let draw_highlight ~(editor : Editor.editor) ~(r : Rope.rope) ~highlight
       ~vertical_scroll_y_offset ~window_width ~window_height ~highlight_buffer
@@ -270,8 +292,8 @@ module FileModeRendering = struct
       line_number_placements
 
   let draw_cursor ~(editor : Editor.editor) ~(r : Rope.rope) ~cursor_pos
-      ~cursor_buffer ~vertical_scroll_y_offset ~window_width ~window_height
-      ~digits_widths_summed =
+      ~(cursor_buffer : render_buffer_wrapper) ~vertical_scroll_y_offset
+      ~window_width ~window_height ~digits_widths_summed =
     let fold_fn_draw_cursor
         (acc : Editor.rope_traversal_info_ Editor.traverse_info) c =
       let (Editor.Rope_Traversal_Info acc) = acc in
@@ -300,7 +322,9 @@ module FileModeRendering = struct
             && y_pos <= editor.bounds.y + editor.bounds.height
             && acc.x >= editor.bounds.x
             && acc.x <= editor.bounds.x + editor.bounds.width
-          then Printf.eprintf "TODO: write cursor info to ui buffer\n";
+          then
+            write_to_cursor_buffer ~cursor_buffer ~x:acc.x ~y:acc.y
+              ~window_width ~window_height ~digits_widths_summed;
           Editor.Rope_Traversal_Info
             { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
     in
@@ -318,7 +342,7 @@ module FileModeRendering = struct
            })
     in
     if res.rope_pos = cursor_pos then
-      Printf.eprintf "TODO: writei cursor info to ui buffer\n"
+      Printf.eprintf "TODO: write cursor info to ui buffer\n"
 
   let draw_text ~(editor : Editor.editor) ~(rope : Rope.rope) ~text_buffer
       ~window_width ~window_height ~digits_widths_summed
@@ -403,8 +427,15 @@ module Render = struct
       length = 0;
     }
 
-  (* 3000x3000 times 2 floats per point *)
-  let ui_buffer =
+  let cursor_buffer =
+    {
+      buffer =
+        Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
+          (4 * _EACH_POINT_FLOAT_AMOUNT);
+      length = 0;
+    }
+
+  let highlight_buffer =
     {
       buffer =
         Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
@@ -486,9 +517,9 @@ module Render = struct
               ~text_buffer:better_text_buffer ~line_number_placements;
             FileModeRendering.draw_highlight ~editor ~r
               ~vertical_scroll_y_offset ~highlight ~window_width ~window_height
-              ~highlight_buffer:ui_buffer ~digits_widths_summed;
-            FileModeRendering.draw_cursor ~editor ~r ~cursor_buffer:ui_buffer
-              ~cursor_pos ~vertical_scroll_y_offset ~window_width ~window_height
+              ~highlight_buffer ~digits_widths_summed;
+            FileModeRendering.draw_cursor ~editor ~r ~cursor_buffer ~cursor_pos
+              ~vertical_scroll_y_offset ~window_width ~window_height
               ~digits_widths_summed
         | None -> ())
     | FileSearch { search_rope; results; _ } -> (
@@ -553,7 +584,8 @@ module Render = struct
         | None -> ())
 
   let gl_buffer_obj = gl_gen_one_buffer ()
-  let gl_buffer_ui = gl_gen_one_buffer ()
+  let gl_buffer_cursor = gl_gen_one_buffer ()
+  let gl_buffer_highlight = gl_gen_one_buffer ()
   let gl_buffer_glyph_texture_atlas = gl_gen_texture ()
 
   let location_point_vertex =
@@ -602,9 +634,12 @@ module Render = struct
     gl_bind_buffer gl_buffer_obj;
     gl_buffer_data_big_array ~render_buffer:better_text_buffer.buffer
       ~capacity:(Bigarray.Array1.dim better_text_buffer.buffer);
-    gl_bind_buffer gl_buffer_ui;
-    gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
-      ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
+    gl_bind_buffer gl_buffer_cursor;
+    gl_buffer_data_big_array ~render_buffer:cursor_buffer.buffer
+      ~capacity:(Bigarray.Array1.dim cursor_buffer.buffer);
+    gl_bind_buffer gl_buffer_highlight;
+    gl_buffer_data_big_array ~render_buffer:highlight_buffer.buffer
+      ~capacity:(Bigarray.Array1.dim highlight_buffer.buffer)
 
   let draw (editor : Editor.editor) =
     gl_clear_color 1. 1. 1. 1.;
@@ -612,9 +647,9 @@ module Render = struct
 
     draw_editor editor;
 
-    gl_use_program program;
+    gl_bind_buffer gl_buffer_cursor;
 
-    gl_bind_buffer gl_buffer_ui;
+    gl_use_program program;
 
     gl_vertex_attrib_pointer_float_type ~location:location_point_vertex ~size:2
       ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
@@ -622,12 +657,12 @@ module Render = struct
     gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
       ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
 
-    gl_use_program text_shader_program;
+    gl_bind_buffer gl_buffer_obj;
 
     (* 0 is default texture unit; reminder that sampler is not location but texture unit *)
     gl_uniform_1i ~location:sampler_text_location ~value:0;
 
-    gl_bind_buffer gl_buffer_obj;
+    gl_use_program text_shader_program;
 
     gl_vertex_attrib_pointer_float_type ~location:vertex_text_location ~size:2
       ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:0;
