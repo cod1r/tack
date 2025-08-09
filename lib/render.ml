@@ -178,9 +178,10 @@ module FileModeRendering = struct
     render_buf_container.length <- start + Array.length values
 
   let write_to_cursor_buffer ~(cursor_buffer : render_buffer_wrapper) ~x ~y
-      ~window_width ~window_height ~digits_widths_summed =
-    let x = digits_widths_summed + x in
-    let points = [ (x, y); (x + 10, y); (x, y + 10); (x + 10, y + 10) ] in
+      ~window_width ~window_height ~font_height =
+    let points =
+      [ (x, y + font_height); (x, y); (x + 10, y); (x + 10, y + font_height) ]
+    in
     let values = Array.init 24 (fun _ -> 0.) in
     List.iteri
       (fun idx (x, y) ->
@@ -196,9 +197,8 @@ module FileModeRendering = struct
         values.(start + 4) <- 0.;
         values.(start + 5) <- 1.)
       points;
-    let start = cursor_buffer.length in
-    Array.iteri (fun idx v -> cursor_buffer.buffer.{idx + start} <- v) values;
-    cursor_buffer.length <- start + Array.length values
+    Array.iteri (fun idx v -> cursor_buffer.buffer.{idx} <- v) values;
+    cursor_buffer.length <- Array.length values
 
   let draw_highlight ~(editor : Editor.editor) ~(r : Rope.rope) ~highlight
       ~vertical_scroll_y_offset ~window_width ~window_height ~highlight_buffer
@@ -297,10 +297,18 @@ module FileModeRendering = struct
     let fold_fn_draw_cursor
         (acc : Editor.rope_traversal_info_ Editor.traverse_info) c =
       let (Editor.Rope_Traversal_Info acc) = acc in
+      let y_pos = acc.y in
+      if
+        acc.rope_pos = cursor_pos && y_pos >= editor.bounds.y
+        && y_pos >= editor.bounds.y
+        && y_pos <= editor.bounds.y + editor.bounds.height
+        && acc.x >= editor.bounds.x
+        && acc.x <= editor.bounds.x + editor.bounds.width
+      then
+        write_to_cursor_buffer ~cursor_buffer ~x:acc.x ~y:acc.y ~window_width
+          ~window_height ~font_height:editor.config_info.font_height;
       match c with
       | '\n' ->
-          if acc.rope_pos = cursor_pos then
-            Printf.eprintf "TODO: write cursor info to ui buffer\n";
           Editor.Rope_Traversal_Info
             {
               acc with
@@ -315,16 +323,7 @@ module FileModeRendering = struct
               editor.config_info.glyph_info_with_char
             |> Option.get
           in
-          let x_advance = glyph_info.x_advance and y_pos = acc.y in
-          if
-            acc.rope_pos = cursor_pos && y_pos >= editor.bounds.y
-            && y_pos >= editor.bounds.y
-            && y_pos <= editor.bounds.y + editor.bounds.height
-            && acc.x >= editor.bounds.x
-            && acc.x <= editor.bounds.x + editor.bounds.width
-          then
-            write_to_cursor_buffer ~cursor_buffer ~x:acc.x ~y:acc.y
-              ~window_width ~window_height ~digits_widths_summed;
+          let x_advance = glyph_info.x_advance in
           Editor.Rope_Traversal_Info
             { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
     in
@@ -342,7 +341,8 @@ module FileModeRendering = struct
            })
     in
     if res.rope_pos = cursor_pos then
-      Printf.eprintf "TODO: write cursor info to ui buffer\n"
+      write_to_cursor_buffer ~cursor_buffer ~x:res.x ~y:res.y ~window_width
+        ~window_height ~font_height:editor.config_info.font_height
 
   let draw_text ~(editor : Editor.editor) ~(rope : Rope.rope) ~text_buffer
       ~window_width ~window_height ~digits_widths_summed
@@ -656,6 +656,13 @@ module Render = struct
 
     gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
       ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
+
+    gl_buffer_subdata_big_array ~render_buffer:cursor_buffer.buffer
+      ~length:cursor_buffer.length;
+
+    gl_draw_arrays_with_quads (cursor_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
+
+    cursor_buffer.length <- 0;
 
     gl_bind_buffer gl_buffer_obj;
 
