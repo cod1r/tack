@@ -486,18 +486,15 @@ module Editor = struct
               { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
           else Finding_Coords_Cursor acc
         in
-        let res =
-          traverse_rope rope fold_fn_for_finding_coords
-            (Finding_Coords_Cursor
-               {
-                 x = editor.bounds.x + digits_widths_summed;
-                 y =
-                   editor.bounds.y
-                   + (vertical_scroll_y_offset * editor.config_info.font_height);
-                 rope_pos = 0;
-               })
-        in
-        res
+        traverse_rope rope fold_fn_for_finding_coords
+          (Finding_Coords_Cursor
+             {
+               x = editor.bounds.x + digits_widths_summed;
+               y =
+                 editor.bounds.y
+                 + (vertical_scroll_y_offset * editor.config_info.font_height);
+               rope_pos = 0;
+             })
     | _ ->
         failwith
           "find_coords_for_cursor_pos not handled yet for other rope types"
@@ -514,9 +511,15 @@ module Editor = struct
         let digits_widths_summed =
           get_digits_widths_summed ~num_lines ~editor
         in
-        find_closest_horizontal_pos ~editor ~rope ~x:cursor_x
-          ~digits_widths_summed ~vertical_scroll_y_offset
-          ~closest_vertical_range:
-            (Some (lower_y, lower_y + editor.config_info.font_height))
+        let hor_pos =
+          find_closest_horizontal_pos ~editor ~rope ~x:cursor_x
+            ~digits_widths_summed ~vertical_scroll_y_offset
+            ~closest_vertical_range:
+              (Some (lower_y, lower_y + editor.config_info.font_height))
+        in
+        Printf.printf "hor_pos: %d, lower_y: %d, upper y: %d" hor_pos lower_y
+          (lower_y + editor.config_info.font_height);
+        print_newline ();
+        hor_pos
     | _ -> failwith "supposed to be used for file modes"
 end

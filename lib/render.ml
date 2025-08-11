@@ -312,7 +312,7 @@ module FileModeRendering = struct
           Editor.Rope_Traversal_Info
             {
               acc with
-              x = digits_widths_summed;
+              x = editor.bounds.x + digits_widths_summed;
               y = acc.y + editor.config_info.font_height;
               rope_pos = acc.rope_pos + 1;
             }
@@ -324,8 +324,20 @@ module FileModeRendering = struct
             |> Option.get
           in
           let x_advance = glyph_info.x_advance in
+          let wraps =
+            acc.x + x_advance > editor.bounds.x + editor.bounds.width
+          in
           Editor.Rope_Traversal_Info
-            { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
+            {
+              acc with
+              x =
+                (if wraps then
+                   editor.bounds.x + digits_widths_summed + x_advance
+                 else acc.x + x_advance);
+              y =
+                (if wraps then acc.y + editor.config_info.font_height else acc.y);
+              rope_pos = acc.rope_pos + 1;
+            }
     in
     let res =
       Editor.traverse_rope r fold_fn_draw_cursor
