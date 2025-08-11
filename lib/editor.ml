@@ -517,9 +517,6 @@ module Editor = struct
             ~closest_vertical_range:
               (Some (lower_y, lower_y + editor.config_info.font_height))
         in
-        Printf.printf "hor_pos: %d, lower_y: %d, upper y: %d" hor_pos lower_y
-          (lower_y + editor.config_info.font_height);
-        print_newline ();
         hor_pos
     | _ -> failwith "supposed to be used for file modes"
 end
