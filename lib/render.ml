@@ -424,6 +424,7 @@ end
 module Render = struct
   let better_text_buffer : render_buffer_wrapper =
     {
+      (* This is too much memory *)
       buffer =
         Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
           (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT);
@@ -432,6 +433,7 @@ module Render = struct
 
   let zero_buffer : render_buffer_wrapper =
     {
+      (* This is too much memory *)
       buffer =
         Bigarray.Array1.init Bigarray.Float32 Bigarray.c_layout
           (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT)
@@ -449,6 +451,7 @@ module Render = struct
 
   let highlight_buffer =
     {
+      (* This is too much memory *)
       buffer =
         Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
           (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT);

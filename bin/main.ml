@@ -4,11 +4,18 @@ open Tack.Rope
 open Tack.Render
 open Tack.Modes
 
-let s = Another.hi
-let () = print_endline s
 let () = Sdl.sdl_gl_setswapinterval 0
 
-let rec loop (editor_info : Editor.editor) =
+let rec loop () =
+  let evt = Sdl.sdl_waitevent () in
+  let continue =
+    match evt with Some Quit -> false | None -> true | _ -> true
+  in
+  if continue then loop () else ()
+
+let () = loop ()
+
+(* let rec loop (editor_info : Editor.editor) =
   let evt = Sdl.sdl_waitevent () in
   let new_editor, continue =
     match evt with
@@ -79,4 +86,4 @@ let initial_editor : Editor.editor =
 let () = Render.setup_glyph_texture ~editor:initial_editor
 let () = Render.draw initial_editor
 let () = Sdl.sdl_create_and_set_system_cursor ()
-let () = loop initial_editor
+let () = loop initial_editor *)
