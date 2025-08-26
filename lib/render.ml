@@ -422,22 +422,12 @@ module FileModeRendering = struct
 end
 
 module Render = struct
-  let better_text_buffer : render_buffer_wrapper =
+  let ui_buffer : render_buffer_wrapper =
     {
       (* This is too much memory *)
       buffer =
         Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
           (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT);
-      length = 0;
-    }
-
-  let zero_buffer : render_buffer_wrapper =
-    {
-      (* This is too much memory *)
-      buffer =
-        Bigarray.Array1.init Bigarray.Float32 Bigarray.c_layout
-          (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT)
-          (fun _ -> 0.);
       length = 0;
     }
 
@@ -446,15 +436,6 @@ module Render = struct
       buffer =
         Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
           (4 * _EACH_POINT_FLOAT_AMOUNT);
-      length = 0;
-    }
-
-  let highlight_buffer =
-    {
-      (* This is too much memory *)
-      buffer =
-        Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
-          (3000 * 3000 * _EACH_POINT_FLOAT_AMOUNT);
       length = 0;
     }
 
@@ -525,14 +506,14 @@ module Render = struct
             let Editor.{ line_number_placements; _ } =
               FileModeRendering.draw_text ~editor ~rope:r ~window_width
                 ~window_height ~digits_widths_summed ~vertical_scroll_y_offset
-                ~text_buffer:better_text_buffer
+                ~text_buffer:ui_buffer
             in
             FileModeRendering.draw_line_numbers ~editor
               ~vertical_scroll_y_offset ~window_width ~window_height
-              ~text_buffer:better_text_buffer ~line_number_placements;
+              ~text_buffer:ui_buffer ~line_number_placements;
             FileModeRendering.draw_highlight ~editor ~r
               ~vertical_scroll_y_offset ~highlight ~window_width ~window_height
-              ~highlight_buffer ~digits_widths_summed;
+              ~highlight_buffer:ui_buffer ~digits_widths_summed;
             FileModeRendering.draw_cursor ~editor ~r ~cursor_buffer ~cursor_pos
               ~vertical_scroll_y_offset ~window_width ~window_height
               ~digits_widths_summed
@@ -647,14 +628,14 @@ module Render = struct
     gl_enable_vertex_attrib_array location_point_vertex;
     gl_enable_vertex_attrib_array location_color;
     gl_bind_buffer gl_buffer_obj;
-    gl_buffer_data_big_array ~render_buffer:better_text_buffer.buffer
-      ~capacity:(Bigarray.Array1.dim better_text_buffer.buffer);
+    gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
+      ~capacity:(Bigarray.Array1.dim ui_buffer.buffer);
     gl_bind_buffer gl_buffer_cursor;
     gl_buffer_data_big_array ~render_buffer:cursor_buffer.buffer
       ~capacity:(Bigarray.Array1.dim cursor_buffer.buffer);
     gl_bind_buffer gl_buffer_highlight;
-    gl_buffer_data_big_array ~render_buffer:highlight_buffer.buffer
-      ~capacity:(Bigarray.Array1.dim highlight_buffer.buffer)
+    gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
+      ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
 
   let draw (editor : Editor.editor) =
     gl_clear_color 1. 1. 1. 1.;
@@ -696,16 +677,18 @@ module Render = struct
       ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
       ~start_idx:5;
 
-    gl_buffer_subdata_big_array ~render_buffer:better_text_buffer.buffer
-      ~length:better_text_buffer.length;
+    gl_buffer_subdata_big_array ~render_buffer:ui_buffer.buffer
+      ~length:ui_buffer.length;
 
     gl_draw_arrays_with_quads
-      (better_text_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
+      (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
 
-    gl_buffer_subdata_big_array ~render_buffer:zero_buffer.buffer
-      ~length:better_text_buffer.length;
+    Bigarray.Array1.fill ui_buffer.buffer 0.;
 
-    better_text_buffer.length <- 0;
+    gl_buffer_subdata_big_array ~render_buffer:ui_buffer.buffer
+      ~length:ui_buffer.length;
+
+    ui_buffer.length <- 0;
 
     Sdl.sdl_gl_swapwindow Sdl.w
 end
