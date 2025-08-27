@@ -1,18 +1,17 @@
 type bounding_box = { width : int; height : int; x : int; y : int }
 type direction = Horizontal | Vertical
 
-type box =
-  | Box of {
-      content : box_content;
-      bbox : bounding_box;
-      text_wrap : bool;
-      border : bool;
-      flow : direction;
-      take_remaining_space : direction option;
-    }
-  | Boxes of box list
+type box = {
+  content : box_content;
+  bbox : bounding_box;
+  text_wrap : bool;
+  background_color : string;
+  border : bool;
+  flow : direction;
+  take_remaining_space : direction option;
+}
 
-and box_content = Box of box | Text of string
+and box_content = Box of box | Boxes of box list | Text of string
 
 (*
  core idea for now is that "Box"s will mainly bc manually sized
