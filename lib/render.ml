@@ -680,8 +680,7 @@ module Render = struct
     gl_buffer_subdata_big_array ~render_buffer:ui_buffer.buffer
       ~length:ui_buffer.length;
 
-    gl_draw_arrays_with_quads
-      (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
+    gl_draw_arrays_with_quads (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
 
     Bigarray.Array1.fill ui_buffer.buffer 0.;
 
