@@ -684,9 +684,6 @@ module Render = struct
 
     Bigarray.Array1.fill ui_buffer.buffer 0.;
 
-    gl_buffer_subdata_big_array ~render_buffer:ui_buffer.buffer
-      ~length:ui_buffer.length;
-
     ui_buffer.length <- 0;
 
     Sdl.sdl_gl_swapwindow Sdl.w
