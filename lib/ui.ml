@@ -2,10 +2,10 @@ type bounding_box = { width : int; height : int; x : int; y : int }
 type direction = Horizontal | Vertical
 
 type box = {
-  content : box_content;
+  content : box_content option;
   bbox : bounding_box;
   text_wrap : bool;
-  background_color : string;
+  background_color : float * float * float * float;
   border : bool;
   flow : direction;
   take_remaining_space : direction option;
