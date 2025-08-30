@@ -6,22 +6,37 @@ open Tack.Modes
 
 let () = Sdl.sdl_gl_setswapinterval 0
 
+let inner_box : Tack.Ui.box =
+  {
+    background_color = (0., 1., 0., 1.);
+    content = None;
+    bbox = { width = 500; height = 50; x = 0; y = 0 };
+    text_wrap = false;
+    border = false;
+    flow = None;
+    take_remaining_space = None;
+  }
+
 let box : Tack.Ui.box =
   {
     background_color = (1., 0., 0., 1.);
-    content = None;
+    content = Some (Box inner_box);
     bbox = { width = 100; height = 100; x = 0; y = 0 };
     text_wrap = false;
     border = false;
-    flow = Horizontal;
+    flow = None;
     take_remaining_space = None;
   }
 
 let rec loop () =
   let evt = Sdl.sdl_waitevent () in
   let continue =
-    match evt with Some Quit -> false | None -> true | _ -> (
-      Tack.Ui_rendering.draw ~box; true)
+    match evt with
+    | Some Quit -> false
+    | None -> true
+    | _ ->
+        Tack.Ui_rendering.draw ~box;
+        true
   in
   if continue then loop () else ()
 

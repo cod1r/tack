@@ -18,6 +18,10 @@ maybe use doxygen and ocamldoc for documentation generation.
 UI could potentially be simplified to an interface where everything is a "Box" and that box just resizes with it's parent container
 and contains text
 
+    core idea for now is that "Box"s will can be manually sized or automatically laid out by some runtime layout logic
+    There will be different parameterized types of "Box"s which will tell if it is automatically laid out or manually sized
+    Hierarchy will be specified with 'content' property
+
 vim motions?
 
 basic features:

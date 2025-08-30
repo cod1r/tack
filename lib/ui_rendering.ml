@@ -25,17 +25,18 @@ let write_container_values_to_ui_buffer ~(box : Ui.box)
   in
   let window_width, window_height = Sdl.Sdl.sdl_gl_getdrawablesize () in
   let idx = ref 0 in
-  Array.iteri (fun i (x, y) ->
-    let x = x /. (Float.of_int window_width /. 2.) -. 1. in
-    let y = -.y /. (Float.of_int window_height /. 2.) +. 1. in
-    buffer.buffer.{!idx} <- x;
-    buffer.buffer.{!idx + 1} <- y;
-    buffer.buffer.{!idx + 2} <- r;
-    buffer.buffer.{!idx + 3} <- g;
-    buffer.buffer.{!idx + 4} <- b;
-    buffer.buffer.{!idx + 5} <- alpha;
-    idx := (i + 1) * 6
-  ) points;
+  Array.iteri
+    (fun i (x, y) ->
+      let x = (x /. (Float.of_int window_width /. 2.)) -. 1. in
+      let y = (-.y /. (Float.of_int window_height /. 2.)) +. 1. in
+      buffer.buffer.{!idx} <- x;
+      buffer.buffer.{!idx + 1} <- y;
+      buffer.buffer.{!idx + 2} <- r;
+      buffer.buffer.{!idx + 3} <- g;
+      buffer.buffer.{!idx + 4} <- b;
+      buffer.buffer.{!idx + 5} <- alpha;
+      idx := (i + 1) * 6)
+    points;
   buffer.length <- 24
 
 let () =
@@ -43,22 +44,81 @@ let () =
   Opengl.gl_buffer_data_big_array ~render_buffer:Render.Render.ui_buffer.buffer
     ~capacity:(Bigarray.Array1.dim Render.Render.ui_buffer.buffer)
 
-let draw_box ~(box : Ui.box) =
-  write_container_values_to_ui_buffer ~box ~buffer:Render.Render.ui_buffer;
-  match box.content with
-  | Some (Box _) -> (
-  )
-  | Some (Boxes list) -> (
-  )
-  | Some (Text s) -> ()
-  | None -> ()
+let config = Editor.Editor.recalculate_info_relating_to_config ()
 
-let draw ~(box : Ui.box) =
-  Opengl.gl_clear_color 1. 1. 1. 1.;
-  Opengl.gl_clear ();
+let write_to_text_buffer ~(render_buf_container : Render.render_buffer_wrapper)
+    ~(glyph_info : Freetype.FreeType.glyph_info_) ~x ~y ~window_width
+    ~window_height ~(glyph : char) =
+  let x_scaled, y_scaled =
+    List.map (fun v -> Float.of_int v) [ x; y ] |> function
+    | first :: second :: _ ->
+        ( first /. Float.of_int (window_width / 2),
+          second /. Float.of_int (window_height / 2) )
+    | _ -> failwith "failed to match list"
+  in
+  let width_scaled =
+    Float.of_int glyph_info.width /. Float.of_int (window_width / 2)
+  and height_scaled =
+    Float.of_int glyph_info.rows /. Float.of_int (window_height / 2)
+  in
+  let left, right, top, bottom =
+    Render.get_tex_coords ~config ~glyph ~glyph_info
+  and horiBearing_Y_Scaled =
+    Float.of_int glyph_info.horiBearingY /. Float.of_int (window_height / 2)
+  and horiBearing_X_Scaled =
+    Float.of_int glyph_info.horiBearingX /. Float.of_int (window_width / 2)
+  in
+  (*
+     layout of the values list is:
+       vertex x
+       vertex y
+       r
+       g
+       b
+       texel coord x
+       texel coord y
 
-  draw_box ~box;
+      that is repeated for the 4 points of the quad
+   *)
+  let values =
+    [|
+      x_scaled +. horiBearing_X_Scaled -. 1.;
+      -.(y_scaled +. height_scaled) +. horiBearing_Y_Scaled +. 1.;
+      0.;
+      0.;
+      0.;
+      left;
+      bottom;
+      x_scaled +. horiBearing_X_Scaled -. 1.;
+      -.y_scaled +. horiBearing_Y_Scaled +. 1.;
+      0.;
+      0.;
+      0.;
+      left;
+      top;
+      x_scaled +. width_scaled +. horiBearing_X_Scaled -. 1.;
+      -.y_scaled +. horiBearing_Y_Scaled +. 1.;
+      0.;
+      0.;
+      0.;
+      right;
+      top;
+      x_scaled +. width_scaled +. horiBearing_X_Scaled -. 1.;
+      -.(y_scaled +. height_scaled) +. horiBearing_Y_Scaled +. 1.;
+      0.;
+      0.;
+      0.;
+      right;
+      bottom;
+    |]
+  in
+  let start = render_buf_container.length in
+  Array.iteri
+    (fun idx v -> render_buf_container.buffer.{idx + start} <- v)
+    values;
+  render_buf_container.length <- start + Array.length values
 
+let draw_to_gl_buffer () =
   Opengl.gl_bind_buffer gl_ui_lib_buffer;
 
   Opengl.gl_use_program ui_program;
@@ -75,10 +135,84 @@ let draw ~(box : Ui.box) =
     ~render_buffer:Render.Render.ui_buffer.buffer
     ~length:Render.Render.ui_buffer.length;
 
-  Opengl.gl_draw_arrays_with_quads (Render.Render.ui_buffer.length / Render._EACH_POINT_FLOAT_AMOUNT);
+  Opengl.gl_draw_arrays_with_quads
+    (Render.Render.ui_buffer.length / Render._EACH_POINT_FLOAT_AMOUNT);
 
   Bigarray.Array1.fill Render.Render.ui_buffer.buffer 0.;
 
-  Render.Render.ui_buffer.length <- 0;
+  Render.Render.ui_buffer.length <- 0
+
+let get_box_sides ~(box : Ui.box) : Ui.box_sides =
+  let right = box.bbox.x + box.bbox.width
+  and bottom = box.bbox.y + box.bbox.height in
+  { left = box.bbox.x; top = box.bbox.y; right; bottom }
+
+let rec draw_box ~(box : Ui.box) =
+  write_container_values_to_ui_buffer ~box ~buffer:Render.Render.ui_buffer;
+  draw_to_gl_buffer ();
+  match box.content with
+  | Some (Box b) ->
+      let Ui.
+            {
+              left = box_left;
+              right = box_right;
+              top = box_top;
+              bottom = box_bottom;
+            } =
+        get_box_sides ~box
+      and Ui.{ left = b_left; right = b_right; top = b_top; bottom = b_bottom }
+          =
+        get_box_sides ~box:b
+      in
+      let new_box =
+        {
+          b with
+          bbox =
+            {
+              x = max box_left b_left;
+              y = max box_top b_top;
+              width =
+                (if
+                   b_right > box_right
+                   || Option.is_some box.take_remaining_space
+                      && (Option.get box.take_remaining_space = Horizontal
+                         || Option.get box.take_remaining_space = Both)
+                 then box_right - b.bbox.x
+                 else b.bbox.width);
+              height =
+                (if
+                   b_bottom > box_bottom
+                   || Option.is_some box.take_remaining_space
+                      && Option.get box.take_remaining_space = Vertical
+                   || Option.get box.take_remaining_space = Both
+                 then box_bottom - b.bbox.y
+                 else b.bbox.height);
+            };
+        }
+      in
+      draw_box ~box:new_box
+  | Some (Boxes list) -> List.iter (fun b -> draw_box ~box:b) list
+  | Some (Text s) ->
+      let window_width, window_height = Sdl.Sdl.sdl_gl_getdrawablesize () in
+      let l = String.fold_right (fun c acc -> c :: acc) s [] in
+      let horizontal_pos = ref box.bbox.x in
+      List.iter
+        (fun c ->
+          let found =
+            Array.find_opt (fun (c', _) -> c' = c) config.glyph_info_with_char
+          in
+          let c, glyph = Option.get found in
+          write_to_text_buffer ~render_buf_container:Render.Render.ui_buffer
+            ~glyph_info:glyph ~x:!horizontal_pos ~y:box.bbox.y ~window_width
+            ~window_height ~glyph:c;
+          horizontal_pos := !horizontal_pos + glyph.Freetype.FreeType.x_advance)
+        l
+  | None -> ()
+
+let draw ~(box : Ui.box) =
+  Opengl.gl_clear_color 1. 1. 1. 1.;
+  Opengl.gl_clear ();
+
+  draw_box ~box;
 
   Sdl.Sdl.sdl_gl_swapwindow Sdl.Sdl.w

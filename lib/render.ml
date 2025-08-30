@@ -83,29 +83,25 @@ type render_buffer_wrapper = {
   mutable length : int;
 }
 
-module FileModeRendering = struct
-  let get_tex_coords ~(editor : Editor.editor) ~(glyph : char)
-      ~(glyph_info : FreeType.glyph_info_) =
-    let _, starting_x =
-      Array.fold_left
-        (fun (found, acc) (c, gi) ->
-          if c = glyph || found then (true, acc)
-          else (false, acc + gi.FreeType.width))
-        (false, 0) editor.config_info.glyph_info_with_char
-    in
-    let starting_x, ending_x =
-      (starting_x, starting_x + glyph_info.FreeType.width - 1)
-    in
-    let width_float =
-      Float.of_int editor.config_info.font_glyph_texture_atlas_info.width
-    in
-    let height_float =
-      Float.of_int editor.config_info.font_glyph_texture_atlas_info.height
-    in
-    let left = Float.of_int starting_x /. width_float in
-    let right = Float.of_int ending_x /. width_float in
-    (left, right, 0., Float.of_int glyph_info.rows /. height_float)
+let get_tex_coords ~(config : Editor.information_relating_to_config)
+    ~(glyph : char) ~(glyph_info : FreeType.glyph_info_) =
+  let _, starting_x =
+    Array.fold_left
+      (fun (found, acc) (c, gi) ->
+        if c = glyph || found then (true, acc)
+        else (false, acc + gi.FreeType.width))
+      (false, 0) config.glyph_info_with_char
+  in
+  let starting_x, ending_x =
+    (starting_x, starting_x + glyph_info.FreeType.width - 1)
+  in
+  let width_float = Float.of_int config.font_glyph_texture_atlas_info.width in
+  let height_float = Float.of_int config.font_glyph_texture_atlas_info.height in
+  let left = Float.of_int starting_x /. width_float in
+  let right = Float.of_int ending_x /. width_float in
+  (left, right, 0., Float.of_int glyph_info.rows /. height_float)
 
+module FileModeRendering = struct
   let write_to_text_buffer ~(render_buf_container : render_buffer_wrapper)
       ~(glyph_info : FreeType.glyph_info_) ~x ~y ~window_width ~window_height
       ~(editor : Editor.editor) ~(glyph : char) =
@@ -121,7 +117,8 @@ module FileModeRendering = struct
     and height_scaled =
       Float.of_int glyph_info.rows /. Float.of_int (window_height / 2)
     in
-    let left, right, top, bottom = get_tex_coords ~editor ~glyph ~glyph_info
+    let left, right, top, bottom =
+      get_tex_coords ~config:editor.config_info ~glyph ~glyph_info
     and horiBearing_Y_Scaled =
       Float.of_int glyph_info.horiBearingY /. Float.of_int (window_height / 2)
     and horiBearing_X_Scaled =
