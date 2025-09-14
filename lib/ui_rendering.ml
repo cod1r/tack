@@ -142,11 +142,6 @@ let draw_to_gl_buffer () =
 
   Render.Render.ui_buffer.length <- 0
 
-let get_box_sides ~(box : Ui.box) : Ui.box_sides =
-  let right = box.bbox.x + box.bbox.width
-  and bottom = box.bbox.y + box.bbox.height in
-  { left = box.bbox.x; top = box.bbox.y; right; bottom }
-
 let rec draw_box ~(box : Ui.box) =
   write_container_values_to_ui_buffer ~box ~buffer:Render.Render.ui_buffer;
   draw_to_gl_buffer ();
@@ -159,10 +154,10 @@ let rec draw_box ~(box : Ui.box) =
               top = box_top;
               bottom = box_bottom;
             } =
-        get_box_sides ~box
+        Ui.get_box_sides ~box
       and Ui.{ left = b_left; right = b_right; top = b_top; bottom = b_bottom }
           =
-        get_box_sides ~box:b
+        Ui.get_box_sides ~box:b
       in
       let new_box =
         {
@@ -183,15 +178,52 @@ let rec draw_box ~(box : Ui.box) =
                 (if
                    b_bottom > box_bottom
                    || Option.is_some box.take_remaining_space
-                      && Option.get box.take_remaining_space = Vertical
-                   || Option.get box.take_remaining_space = Both
+                      && (Option.get box.take_remaining_space = Vertical
+                         || Option.get box.take_remaining_space = Both)
                  then box_bottom - b.bbox.y
                  else b.bbox.height);
             };
         }
       in
       draw_box ~box:new_box
-  | Some (Boxes list) -> List.iter (fun b -> draw_box ~box:b) list
+  | Some (Boxes list) -> (
+      match box.flow with
+      | Some Horizontal ->
+          let horizontal_pos = ref box.bbox.x in
+          let new_boxes =
+            List.map
+              (fun b ->
+                let new_box =
+                  {
+                    b with
+                    Ui.bbox =
+                      { b.Ui.bbox with x = !horizontal_pos; y = box.bbox.y };
+                  }
+                in
+                horizontal_pos := !horizontal_pos + b.Ui.bbox.width;
+                new_box)
+              list
+          in
+          List.iter (fun b -> draw_box ~box:b) new_boxes
+      | Some Vertical ->
+          let vertical_pos = ref box.bbox.y in
+          let new_boxes =
+            List.map
+              (fun b ->
+                let new_box =
+                  {
+                    b with
+                    Ui.bbox =
+                      { b.Ui.bbox with y = !vertical_pos; x = box.bbox.x };
+                  }
+                in
+                vertical_pos := !vertical_pos + b.Ui.bbox.height;
+                new_box)
+              list
+          in
+          List.iter (fun b -> draw_box ~box:b) new_boxes
+      | Some Both -> ()
+      | None -> List.iter (fun b -> draw_box ~box:b) list)
   | Some (Text s) ->
       let window_width, window_height = Sdl.Sdl.sdl_gl_getdrawablesize () in
       let l = String.fold_right (fun c acc -> c :: acc) s [] in

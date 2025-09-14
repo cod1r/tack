@@ -22,6 +22,15 @@ and contains text
     There will be different parameterized types of "Box"s which will tell if it is automatically laid out or manually sized
     Hierarchy will be specified with 'content' property
 
+    borders?
+
+    border radius?
+
+    click events?
+    hover events?
+        events should be handled with event an emitter instead of going through each object that composes the UI.
+            Each event that comes from SDL, will be passed to each event handler that is stored somewhere
+
 vim motions?
 
 basic features:
