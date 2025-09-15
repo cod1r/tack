@@ -10,10 +10,45 @@ let fragment_id =
   | Ok v -> v
   | Error s -> failwith s
 
+let text_vtx_id =
+  match Opengl.gl_create_vertex_shader () with
+  | Ok v -> v
+  | Error s -> failwith s
+
+let text_fragment_id =
+  match Opengl.gl_create_fragment_shader () with
+  | Ok v -> v
+  | Error s -> failwith s
+
 let ui_program =
   Render.compile_shaders_and_return_program ~vertex_id ~fragment_id
     ~vertex_src:Render.generic_vertex_shader
     ~fragment_src:Render.generic_fragment_shader
+
+let text_shader_program =
+  Render.compile_shaders_and_return_program ~vertex_id:text_vtx_id
+    ~fragment_id:text_fragment_id ~vertex_src:Render.text_vertex_shader
+    ~fragment_src:Render.text_fragment_shader
+
+let vertex_text_location =
+  match Opengl.gl_getattriblocation text_shader_program "vertex" with
+  | Ok l -> l
+  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
+
+let color_text_location =
+  match Opengl.gl_getattriblocation text_shader_program "color" with
+  | Ok l -> l
+  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
+
+let tex_coord_text_location =
+  match Opengl.gl_getattriblocation text_shader_program "tex_coord" with
+  | Ok l -> l
+  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
+
+let sampler_text_location =
+  match Opengl.gl_getuniformlocation text_shader_program "sampler" with
+  | Ok l -> l
+  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
 
 let write_container_values_to_ui_buffer ~(box : Ui.box)
     ~(buffer : Render.render_buffer_wrapper) =
@@ -117,6 +152,36 @@ let write_to_text_buffer ~(render_buf_container : Render.render_buffer_wrapper)
     (fun idx v -> render_buf_container.buffer.{idx + start} <- v)
     values;
   render_buf_container.length <- start + Array.length values
+
+let draw_to_gl_buffer_text () =
+  Opengl.gl_bind_buffer gl_ui_lib_buffer;
+
+  Opengl.gl_uniform_1i ~location:sampler_text_location ~value:0;
+
+  Opengl.gl_use_program text_shader_program;
+
+  Opengl.gl_vertex_attrib_pointer_float_type ~location:vertex_text_location
+    ~size:2 ~stride:Render._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
+    ~start_idx:0;
+
+  Opengl.gl_vertex_attrib_pointer_float_type ~location:color_text_location
+    ~size:3 ~stride:Render._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
+    ~start_idx:2;
+
+  Opengl.gl_vertex_attrib_pointer_float_type ~location:tex_coord_text_location
+    ~size:2 ~stride:Render._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
+    ~start_idx:5;
+
+  Opengl.gl_buffer_subdata_big_array
+    ~render_buffer:Render.Render.ui_buffer.buffer
+    ~length:Render.Render.ui_buffer.length;
+
+  Opengl.gl_draw_arrays_with_quads
+    (Render.Render.ui_buffer.length / Render._EACH_POINT_FLOAT_AMOUNT);
+
+  Bigarray.Array1.fill Render.Render.ui_buffer.buffer 0.;
+
+  Render.Render.ui_buffer.length <- 0
 
 let draw_to_gl_buffer () =
   Opengl.gl_bind_buffer gl_ui_lib_buffer;
@@ -237,6 +302,7 @@ let rec draw_box ~(box : Ui.box) =
           write_to_text_buffer ~render_buf_container:Render.Render.ui_buffer
             ~glyph_info:glyph ~x:!horizontal_pos ~y:box.bbox.y ~window_width
             ~window_height ~glyph:c;
+          draw_to_gl_buffer_text ();
           horizontal_pos := !horizontal_pos + glyph.Freetype.FreeType.x_advance)
         l
   | None -> ()
