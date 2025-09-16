@@ -1,4 +1,6 @@
 {
   "font_pixel_size": 100,
-  "font_path": "/Users/cod1r/Library/Fonts/JetBrainsMono[wght].ttf"
+  "font_path": "/Users/cod1r/Library/Fonts/JetBrainsMono[wght].ttf",
+  "ui_font_pixel_size": 100,
+  "ui_font_path": "/Users/cod1r/Library/Fonts/JetBrainsMono[wght].ttf"
 }

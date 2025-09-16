@@ -30,6 +30,15 @@ let text_shader_program =
     ~fragment_id:text_fragment_id ~vertex_src:Render.text_vertex_shader
     ~fragment_src:Render.text_fragment_shader
 
+let gl_buffer_glyph_texture_atlas = Opengl.gl_gen_texture ()
+let () =
+  let ui_info = Ui.get_ui_information () in
+  Opengl.gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
+  Opengl.set_gl_tex_parameters ();
+  Opengl.gl_teximage_2d ~bytes:ui_info.font_texture_atlas.bytes
+    ~width:ui_info.font_texture_atlas.width
+    ~height:ui_info.font_texture_atlas.height
+
 let vertex_text_location =
   match Opengl.gl_getattriblocation text_shader_program "vertex" with
   | Ok l -> l

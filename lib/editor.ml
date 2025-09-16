@@ -5,7 +5,6 @@ open Sdl
 let _LINE_NUMBER_RIGHT_PADDING = 20
 
 module Editor = struct
-  type texture_atlas_info = { width : int; height : int; bytes : bytes }
 
   type information_relating_to_config = {
     glyph_info_with_char : (char * FreeType.glyph_info_) Array.t;
@@ -13,7 +12,7 @@ module Editor = struct
     pixel_size : int;
     font_height : int;
     descender : int;
-    font_glyph_texture_atlas_info : texture_atlas_info;
+    font_glyph_texture_atlas_info : Ui.texture_atlas_info;
   }
 
   type rope_wrapper =
@@ -79,15 +78,8 @@ module Editor = struct
     let s = Unix.stat ".config.json" in
     Unix.time () -. s.st_mtime < 1.
 
-  let read_config () =
-    let config_str =
-      In_channel.with_open_bin ".config.json" (fun ic ->
-          In_channel.input_all ic)
-    in
-    Yojson.Safe.from_string config_str
-
   let recalculate_info_relating_to_config () : information_relating_to_config =
-    let config = read_config () in
+    let config = Config.read_config () in
     let font_pixel_size =
       Yojson.Safe.Util.member "font_pixel_size" config
       |> Yojson.Safe.Util.to_int
@@ -135,7 +127,7 @@ module Editor = struct
       done;
       current_width := !current_width + glyph_info.width
     done;
-    let font_glyph_texture_atlas_info =
+    let font_glyph_texture_atlas_info: Ui.texture_atlas_info =
       {
         width = widths_summed;
         height = global_font_height;
