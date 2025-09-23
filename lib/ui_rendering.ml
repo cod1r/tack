@@ -31,6 +31,7 @@ let text_shader_program =
     ~fragment_src:Render.text_fragment_shader
 
 let gl_buffer_glyph_texture_atlas = Opengl.gl_gen_texture ()
+
 let () =
   let ui_info = Ui.get_ui_information () in
   Opengl.gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
@@ -88,29 +89,39 @@ let () =
   Opengl.gl_buffer_data_big_array ~render_buffer:Render.Render.ui_buffer.buffer
     ~capacity:(Bigarray.Array1.dim Render.Render.ui_buffer.buffer)
 
-let config = Editor.Editor.recalculate_info_relating_to_config ()
-
 let write_to_text_buffer ~(render_buf_container : Render.render_buffer_wrapper)
-    ~(glyph_info : Freetype.FreeType.glyph_info_) ~x ~y ~window_width
-    ~window_height ~(glyph : char) =
+    ~(glyph_info : Freetype.FreeType.glyph_info_) ~x ~y ~(glyph : char) =
+  let window_width, window_height = Sdl.Sdl.sdl_get_window_size Sdl.Sdl.w in
+  let window_width_gl, window_height_gl = Sdl.Sdl.sdl_gl_getdrawablesize () in
+  let width_ratio = Float.of_int (window_width_gl / window_width) in
+  let height_ratio = Float.of_int (window_height_gl / window_height) in
   let x_scaled, y_scaled =
     List.map (fun v -> Float.of_int v) [ x; y ] |> function
     | first :: second :: _ ->
-        ( first /. Float.of_int (window_width / 2),
-          second /. Float.of_int (window_height / 2) )
+        ( first /. Float.of_int window_width *. width_ratio,
+          second /. Float.of_int window_height *. height_ratio )
     | _ -> failwith "failed to match list"
   in
   let width_scaled =
-    Float.of_int glyph_info.width /. Float.of_int (window_width / 2)
+    Float.of_int glyph_info.width /. Float.of_int window_width *. width_ratio
   and height_scaled =
-    Float.of_int glyph_info.rows /. Float.of_int (window_height / 2)
+    Float.of_int glyph_info.rows /. Float.of_int window_height *. height_ratio
   in
+  let config = Ui.get_ui_information () in
   let left, right, top, bottom =
-    Render.get_tex_coords ~config ~glyph ~glyph_info
+    Render.get_tex_coords
+      ~config:
+        {
+          glyph_info_with_char = config.glyph_info_with_char;
+          font_glyph_texture_atlas_info = config.font_texture_atlas;
+        }
+      ~glyph ~glyph_info
   and horiBearing_Y_Scaled =
-    Float.of_int glyph_info.horiBearingY /. Float.of_int (window_height / 2)
+    Float.of_int glyph_info.horiBearingY
+    /. Float.of_int window_height *. height_ratio
   and horiBearing_X_Scaled =
-    Float.of_int glyph_info.horiBearingX /. Float.of_int (window_width / 2)
+    Float.of_int glyph_info.horiBearingX
+    /. Float.of_int window_width *. width_ratio
   in
   (*
      layout of the values list is:
@@ -216,6 +227,8 @@ let draw_to_gl_buffer () =
 
   Render.Render.ui_buffer.length <- 0
 
+let config = Ui.get_ui_information ()
+
 let rec draw_box ~(box : Ui.box) =
   write_container_values_to_ui_buffer ~box ~buffer:Render.Render.ui_buffer;
   draw_to_gl_buffer ();
@@ -299,7 +312,6 @@ let rec draw_box ~(box : Ui.box) =
       | Some Both -> ()
       | None -> List.iter (fun b -> draw_box ~box:b) list)
   | Some (Text s) ->
-      let window_width, window_height = Sdl.Sdl.sdl_gl_getdrawablesize () in
       let l = String.fold_right (fun c acc -> c :: acc) s [] in
       let horizontal_pos = ref box.bbox.x in
       List.iter
@@ -309,8 +321,9 @@ let rec draw_box ~(box : Ui.box) =
           in
           let c, glyph = Option.get found in
           write_to_text_buffer ~render_buf_container:Render.Render.ui_buffer
-            ~glyph_info:glyph ~x:!horizontal_pos ~y:box.bbox.y ~window_width
-            ~window_height ~glyph:c;
+            ~glyph_info:glyph ~x:!horizontal_pos
+            ~y:(box.bbox.y + config.font_height)
+            ~glyph:c;
           draw_to_gl_buffer_text ();
           horizontal_pos := !horizontal_pos + glyph.Freetype.FreeType.x_advance)
         l

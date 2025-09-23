@@ -83,8 +83,13 @@ type render_buffer_wrapper = {
   mutable length : int;
 }
 
-let get_tex_coords ~(config : Editor.information_relating_to_config)
-    ~(glyph : char) ~(glyph_info : FreeType.glyph_info_) =
+type font_info_type = {
+  glyph_info_with_char : (char * FreeType.glyph_info_) Array.t;
+  font_glyph_texture_atlas_info : Ui.texture_atlas_info;
+}
+
+let get_tex_coords ~(config : font_info_type) ~(glyph : char)
+    ~(glyph_info : FreeType.glyph_info_) =
   let _, starting_x =
     Array.fold_left
       (fun (found, acc) (c, gi) ->
@@ -103,26 +108,39 @@ let get_tex_coords ~(config : Editor.information_relating_to_config)
 
 module FileModeRendering = struct
   let write_to_text_buffer ~(render_buf_container : render_buffer_wrapper)
-      ~(glyph_info : FreeType.glyph_info_) ~x ~y ~window_width ~window_height
-      ~(editor : Editor.editor) ~(glyph : char) =
+      ~(glyph_info : FreeType.glyph_info_) ~x ~y ~(editor : Editor.editor)
+      ~(glyph : char) =
+    let window_width, window_height = Sdl.sdl_get_window_size Sdl.w in
+    let window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
+    let width_ratio = Float.of_int (window_width_gl / window_width) in
+    let height_ratio = Float.of_int (window_height_gl / window_height) in
     let x_scaled, y_scaled =
       List.map (fun v -> Float.of_int v) [ x; y ] |> function
       | first :: second :: _ ->
-          ( first /. Float.of_int (window_width / 2),
-            second /. Float.of_int (window_height / 2) )
+          ( first /. Float.of_int window_width *. width_ratio,
+            second /. Float.of_int window_height *. height_ratio )
       | _ -> failwith "failed to match list"
     in
     let width_scaled =
-      Float.of_int glyph_info.width /. Float.of_int (window_width / 2)
+      Float.of_int glyph_info.width /. Float.of_int window_width *. width_ratio
     and height_scaled =
-      Float.of_int glyph_info.rows /. Float.of_int (window_height / 2)
+      Float.of_int glyph_info.rows /. Float.of_int window_height *. height_ratio
     in
     let left, right, top, bottom =
-      get_tex_coords ~config:editor.config_info ~glyph ~glyph_info
+      get_tex_coords
+        ~config:
+          {
+            glyph_info_with_char = editor.config_info.glyph_info_with_char;
+            font_glyph_texture_atlas_info =
+              editor.config_info.font_glyph_texture_atlas_info;
+          }
+        ~glyph ~glyph_info
     and horiBearing_Y_Scaled =
-      Float.of_int glyph_info.horiBearingY /. Float.of_int (window_height / 2)
+      Float.of_int glyph_info.horiBearingY
+      /. Float.of_int window_height *. height_ratio
     and horiBearing_X_Scaled =
-      Float.of_int glyph_info.horiBearingX /. Float.of_int (window_width / 2)
+      Float.of_int glyph_info.horiBearingX
+      /. Float.of_int window_width *. width_ratio
     in
     (*
      layout of the values list is:
@@ -283,7 +301,7 @@ module FileModeRendering = struct
               write_to_text_buffer ~render_buf_container:text_buffer
                 ~glyph_info:gi ~x:!curr_x_offset
                 ~y:(y_pos + editor.config_info.descender)
-                ~window_width ~window_height ~editor ~glyph:c';
+                ~editor ~glyph:c';
               curr_x_offset := !curr_x_offset + gi.FreeType.x_advance)
             glyph_infos)
       line_number_placements
@@ -403,7 +421,7 @@ module FileModeRendering = struct
             ~y:
               (y_pos + descender
               + if wraps then editor.config_info.font_height else 0)
-            ~window_width ~window_height ~glyph_info:gi ~glyph:c ~editor;
+            ~glyph_info:gi ~glyph:c ~editor;
         Editor.Rope_Traversal_Info
           { acc with rope_pos = acc.rope_pos + 1; x = new_x; y = new_y }
     in
@@ -548,7 +566,8 @@ module Render = struct
 
             List.iteri
               (fun idx file ->
-                (* adding two to offset the search results past the search row and the window title bar *)
+                (* scuffed offset to move text below the title bar but the real reason the text is behind the title bar is because
+                   of the bearingY added to the text; basically the baseline is at 0,0 so the text is above it *)
                 let row_pos = (idx + 2) * editor.config_info.font_height in
                 if row_pos < window_height then
                   (*

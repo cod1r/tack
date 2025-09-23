@@ -208,6 +208,14 @@ CAMLprim value freetype_get_face(value path_to_font, value ft_library) {
   CAMLreturn(abstract_face);
 }
 
+CAMLprim value freetype_done_face(value ft_face) {
+  CAMLparam1(ft_face);
+  FT_Face* ft_face_c = *((FT_Face**)Data_abstract_val(ft_face));
+  int return_code = FT_Done_Face(*ft_face_c);
+  if (return_code != 0) caml_failwith("FT_Done_Face failed");
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value free_glyph_info(value glyph_info) {
   CAMLparam1(glyph_info);
   struct GlyphInfo* glyph_info_struct = *(struct GlyphInfo**)Data_abstract_val(glyph_info);

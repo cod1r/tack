@@ -24,6 +24,9 @@ module FreeType = struct
   external freetype_get_face : string -> ft_library -> ft_face
     = "freetype_get_face" "freetype_get_face"
 
+  external freetype_done_face : ft_face -> unit
+    = "freetype_done_face" "freetype_done_face"
+
   external freetype_set_char_size : ft_face -> int -> unit
     = "freetype_set_char_size" "freetype_set_char_size"
 

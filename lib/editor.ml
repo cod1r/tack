@@ -5,7 +5,6 @@ open Sdl
 let _LINE_NUMBER_RIGHT_PADDING = 20
 
 module Editor = struct
-
   type information_relating_to_config = {
     glyph_info_with_char : (char * FreeType.glyph_info_) Array.t;
     ft_face : FreeType.ft_face;
@@ -127,13 +126,14 @@ module Editor = struct
       done;
       current_width := !current_width + glyph_info.width
     done;
-    let font_glyph_texture_atlas_info: Ui.texture_atlas_info =
+    let font_glyph_texture_atlas_info : Ui.texture_atlas_info =
       {
         width = widths_summed;
         height = global_font_height;
         bytes = bytes_texture_atlas;
       }
     in
+    FreeType.freetype_done_face face;
     {
       glyph_info_with_char;
       ft_face = face;
