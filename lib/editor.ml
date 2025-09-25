@@ -200,34 +200,17 @@ module Editor = struct
               acc := temp
             done;
             !acc)
-    | Node { left; right; _ } -> (
-        match result with
-        | Rope_Traversal_Info _ ->
-            let left_result = traverse_rope left handle_result result in
-            let right_result =
-              traverse_rope right handle_result
-                (Rope_Traversal_Info left_result)
-            in
-            right_result
-        | Finding_Coords_Cursor _ ->
-            let left_result = traverse_rope left handle_result result in
-            let right_result =
-              traverse_rope right handle_result
-                (Finding_Coords_Cursor left_result)
-            in
-            right_result
-        | Finding_Cursor _ ->
-            let left_result = traverse_rope left handle_result result in
-            let right_result =
-              traverse_rope right handle_result (Finding_Cursor left_result)
-            in
-            right_result
-        | Num_Lines _ ->
-            let left_result = traverse_rope left handle_result result in
-            let right_result =
-              traverse_rope right handle_result (Num_Lines left_result)
-            in
-            right_result)
+    | Node { left; right; _ } ->
+        let left_result = traverse_rope left handle_result result in
+        let right_result =
+          traverse_rope right handle_result
+            (match result with
+            | Rope_Traversal_Info _ -> Rope_Traversal_Info left_result
+            | Finding_Coords_Cursor _ -> Finding_Coords_Cursor left_result
+            | Finding_Cursor _ -> Finding_Cursor left_result
+            | Num_Lines _ -> Num_Lines left_result)
+        in
+        right_result
 
   let num_lines (rope : Rope.rope) =
     let fold_fn (acc : int traverse_info) ch =
