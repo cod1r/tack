@@ -85,7 +85,7 @@ type render_buffer_wrapper = {
 
 type font_info_type = {
   glyph_info_with_char : (char * FreeType.glyph_info_) Array.t;
-  font_glyph_texture_atlas_info : Ui.texture_atlas_info;
+  font_glyph_texture_atlas_info : Ui.text_texture_atlas_info;
 }
 
 let get_tex_coords ~(config : font_info_type) ~(glyph : char)
@@ -97,9 +97,7 @@ let get_tex_coords ~(config : font_info_type) ~(glyph : char)
         else (false, acc + gi.FreeType.width))
       (false, 0) config.glyph_info_with_char
   in
-  let starting_x, ending_x =
-    (starting_x, starting_x + glyph_info.FreeType.width - 1)
-  in
+  let starting_x, ending_x = (starting_x, starting_x + glyph_info.width) in
   let width_float = Float.of_int config.font_glyph_texture_atlas_info.width in
   let height_float = Float.of_int config.font_glyph_texture_atlas_info.height in
   let left = Float.of_int starting_x /. width_float in

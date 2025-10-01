@@ -1,4 +1,5 @@
 open Sdl
+open Freetype
 
 let gl_ui_lib_buffer = Opengl.gl_gen_one_buffer ()
 
@@ -35,12 +36,8 @@ let text_shader_program =
 let gl_buffer_glyph_texture_atlas = Opengl.gl_gen_texture ()
 
 let () =
-  let ui_info = Ui.get_ui_information () in
   Opengl.gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
-  Opengl.set_gl_tex_parameters ();
-  Opengl.gl_teximage_2d ~bytes:ui_info.font_texture_atlas.bytes
-    ~width:ui_info.font_texture_atlas.width
-    ~height:ui_info.font_texture_atlas.height
+  Opengl.set_gl_tex_parameters_ui_text ()
 
 let vertex_text_location =
   match Opengl.gl_getattriblocation text_shader_program "vertex" with
@@ -97,40 +94,31 @@ let () =
   Opengl.gl_buffer_data_big_array ~render_buffer:Render.Render.ui_buffer.buffer
     ~capacity:(Bigarray.Array1.dim Render.Render.ui_buffer.buffer)
 
-let config = Ui.get_ui_information ()
-
 let write_to_text_buffer ~(render_buf_container : Render.render_buffer_wrapper)
-    ~(glyph_info : Freetype.FreeType.glyph_info_) ~x ~y ~(glyph : char) =
+    ~(glyph_info : Freetype.FreeType.glyph_info_) ~x ~y ~(glyph : char)
+    ~(glyph_info_with_char : (char * FreeType.glyph_info_) Array.t)
+    ~(font_texture_atlas : Ui.text_texture_atlas_info) =
   let window_width, window_height = Sdl.sdl_get_window_size Sdl.w in
-  let window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
-  let width_ratio = Float.of_int (window_width_gl / window_width) in
-  let height_ratio = Float.of_int (window_height_gl / window_height) in
   let x_scaled, y_scaled =
-    List.map (fun v -> Float.of_int v) [ x; y ] |> function
-    | first :: second :: _ ->
-        ( first /. (Float.of_int window_width_gl /. 2.),
-          second /. (Float.of_int window_height_gl /. 2.) )
-    | _ -> failwith "failed to match list"
+    ( Float.of_int x /. Float.of_int window_width,
+      Float.of_int y /. Float.of_int window_height )
   in
-  let width_scaled =
-    Float.of_int glyph_info.width /. Float.of_int window_width *. width_ratio
+  let width_scaled = Float.of_int glyph_info.width /. Float.of_int window_width
   and height_scaled =
-    Float.of_int glyph_info.rows /. Float.of_int window_height *. height_ratio
+    Float.of_int glyph_info.rows /. Float.of_int window_height
   in
   let left, right, top, bottom =
     Render.get_tex_coords
       ~config:
         {
-          glyph_info_with_char = config.glyph_info_with_char;
-          font_glyph_texture_atlas_info = config.font_texture_atlas;
+          glyph_info_with_char;
+          font_glyph_texture_atlas_info = font_texture_atlas;
         }
       ~glyph ~glyph_info
   and horiBearing_Y_Scaled =
-    Float.of_int glyph_info.horiBearingY
-    /. Float.of_int window_height *. height_ratio
+    Float.of_int glyph_info.horiBearingY /. Float.of_int window_height
   and horiBearing_X_Scaled =
-    Float.of_int glyph_info.horiBearingX
-    /. Float.of_int window_width *. width_ratio
+    Float.of_int glyph_info.horiBearingX /. Float.of_int window_width
   in
   (*
      layout of the values list is:
@@ -236,7 +224,9 @@ let draw_to_gl_buffer () =
 
   Render.Render.ui_buffer.length <- 0
 
-let config = Ui.get_ui_information ()
+let font_info_with_non_overridden_font_size =
+  Ui.get_new_font_info_with_font_size ~font_size:FreeType.font_pixel_size
+    ~face:FreeType.face
 
 let rec draw_box ~(box : Ui.box) =
   write_container_values_to_ui_buffer ~box ~buffer:Render.Render.ui_buffer;
@@ -299,9 +289,12 @@ let rec draw_box ~(box : Ui.box) =
       | Some Both -> failwith "Doesn't make any sense"
       | None -> List.iter (fun b -> draw_box ~box:b) list)
   | Some (Text s) ->
-      let window_width, _ = Sdl.sdl_get_window_size Sdl.w in
-      let window_width_gl, _ = Sdl.sdl_gl_getdrawablesize () in
-      let width_ratio = Float.of_int (window_width_gl / window_width) in
+      let font_info =
+        if Option.is_some box.font_size then
+          Ui.get_new_font_info_with_font_size
+            ~font_size:(Option.get box.font_size) ~face:FreeType.face
+        else font_info_with_non_overridden_font_size
+      in
       let l = String.fold_right (fun c acc -> c :: acc) s [] in
       let box_bbox =
         try Option.get box.bbox with Invalid_argument e -> failwith e
@@ -310,15 +303,22 @@ let rec draw_box ~(box : Ui.box) =
       List.iter
         (fun c ->
           let found =
-            Array.find_opt (fun (c', _) -> c' = c) config.glyph_info_with_char
+            Array.find_opt
+              (fun (c', _) -> c' = c)
+              font_info.glyph_info_with_char
           in
           let c, glyph = Option.get found in
           write_to_text_buffer ~render_buf_container:Render.Render.ui_buffer
-            ~glyph_info:glyph ~x:!horizontal_pos ~y:(box_bbox.y + config.font_height) ~glyph:c;
+            ~glyph_info:glyph ~x:!horizontal_pos
+            ~y:(box_bbox.y + font_info.font_height)
+            ~glyph:c ~font_texture_atlas:font_info.font_texture_atlas
+            ~glyph_info_with_char:font_info.glyph_info_with_char;
+          Opengl.gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
+          Opengl.gl_teximage_2d ~bytes:font_info.font_texture_atlas.bytes
+            ~width:font_info.font_texture_atlas.width
+            ~height:font_info.font_texture_atlas.height;
           draw_to_gl_buffer_text ();
-          horizontal_pos :=
-            !horizontal_pos
-            + (glyph.Freetype.FreeType.x_advance * Int.of_float width_ratio))
+          horizontal_pos := !horizontal_pos + glyph.x_advance)
         l
   | None -> ()
 

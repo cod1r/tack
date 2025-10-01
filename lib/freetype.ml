@@ -15,7 +15,8 @@ module FreeType = struct
   external get_font_height : ft_face -> int
     = "get_font_height" "get_font_height"
 
-  external get_ascii_char_glyph_info_ : ft_face -> int -> char * glyph_info_
+  external get_ascii_char_glyph_info_ :
+    ft_face -> int -> int -> char * glyph_info_
     = "get_ascii_char_glyph_info_" "get_ascii_char_glyph_info_"
 
   external freetype_init_library : unit -> ft_library
@@ -36,5 +37,17 @@ module FreeType = struct
   external get_descender : ft_face -> int = "get_descender" "get_descender"
   external get_ascender : ft_face -> int = "get_ascender" "get_ascender"
 
+  let config = Config.read_config ()
   let library = freetype_init_library ()
+
+  let face =
+    let font_path =
+      Yojson.Safe.Util.member "ui_font_path" config
+      |> Yojson.Safe.Util.to_string
+    in
+    freetype_get_face font_path library
+
+  let font_pixel_size =
+    Yojson.Safe.Util.member "ui_font_pixel_size" config
+    |> Yojson.Safe.Util.to_int
 end

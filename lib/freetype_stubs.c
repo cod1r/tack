@@ -47,8 +47,9 @@ CAMLprim value get_x_advance(value glyph_info) {
   CAMLreturn(Val_int(glyph_info_c->x_advance));
 }
 
-CAMLprim value get_ascii_char_glyph_info_(value face, value ascii) {
-  CAMLparam2(face, ascii);
+CAMLprim value freetype_set_char_size(value face, value size);
+CAMLprim value get_ascii_char_glyph_info_(value face, value ascii, value size) {
+  CAMLparam3(face, ascii, size);
   CAMLlocal1(glyph_info);
   CAMLlocal1(tuple);
   CAMLlocal1(bytes);
@@ -58,10 +59,12 @@ CAMLprim value get_ascii_char_glyph_info_(value face, value ascii) {
 
   FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
 
-  FT_UInt glyph_index = FT_Get_Char_Index(*face_c, ascii_value);
-  int result = FT_Load_Glyph(*face_c, glyph_index, FT_LOAD_RENDER);
+  freetype_set_char_size(face, size);
+  {
+  int result = FT_Load_Char(*face_c, ascii_value, FT_LOAD_RENDER);
   if (result) {
     caml_failwith("ascii FT_Load_Glyph failed");
+  }
   }
 
   glyph_info = caml_alloc(7, 0);
@@ -69,6 +72,7 @@ CAMLprim value get_ascii_char_glyph_info_(value face, value ascii) {
 
   FT_Bitmap bitmap = (*face_c)->glyph->bitmap;
 
+  {
   int size = bitmap.rows * bitmap.width;
 
   bytes = caml_alloc_string(size);
@@ -91,68 +95,14 @@ CAMLprim value get_ascii_char_glyph_info_(value face, value ascii) {
 
   Store_field(tuple, 0, Val_int(ascii_value));
   Store_field(tuple, 1, glyph_info);
-  CAMLreturn(tuple);
-}
-
-CAMLprim value get_ascii_char_glyph(value face, value ascii) {
-  CAMLparam2(face, ascii);
-  CAMLlocal1(glyph_info);
-  CAMLlocal1(tuple);
-
-  int ascii_value = Int_val(ascii);
-  if (ascii_value < 32 || ascii_value > 126) caml_failwith("ascii value out of range");
-
-  FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
-
-  FT_UInt glyph_index = FT_Get_Char_Index(*face_c, ascii_value);
-  int result = FT_Load_Glyph(*face_c, glyph_index, FT_LOAD_RENDER | FT_LOAD_TARGET_LCD);
-  if (result) {
-    caml_failwith("ascii FT_Load_Glyph failed");
   }
-
-  glyph_info = caml_alloc(1, Abstract_tag);
-  tuple = caml_alloc(2, 0);
-
-  FT_Bitmap bitmap = (*face_c)->glyph->bitmap;
-
-  int size = bitmap.rows * bitmap.width * 3;
-
-  struct Buffer buf = { .contents = malloc(sizeof(float) * size), .size = size, .capacity = size };
-
-  int buffer_idx = 0;
-  for (int y = 0; y < bitmap.rows; ++y) {
-    for (int x = 0; x < bitmap.width; ++x) {
-      float alpha = bitmap.buffer[y * bitmap.pitch + x];
-      buf.contents[buffer_idx] = x;
-      buf.contents[buffer_idx + 1] = y;
-      buf.contents[buffer_idx + 2] = alpha;
-      buffer_idx += 3;
-    }
-  }
-
-  // shifting right by 6 because freetype uses 26.6 fixed floating point numbers
-  struct GlyphInfo glyph_info_struct = {
-    .horiBearingX = (*face_c)->glyph->metrics.horiBearingX >> 6,
-    .horiBearingY = (*face_c)->glyph->metrics.horiBearingY >> 6,
-    .x_advance = (*face_c)->glyph->advance.x >> 6,
-    .y_advance = (*face_c)->glyph->advance.y >> 6
-  };
-
-  memcpy(&glyph_info_struct.buffer, &buf, sizeof(struct Buffer));
-
-  *(struct Buffer**)Data_abstract_val(glyph_info) = malloc(sizeof(struct GlyphInfo));
-  memcpy(*(struct Buffer**)Data_abstract_val(glyph_info), &glyph_info_struct, sizeof(struct GlyphInfo));
-
-  Store_field(tuple, 0, ascii);
-  Store_field(tuple, 1, glyph_info);
-
   CAMLreturn(tuple);
 }
 
 CAMLprim value freetype_set_char_size(value face, value size) {
   CAMLparam2(face, size);
   FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
-  int result = FT_Set_Char_Size(*face_c, 0, Int_val(size), 0, 0);
+  int result = FT_Set_Char_Size(*face_c, 0, Int_val(size << 6), 0, 0);
   if (result) caml_failwith("FT_Set_Char_Size failed");
   CAMLreturn(Val_unit);
 }

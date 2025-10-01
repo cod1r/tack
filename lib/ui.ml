@@ -19,37 +19,22 @@ type box = {
 
 and box_content = Box of box | Boxes of box list | Text of string
 
-type texture_atlas_info = { width : int; height : int; bytes : bytes }
+type text_texture_atlas_info = { width : int; height : int; bytes : bytes }
 
-type ui_info = {
+type font_info = {
   glyph_info_with_char : (char * FreeType.glyph_info_) Array.t;
-  font_path : string;
   font_size : int;
-  font_texture_atlas : texture_atlas_info;
+  font_texture_atlas : text_texture_atlas_info;
   font_height : int;
   ascender : int;
   descender : int;
 }
 
-let get_ui_information () =
-  let config = Config.read_config () in
-  let font_pixel_size =
-    Yojson.Safe.Util.member "ui_font_pixel_size" config
-    |> Yojson.Safe.Util.to_int
-  and font_path =
-    Yojson.Safe.Util.member "ui_font_path" config |> Yojson.Safe.Util.to_string
-  in
-  let face = FreeType.freetype_get_face font_path FreeType.library in
-  FreeType.freetype_set_pixel_sizes face font_pixel_size;
-  (* need to call font_height after set_pixel_sizes *)
-  let font_height = FreeType.get_font_height face in
+let get_text_texture_atlas_info
+    ~(glyph_info_with_char : (char * FreeType.glyph_info_) Array.t) =
+  let face = FreeType.face in
   let descender = FreeType.get_descender face in
   let ascender = FreeType.get_ascender face in
-  let glyph_info_with_char =
-    Array.init
-      (126 - 32 + 1)
-      (fun i -> FreeType.get_ascii_char_glyph_info_ face (i + 32))
-  in
   let widths_summed =
     Array.fold_left
       (fun acc (_, gi) -> acc + gi.FreeType.width)
@@ -78,19 +63,29 @@ let get_ui_information () =
     done;
     current_width := !current_width + glyph_info.width
   done;
-  let font_glyph_texture_atlas_info : texture_atlas_info =
-    {
-      width = widths_summed;
-      height = global_font_height;
-      bytes = bytes_texture_atlas;
-    }
+  {
+    width = widths_summed;
+    height = global_font_height;
+    bytes = bytes_texture_atlas;
+  }
+
+let get_new_font_info_with_font_size ~(font_size : int)
+    ~(face : FreeType.ft_face) =
+  let glyph_info_with_char =
+    Array.init
+      (126 - 32 + 1)
+      (fun i -> FreeType.get_ascii_char_glyph_info_ face (i + 32) font_size)
   in
-  FreeType.freetype_done_face face;
+  let font_height = FreeType.get_font_height face in
+  let descender = FreeType.get_descender face in
+  let ascender = FreeType.get_ascender face in
+  let text_texture_atlas_info =
+    get_text_texture_atlas_info ~glyph_info_with_char
+  in
   {
     glyph_info_with_char;
-    font_size = font_pixel_size;
-    font_path;
-    font_texture_atlas = font_glyph_texture_atlas_info;
+    font_size;
+    font_texture_atlas = text_texture_atlas_info;
     font_height;
     ascender;
     descender;
@@ -133,13 +128,13 @@ let text_box : box =
   {
     name = None;
     background_color = (1., 0., 0., 1.);
-    content = Some (Text "urmomhig");
-    bbox = Some { width = 100; height = 100; x = 50; y = 150 };
+    content = Some (Text "A");
+    bbox = Some { width = 100; height = 100; x = 0; y = 150 };
     text_wrap = false;
     border = false;
     flow = None;
     take_remaining_space = None;
-    font_size = None;
+    font_size = Some 20;
   }
 
 let box : box =

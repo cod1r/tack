@@ -9,6 +9,12 @@
 #include <stdio.h>
 #include <string.h>
 
+CAMLprim value sdl_getticks() {
+  CAMLparam0();
+  uint32_t ticks = SDL_GetTicks();
+  CAMLreturn(Val_int(ticks));
+}
+
 CAMLprim value set_clipboard_text(value string) {
   CAMLparam1(string);
   int res = SDL_SetClipboardText(String_val(string));
@@ -337,13 +343,13 @@ CAMLprim value init_sdl(value unit) {
   CAMLreturn(result);
 }
 
-CAMLprim value sdl_waitevent(value unit) {
+CAMLprim value sdl_pollevent(value unit) {
   CAMLparam1(unit);
   CAMLlocal1(evt_type);
   CAMLlocal1(option_val);
   option_val = Val_none;
   SDL_Event e;
-  int poll_event_value = SDL_WaitEvent(&e);
+  int poll_event_value = SDL_PollEvent(&e);
   if (poll_event_value == 1) {
     switch (e.type) {
       case SDL_KEYUP:

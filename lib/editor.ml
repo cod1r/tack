@@ -11,7 +11,7 @@ module Editor = struct
     pixel_size : int;
     font_height : int;
     descender : int;
-    font_glyph_texture_atlas_info : Ui.texture_atlas_info;
+    font_glyph_texture_atlas_info : Ui.text_texture_atlas_info;
   }
 
   type rope_wrapper =
@@ -86,16 +86,16 @@ module Editor = struct
       Yojson.Safe.Util.member "font_path" config |> Yojson.Safe.Util.to_string
     in
     let face = FreeType.freetype_get_face font_path FreeType.library in
-    FreeType.freetype_set_pixel_sizes face font_pixel_size;
+    let glyph_info_with_char =
+      Array.init
+        (126 - 32 + 1)
+        (fun i ->
+          FreeType.get_ascii_char_glyph_info_ face (i + 32) font_pixel_size)
+    in
     (* need to call font_height after set_pixel_sizes *)
     let font_height = FreeType.get_font_height face in
     let descender = FreeType.get_descender face in
     let ascender = FreeType.get_ascender face in
-    let glyph_info_with_char =
-      Array.init
-        (126 - 32 + 1)
-        (fun i -> FreeType.get_ascii_char_glyph_info_ face (i + 32))
-    in
     let widths_summed =
       Array.fold_left
         (fun acc (_, gi) -> acc + gi.FreeType.width)
@@ -126,7 +126,7 @@ module Editor = struct
       done;
       current_width := !current_width + glyph_info.width
     done;
-    let font_glyph_texture_atlas_info : Ui.texture_atlas_info =
+    let font_glyph_texture_atlas_info : Ui.text_texture_atlas_info =
       {
         width = widths_summed;
         height = global_font_height;
