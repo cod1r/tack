@@ -173,9 +173,9 @@ let write_to_text_buffer ~(render_buf_container : Render.render_buffer_wrapper)
 let draw_to_gl_buffer_text () =
   Opengl.gl_bind_buffer gl_ui_lib_buffer;
 
-  Opengl.gl_uniform_1i ~location:sampler_text_location ~value:0;
-
   Opengl.gl_use_program text_shader_program;
+
+  Opengl.gl_uniform_1i ~location:sampler_text_location ~value:0;
 
   Opengl.gl_vertex_attrib_pointer_float_type ~location:vertex_text_location
     ~size:2 ~stride:Render._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
@@ -228,44 +228,101 @@ let font_info_with_non_overridden_font_size =
   Ui.get_new_font_info_with_font_size ~font_size:FreeType.font_pixel_size
     ~face:FreeType.face
 
+let draw_text ~(s : string) ~(box : Ui.box) =
+  let font_info =
+    if Option.is_some box.font_size then
+      Ui.get_new_font_info_with_font_size ~font_size:(Option.get box.font_size)
+        ~face:FreeType.face
+    else font_info_with_non_overridden_font_size
+  in
+  let l = String.fold_right (fun c acc -> c :: acc) s [] in
+  let box_bbox =
+    try Option.get box.bbox with Invalid_argument e -> failwith e
+  in
+  let horizontal_pos = ref box_bbox.x in
+  List.iter
+    (fun c ->
+      let found =
+        Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
+      in
+      let c, glyph = Option.get found in
+      write_to_text_buffer ~render_buf_container:Render.Render.ui_buffer
+        ~glyph_info:glyph ~x:!horizontal_pos
+        ~y:(box_bbox.y + font_info.font_height)
+        ~glyph:c ~font_texture_atlas:font_info.font_texture_atlas
+        ~glyph_info_with_char:font_info.glyph_info_with_char;
+      Opengl.gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
+      Opengl.gl_teximage_2d ~bytes:font_info.font_texture_atlas.bytes
+        ~width:font_info.font_texture_atlas.width
+        ~height:font_info.font_texture_atlas.height;
+      draw_to_gl_buffer_text ();
+      horizontal_pos := !horizontal_pos + glyph.x_advance)
+    l
+
+let default_bbox : Ui.bounding_box = { width = 0; height = 0; x = 0; y = 0 }
+
+(* I'm not sure how to handle cases where the contents are positioned outside of
+   the container. Originally I thought that having elements/boxes being absolutely
+   positioned would be fine but that leaves problems like child contents being outside of
+   the parent container which poses the question of, what should the min width/height be?
+   Perhaps, restricting this functionality when child elements are only positioned relatively *)
+let rec clamp_min_width_height ~(box : Ui.box) =
+  if box.height_min_content || box.width_min_content then
+    match box.bbox with
+    | Some bbox -> (
+        match box.content with
+        | Some (Box b) ->
+            clamp_min_width_height ~box:b;
+            let inner_bbox = Option.value b.bbox ~default:default_bbox in
+            if box.height_min_content then bbox.height <- inner_bbox.height;
+            if box.width_min_content then bbox.width <- inner_bbox.width
+        | Some (Boxes list) ->
+            List.iter (fun b -> clamp_min_width_height ~box:b) list;
+            let summed_heights =
+              List.fold_left
+                (fun acc b ->
+                  acc + (Option.value b.Ui.bbox ~default:default_bbox).height)
+                0 list
+            in
+            let summed_widths =
+              List.fold_left
+                (fun acc b ->
+                  acc + (Option.value b.Ui.bbox ~default:default_bbox).width)
+                0 list
+            in
+            if box.height_min_content then bbox.height <- summed_heights;
+            if box.width_min_content then bbox.width <- summed_widths
+        | Some (Text s) -> ()
+        | None -> ())
+    | None -> ()
+
+let clip_content ~(box : Ui.box) =
+  Opengl.gl_enable_scissor ();
+  try
+    let bbox = Option.get box.bbox in
+    let _, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
+    (* have to do some math to get the location of the bottom left corner
+       because I instinctively did top left corner for box origins mainly bc
+       I was adjusted to web platform *)
+    Opengl.gl_scissor ~x:bbox.x
+      ~y:(window_height_gl - (bbox.y + bbox.height))
+      ~width:bbox.width ~height:bbox.height
+  with Invalid_argument e -> failwith ("clipping needs a bbox;" ^ e)
+
 let rec draw_box ~(box : Ui.box) =
+  (* Opengl.gl_check_error (); *)
+  if box.clip_content then clip_content ~box;
+  clamp_min_width_height ~box;
   write_container_values_to_ui_buffer ~box ~buffer:Render.Render.ui_buffer;
   draw_to_gl_buffer ();
-  match box.content with
+  (match box.content with
   | Some (Box b) -> draw_box ~box:b
   | Some (Boxes list) -> (
       match box.flow with
-      | Some Horizontal -> (
+      | Some Horizontal | Some Vertical -> (
           match box.bbox with
           | Some box_bbox ->
               let horizontal_pos = ref box_bbox.x in
-              let new_boxes =
-                List.map
-                  (fun b ->
-                    match b.Ui.bbox with
-                    | Some bbbox ->
-                        let new_box =
-                          {
-                            b with
-                            Ui.bbox =
-                              Some
-                                {
-                                  bbbox with
-                                  x = !horizontal_pos;
-                                  y = bbbox.Ui.y;
-                                };
-                          }
-                        in
-                        horizontal_pos := !horizontal_pos + bbbox.Ui.width;
-                        new_box
-                    | None -> b)
-                  list
-              in
-              List.iter (fun b -> draw_box ~box:b) new_boxes
-          | None -> failwith "box needs bbox if horizontal auto layout")
-      | Some Vertical -> (
-          match box.bbox with
-          | Some box_bbox ->
               let vertical_pos = ref box_bbox.y in
               let new_boxes =
                 List.map
@@ -276,51 +333,43 @@ let rec draw_box ~(box : Ui.box) =
                           {
                             b with
                             Ui.bbox =
-                              Some { bbbox with y = !vertical_pos; x = bbbox.x };
+                              Some
+                                (match box.flow with
+                                | Some Horizontal ->
+                                    let new_box' =
+                                      {
+                                        bbbox with
+                                        x = !horizontal_pos;
+                                        y = box_bbox.y;
+                                      }
+                                    in
+                                    horizontal_pos :=
+                                      !horizontal_pos + bbbox.Ui.width;
+                                    new_box'
+                                | Some Vertical ->
+                                    let new_box' =
+                                      {
+                                        bbbox with
+                                        y = !vertical_pos;
+                                        x = box_bbox.x;
+                                      }
+                                    in
+                                    vertical_pos :=
+                                      !vertical_pos + bbbox.Ui.height;
+                                    new_box'
+                                | None -> bbbox);
                           }
                         in
-                        vertical_pos := !vertical_pos + bbbox.height;
                         new_box
                     | None -> b)
                   list
               in
               List.iter (fun b -> draw_box ~box:b) new_boxes
           | None -> failwith "box needs bbox if horizontal auto layout")
-      | Some Both -> failwith "Doesn't make any sense"
       | None -> List.iter (fun b -> draw_box ~box:b) list)
-  | Some (Text s) ->
-      let font_info =
-        if Option.is_some box.font_size then
-          Ui.get_new_font_info_with_font_size
-            ~font_size:(Option.get box.font_size) ~face:FreeType.face
-        else font_info_with_non_overridden_font_size
-      in
-      let l = String.fold_right (fun c acc -> c :: acc) s [] in
-      let box_bbox =
-        try Option.get box.bbox with Invalid_argument e -> failwith e
-      in
-      let horizontal_pos = ref box_bbox.x in
-      List.iter
-        (fun c ->
-          let found =
-            Array.find_opt
-              (fun (c', _) -> c' = c)
-              font_info.glyph_info_with_char
-          in
-          let c, glyph = Option.get found in
-          write_to_text_buffer ~render_buf_container:Render.Render.ui_buffer
-            ~glyph_info:glyph ~x:!horizontal_pos
-            ~y:(box_bbox.y + font_info.font_height)
-            ~glyph:c ~font_texture_atlas:font_info.font_texture_atlas
-            ~glyph_info_with_char:font_info.glyph_info_with_char;
-          Opengl.gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
-          Opengl.gl_teximage_2d ~bytes:font_info.font_texture_atlas.bytes
-            ~width:font_info.font_texture_atlas.width
-            ~height:font_info.font_texture_atlas.height;
-          draw_to_gl_buffer_text ();
-          horizontal_pos := !horizontal_pos + glyph.x_advance)
-        l
-  | None -> ()
+  | Some (Text s) -> draw_text ~s ~box
+  | None -> ());
+  if box.clip_content then Opengl.gl_disable_scissor ()
 
 let draw ~(box : Ui.box) =
   Opengl.gl_clear_color 1. 1. 1. 1.;

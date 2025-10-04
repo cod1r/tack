@@ -33,6 +33,9 @@ and contains text
 
     boxes need to specify it's own font size
 
+    scrollbar rendering...
+    scrolling...
+
 vim motions?
 
 basic features:

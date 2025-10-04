@@ -1,9 +1,16 @@
 open Freetype
 open Sdl
 
-type bounding_box = { width : int; height : int; x : int; y : int }
-type direction = Horizontal | Vertical | Both
+type bounding_box = {
+  mutable width : int;
+  mutable height : int;
+  mutable x : int;
+  mutable y : int;
+}
+
+type direction = Horizontal | Vertical
 type box_sides = { left : int; right : int; top : int; bottom : int }
+type positioning = Relative | Absolute
 
 type box = {
   mutable name : string option;
@@ -15,6 +22,12 @@ type box = {
   mutable flow : direction option;
   mutable take_remaining_space : direction option;
   mutable font_size : int option;
+  mutable width_min_content : bool;
+  mutable height_min_content : bool;
+  mutable clip_content : bool;
+  mutable position_type : positioning;
+  mutable allow_horizontal_scroll : bool;
+  mutable allow_vertical_scroll : bool;
 }
 
 and box_content = Box of box | Boxes of box list | Text of string
@@ -109,56 +122,82 @@ let smol_box : box =
     flow = None;
     take_remaining_space = None;
     font_size = None;
-  }
-
-let inner_box : box =
-  {
-    name = None;
-    background_color = (0., 1., 0., 1.);
-    content = Some (Boxes [ smol_box; smol_box ]);
-    bbox = Some { width = 500; height = 50; x = 0; y = 0 };
-    text_wrap = false;
-    border = false;
-    flow = Some Horizontal;
-    take_remaining_space = None;
-    font_size = None;
+    width_min_content = false;
+    height_min_content = false;
+    clip_content = false;
+    position_type = Relative;
+    allow_vertical_scroll = false;
+    allow_horizontal_scroll = false;
   }
 
 let text_box : box =
   {
     name = None;
     background_color = (1., 0., 0., 1.);
-    content = Some (Text "A");
+    content = Some (Text "SAVE DEEZ NUTS");
     bbox = Some { width = 100; height = 100; x = 0; y = 150 };
     text_wrap = false;
     border = false;
     flow = None;
     take_remaining_space = None;
-    font_size = Some 20;
+    font_size = Some 100;
+    width_min_content = false;
+    height_min_content = false;
+    clip_content = false;
+    position_type = Relative;
+    allow_vertical_scroll = false;
+    allow_horizontal_scroll = false;
+  }
+
+let text_box2 : box =
+  {
+    name = None;
+    background_color = (1., 0., 0., 1.);
+    content = Some (Text "SAVE DEEZ URMOM");
+    bbox = Some { width = 100; height = 100; x = 0; y = 150 };
+    text_wrap = false;
+    border = false;
+    flow = None;
+    take_remaining_space = None;
+    font_size = Some 25;
+    width_min_content = false;
+    height_min_content = false;
+    clip_content = true;
+    position_type = Relative;
+    allow_vertical_scroll = false;
+    allow_horizontal_scroll = false;
   }
 
 let box : box =
   {
     name = None;
     background_color = (0., 1., 0., 1.);
-    content = Some (Box text_box);
+    content = Some (Boxes [ smol_box; text_box; text_box2 ]);
     bbox = Some { width = 100; height = 200; x = 0; y = 0 };
     text_wrap = false;
     border = false;
-    flow = Some Horizontal;
+    flow = Some Vertical;
     take_remaining_space = None;
     font_size = None;
+    width_min_content = false;
+    height_min_content = false;
+    clip_content = false;
+    position_type = Relative;
+    allow_vertical_scroll = false;
+    allow_horizontal_scroll = false;
   }
 
 let smol_box_event_handler ~(e : Sdl.event) =
   match e with
   | Sdl.MouseMotionEvt { x; y; _ } ->
-      let _, window_height = Sdl.sdl_get_window_size Sdl.w in
-      let _, gl_window_height = Sdl.sdl_gl_getdrawablesize () in
+      let window_width, window_height = Sdl.sdl_get_window_size Sdl.w in
+      let gl_window_width, gl_window_height = Sdl.sdl_gl_getdrawablesize () in
       let height_ratio = gl_window_height / window_height in
+      let width_ratio = gl_window_width / window_width in
       let { left; top; right; bottom } = get_box_sides ~box:smol_box in
       if
-        x >= left && x <= right
+        x >= left
+        && x <= right / width_ratio
         && y >= top / height_ratio
         && y <= bottom / height_ratio
       then smol_box.background_color <- (1., 0., 1., 1.)

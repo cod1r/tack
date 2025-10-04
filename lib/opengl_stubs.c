@@ -19,12 +19,40 @@
 #include <string.h>
 #include "stubs.h"
 
+void check_error() {
+  GLenum err = glGetError();
+  switch (err) {
+case GL_NO_ERROR:
+     printf("No error has been recorded. The value of this symbolic constant is guaranteed to be 0.\n"); break;
+case GL_INVALID_ENUM:
+     caml_failwith("An unacceptable value is specified for an enumerated argument. The offending command is ignored and has no other side effect than to set the error flag."); break;
+case GL_INVALID_VALUE:
+     caml_failwith("A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag."); break;
+case GL_INVALID_OPERATION:
+     caml_failwith("The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag."); break;
+case GL_STACK_OVERFLOW:
+     caml_failwith("This command would cause a stack overflow. The offending command is ignored and has no other side effect than to set the error flag."); break;
+case GL_STACK_UNDERFLOW:
+     caml_failwith("This command would cause a stack underflow. The offending command is ignored and has no other side effect than to set the error flag."); break;
+case GL_OUT_OF_MEMORY:
+     caml_failwith("There is not enough memory left to execute the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded."); break;
+case GL_TABLE_TOO_LARGE:
+    caml_failwith("GL ERROR"); break;
+  }
+}
+
+CAMLprim value gl_scissor(value x, value y, value width, value height) {
+  CAMLparam4(x, y, width, height);
+  glScissor(Int_val(x), Int_val(y), Int_val(width), Int_val(height));
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value set_gl_tex_parameters_ui_text() {
   CAMLparam0();
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
   CAMLreturn(Val_unit);
 }
@@ -71,28 +99,6 @@ CAMLprim value glew_init() {
   CAMLreturn(Val_unit);
 }
 
-void check_error() {
-  GLenum err = glGetError();
-  switch (err) {
-case GL_NO_ERROR:
-     printf("No error has been recorded. The value of this symbolic constant is guaranteed to be 0.\n"); break;
-case GL_INVALID_ENUM:
-     caml_failwith("An unacceptable value is specified for an enumerated argument. The offending command is ignored and has no other side effect than to set the error flag."); break;
-case GL_INVALID_VALUE:
-     caml_failwith("A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag."); break;
-case GL_INVALID_OPERATION:
-     caml_failwith("The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag."); break;
-case GL_STACK_OVERFLOW:
-     caml_failwith("This command would cause a stack overflow. The offending command is ignored and has no other side effect than to set the error flag."); break;
-case GL_STACK_UNDERFLOW:
-     caml_failwith("This command would cause a stack underflow. The offending command is ignored and has no other side effect than to set the error flag."); break;
-case GL_OUT_OF_MEMORY:
-     caml_failwith("There is not enough memory left to execute the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded."); break;
-case GL_TABLE_TOO_LARGE:
-    caml_failwith("GL ERROR"); break;
-  }
-}
-
 CAMLprim value gl_uniform_1i(value location, value val) {
   CAMLparam2(location, val);
   glUniform1i(Int_val(location), Int_val(val));
@@ -126,6 +132,18 @@ CAMLprim value gl_teximage_2d(value bytes, value width, value height) {
     GL_UNSIGNED_BYTE,
     Bytes_val(bytes)
   );
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value gl_disable_scissor() {
+  CAMLparam0();
+  glDisable(GL_SCISSOR_TEST);
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value gl_enable_scissor() {
+  CAMLparam0();
+  glEnable(GL_SCISSOR_TEST);
   CAMLreturn(Val_unit);
 }
 
@@ -168,13 +186,6 @@ CAMLprim value gl_shader_source(value shader, value source) {
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value gl_buffer_data(value buffer) {
-  CAMLparam1(buffer);
-  struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
-  glBufferData(GL_ARRAY_BUFFER, b->capacity * sizeof(float), b->contents, GL_DYNAMIC_DRAW);
-  CAMLreturn(Val_unit);
-}
-
 CAMLprim value gl_buffer_data_big_array(value bigarray, value capacity) {
   CAMLparam2(bigarray, capacity);
   glBufferData(GL_ARRAY_BUFFER, Int_val(capacity) * sizeof(float), (float *)Caml_ba_data_val(bigarray), GL_DYNAMIC_DRAW);
@@ -184,13 +195,6 @@ CAMLprim value gl_buffer_data_big_array(value bigarray, value capacity) {
 CAMLprim value gl_buffer_subdata_big_array(value bigarray, value length) {
   CAMLparam2(bigarray, length);
   glBufferSubData(GL_ARRAY_BUFFER, 0, Int_val(length) * sizeof(float), (float *)Caml_ba_data_val(bigarray));
-  CAMLreturn(Val_unit);
-}
-
-CAMLprim value gl_buffer_subdata(value buffer) {
-  CAMLparam1(buffer);
-  struct Buffer* b = *(struct Buffer**)Data_abstract_val(buffer);
-  glBufferSubData(GL_ARRAY_BUFFER, 0, b->size * sizeof(float), b->contents);
   CAMLreturn(Val_unit);
 }
 
