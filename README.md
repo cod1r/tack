@@ -19,7 +19,6 @@ UI could potentially be simplified to an interface where everything is a "Box" a
 and contains text
 
     core idea for now is that "Box"s will can be manually sized or automatically laid out by some runtime layout logic
-    There will be different parameterized types of "Box"s which will tell if it is automatically laid out or manually sized
     Hierarchy will be specified with 'content' property
 
     borders?
@@ -33,6 +32,8 @@ and contains text
 
     scrollbar rendering...
     scrolling...
+
+    vertical/horizontal alignment of contents...
 
 vim motions?
 

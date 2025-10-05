@@ -197,8 +197,6 @@ let draw_to_gl_buffer_text () =
   Opengl.gl_draw_arrays_with_quads
     (Render.Render.ui_buffer.length / Render._EACH_POINT_FLOAT_AMOUNT);
 
-  Bigarray.Array1.fill Render.Render.ui_buffer.buffer 0.;
-
   Render.Render.ui_buffer.length <- 0
 
 let draw_to_gl_buffer () =
@@ -221,13 +219,13 @@ let draw_to_gl_buffer () =
   Opengl.gl_draw_arrays_with_quads
     (Render.Render.ui_buffer.length / Render._EACH_POINT_FLOAT_AMOUNT);
 
-  Bigarray.Array1.fill Render.Render.ui_buffer.buffer 0.;
-
   Render.Render.ui_buffer.length <- 0
 
 let font_info_with_non_overridden_font_size =
   Ui.get_new_font_info_with_font_size ~font_size:FreeType.font_pixel_size
     ~face:FreeType.face
+
+module TextTextureInfo = struct end
 
 let draw_text ~(s : string) ~(box : Ui.box) =
   let font_info =
@@ -303,14 +301,33 @@ let clip_content ~(box : Ui.box) =
     let _, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
     (* have to do some math to get the location of the bottom left corner
        because I instinctively did top left corner for box origins mainly bc
-       I was adjusted to web platform *)
+       I was adjusted to web platform but for opengl, bottom left corner is the origin *)
     Opengl.gl_scissor ~x:bbox.x
       ~y:(window_height_gl - (bbox.y + bbox.height))
       ~width:bbox.width ~height:bbox.height
   with Invalid_argument e -> failwith ("clipping needs a bbox;" ^ e)
 
+let validated = ref false
+
+let validate ~(box : Ui.box) =
+  let rec validate' box visited =
+    if List.exists (fun b -> b == box) visited then
+      failwith "Recursive box structure detected"
+    else
+      match box.Ui.content with
+      | Some (Ui.Box b) -> validate' b (box :: visited)
+      | Some (Ui.Boxes list) ->
+          let visited = box :: visited in
+          List.iter (fun b -> validate' b visited) list
+      | Some (Ui.Text _) -> ()
+      | None -> ()
+  in
+  validated := true;
+  validate' box []
+
 let rec draw_box ~(box : Ui.box) =
   (* Opengl.gl_check_error (); *)
+  if not !validated then validate ~box;
   if box.clip_content then clip_content ~box;
   clamp_min_width_height ~box;
   write_container_values_to_ui_buffer ~box ~buffer:Render.Render.ui_buffer;

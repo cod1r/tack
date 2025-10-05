@@ -11,6 +11,8 @@ type bounding_box = {
 type direction = Horizontal | Vertical
 type box_sides = { left : int; right : int; top : int; bottom : int }
 type positioning = Relative | Absolute
+type horizontal_alignment = Left | Center | Right
+type vertical_alignment = Top | Center | Bottom
 
 type box = {
   mutable name : string option;
@@ -28,6 +30,8 @@ type box = {
   mutable position_type : positioning;
   mutable allow_horizontal_scroll : bool;
   mutable allow_vertical_scroll : bool;
+  mutable horizontal_align : horizontal_alignment option;
+  mutable vertical_align : vertical_alignment option;
 }
 
 and box_content = Box of box | Boxes of box list | Text of string
@@ -42,6 +46,39 @@ type font_info = {
   ascender : int;
   descender : int;
 }
+
+let clone_box ~(box : box) =
+  let visited = ref [] in
+  let rec clone_box' box =
+    if List.exists (fun b -> b == box) !visited then
+      failwith "Recursive structure detected"
+    else visited := box :: !visited;
+    {
+      name = box.name;
+      content =
+        (match box.content with
+        | Some (Box b) -> Some (Box (clone_box' b))
+        | Some (Boxes list) ->
+            Some (Boxes (List.map (fun b -> clone_box' b) list))
+        | Some (Text _) | None -> box.content);
+      bbox = box.bbox;
+      text_wrap = box.text_wrap;
+      background_color = box.background_color;
+      border = box.border;
+      flow = box.flow;
+      take_remaining_space = box.take_remaining_space;
+      font_size = box.font_size;
+      width_min_content = box.width_min_content;
+      height_min_content = box.height_min_content;
+      clip_content = box.clip_content;
+      position_type = box.position_type;
+      allow_vertical_scroll = box.allow_vertical_scroll;
+      allow_horizontal_scroll = box.allow_horizontal_scroll;
+      horizontal_align = box.horizontal_align;
+      vertical_align = box.vertical_align;
+    }
+  in
+  clone_box' box
 
 let get_text_texture_atlas_info
     ~(glyph_info_with_char : (char * FreeType.glyph_info_) Array.t) =
@@ -133,6 +170,8 @@ let smol_box : box =
     position_type = Relative;
     allow_vertical_scroll = false;
     allow_horizontal_scroll = false;
+    horizontal_align = None;
+    vertical_align = None;
   }
 
 let text_box : box =
@@ -152,6 +191,8 @@ let text_box : box =
     position_type = Relative;
     allow_vertical_scroll = false;
     allow_horizontal_scroll = false;
+    horizontal_align = None;
+    vertical_align = None;
   }
 
 let text_box2 : box =
@@ -171,6 +212,8 @@ let text_box2 : box =
     position_type = Relative;
     allow_vertical_scroll = false;
     allow_horizontal_scroll = false;
+    horizontal_align = None;
+    vertical_align = None;
   }
 
 let boxes =
@@ -192,6 +235,8 @@ let boxes =
          position_type = Relative;
          allow_vertical_scroll = false;
          allow_horizontal_scroll = false;
+         horizontal_align = None;
+         vertical_align = None;
        }
         : box))
 
@@ -200,7 +245,7 @@ let box : box =
     name = None;
     background_color = (0., 0., 0., 0.);
     content = Some (Boxes boxes);
-    bbox = Some { x = 0; y = 100; width = 0; height = 0 };
+    bbox = Some { x = 0; y = 100; width = 0; height = 100 };
     text_wrap = false;
     border = false;
     flow = Some Horizontal;
@@ -212,6 +257,29 @@ let box : box =
     position_type = Relative;
     allow_vertical_scroll = false;
     allow_horizontal_scroll = false;
+    horizontal_align = None;
+    vertical_align = None;
+  }
+
+let outer_box : box =
+  {
+    name = None;
+    background_color = (0., 0., 0., 0.);
+    content = Some (Boxes (List.init 5 (fun _ -> clone_box ~box)));
+    bbox = Some { x = 0; y = 100; width = 0; height = 0 };
+    text_wrap = false;
+    border = false;
+    flow = Some Vertical;
+    take_remaining_space = None;
+    font_size = None;
+    width_min_content = false;
+    height_min_content = false;
+    clip_content = false;
+    position_type = Relative;
+    allow_vertical_scroll = false;
+    allow_horizontal_scroll = false;
+    horizontal_align = None;
+    vertical_align = None;
   }
 
 let smol_box_event_handler ~(e : Sdl.event) =
