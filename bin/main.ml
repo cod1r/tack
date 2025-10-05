@@ -16,8 +16,8 @@ let rec loop () =
         Tack.Ui_rendering.draw ~box:Tack.Ui.box;
         true
     | Some e ->
-        (* Tack.Ui_rendering.draw ~box:Tack.Ui.box; *)
-        (* Tack.Ui_events.emit_event ~e; *)
+        Tack.Ui_rendering.draw ~box:Tack.Ui.box;
+        Tack.Ui_events.emit_event ~e;
         true
   in
   if continue then loop () else ()

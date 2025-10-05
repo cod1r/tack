@@ -80,8 +80,7 @@ module Editor = struct
   let recalculate_info_relating_to_config () : information_relating_to_config =
     let config = Config.read_config () in
     let font_pixel_size =
-      Yojson.Safe.Util.member "font_pixel_size" config
-      |> Yojson.Safe.Util.to_int
+      Yojson.Safe.Util.member "font_size" config |> Yojson.Safe.Util.to_int
     and font_path =
       Yojson.Safe.Util.member "font_path" config |> Yojson.Safe.Util.to_string
     in

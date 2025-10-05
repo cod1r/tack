@@ -59,14 +59,15 @@ let sampler_text_location =
   | Ok l -> l
   | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
 
+let default_bbox : Ui.bounding_box = { width = 0; height = 0; x = 0; y = 0 }
+
 let write_container_values_to_ui_buffer ~(box : Ui.box)
     ~(buffer : Render.render_buffer_wrapper) =
   let window_width, window_height = Sdl.sdl_get_window_size Sdl.w in
   let window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
   let width_ratio = Float.of_int (window_width_gl / window_width) in
   let height_ratio = Float.of_int (window_height_gl / window_height) in
-  let Ui.{ width; height; x; y } =
-    try Option.get box.bbox with Invalid_argument e -> failwith e
+  let Ui.{ width; height; x; y } = Option.value box.bbox ~default:default_bbox
   and Ui.(r, g, b, alpha) = box.background_color in
   let points =
     [| (x, y + height); (x, y); (x + width, y); (x + width, y + height) |]
@@ -237,7 +238,8 @@ let draw_text ~(s : string) ~(box : Ui.box) =
   in
   let l = String.fold_right (fun c acc -> c :: acc) s [] in
   let box_bbox =
-    try Option.get box.bbox with Invalid_argument e -> failwith e
+    try Option.get box.bbox
+    with Invalid_argument e -> failwith (__FUNCTION__ ^ "; " ^ e)
   in
   let horizontal_pos = ref box_bbox.x in
   List.iter
@@ -248,7 +250,7 @@ let draw_text ~(s : string) ~(box : Ui.box) =
       let c, glyph = Option.get found in
       write_to_text_buffer ~render_buf_container:Render.Render.ui_buffer
         ~glyph_info:glyph ~x:!horizontal_pos
-        ~y:(box_bbox.y + font_info.font_height)
+        ~y:(box_bbox.y + font_info.ascender)
         ~glyph:c ~font_texture_atlas:font_info.font_texture_atlas
         ~glyph_info_with_char:font_info.glyph_info_with_char;
       Opengl.gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
@@ -258,8 +260,6 @@ let draw_text ~(s : string) ~(box : Ui.box) =
       draw_to_gl_buffer_text ();
       horizontal_pos := !horizontal_pos + glyph.x_advance)
     l
-
-let default_bbox : Ui.bounding_box = { width = 0; height = 0; x = 0; y = 0 }
 
 (* I'm not sure how to handle cases where the contents are positioned outside of
    the container. Originally I thought that having elements/boxes being absolutely
@@ -319,53 +319,50 @@ let rec draw_box ~(box : Ui.box) =
   | Some (Box b) -> draw_box ~box:b
   | Some (Boxes list) -> (
       match box.flow with
-      | Some Horizontal | Some Vertical -> (
-          match box.bbox with
-          | Some box_bbox ->
-              let horizontal_pos = ref box_bbox.x in
-              let vertical_pos = ref box_bbox.y in
-              let new_boxes =
-                List.map
-                  (fun b ->
-                    match b.Ui.bbox with
-                    | Some bbbox ->
-                        let new_box =
-                          {
-                            b with
-                            Ui.bbox =
-                              Some
-                                (match box.flow with
-                                | Some Horizontal ->
-                                    let new_box' =
-                                      {
-                                        bbbox with
-                                        x = !horizontal_pos;
-                                        y = box_bbox.y;
-                                      }
-                                    in
-                                    horizontal_pos :=
-                                      !horizontal_pos + bbbox.Ui.width;
-                                    new_box'
-                                | Some Vertical ->
-                                    let new_box' =
-                                      {
-                                        bbbox with
-                                        y = !vertical_pos;
-                                        x = box_bbox.x;
-                                      }
-                                    in
-                                    vertical_pos :=
-                                      !vertical_pos + bbbox.Ui.height;
-                                    new_box'
-                                | None -> bbbox);
-                          }
-                        in
-                        new_box
-                    | None -> b)
-                  list
-              in
-              List.iter (fun b -> draw_box ~box:b) new_boxes
-          | None -> failwith "box needs bbox if horizontal auto layout")
+      | Some Horizontal | Some Vertical ->
+          let box_bbox = Option.value box.bbox ~default:default_bbox in
+          let horizontal_pos = ref box_bbox.x in
+          let vertical_pos = ref box_bbox.y in
+          let new_boxes =
+            List.map
+              (fun b ->
+                match b.Ui.bbox with
+                | Some bbbox ->
+                    let new_box =
+                      {
+                        b with
+                        Ui.bbox =
+                          Some
+                            (match box.flow with
+                            | Some Horizontal ->
+                                let new_box' =
+                                  {
+                                    bbbox with
+                                    x = !horizontal_pos;
+                                    y = box_bbox.y;
+                                  }
+                                in
+                                horizontal_pos :=
+                                  !horizontal_pos + bbbox.Ui.width;
+                                new_box'
+                            | Some Vertical ->
+                                let new_box' =
+                                  {
+                                    bbbox with
+                                    y = !vertical_pos;
+                                    x = box_bbox.x;
+                                  }
+                                in
+                                vertical_pos := !vertical_pos + bbbox.Ui.height;
+                                new_box'
+                            | None -> bbbox);
+                      }
+                    in
+                    new_box
+                | None -> b)
+              list
+          in
+          List.iter (fun b -> draw_box ~box:b) new_boxes
       | None -> List.iter (fun b -> draw_box ~box:b) list)
   | Some (Text s) -> draw_text ~s ~box
   | None -> ());

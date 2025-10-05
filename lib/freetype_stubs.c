@@ -48,6 +48,7 @@ CAMLprim value get_x_advance(value glyph_info) {
 }
 
 CAMLprim value freetype_set_char_size(value face, value size);
+CAMLprim value freetype_set_pixel_sizes(value face, value size);
 CAMLprim value get_ascii_char_glyph_info_(value face, value ascii, value size) {
   CAMLparam3(face, ascii, size);
   CAMLlocal1(glyph_info);
@@ -59,7 +60,7 @@ CAMLprim value get_ascii_char_glyph_info_(value face, value ascii, value size) {
 
   FT_Face* face_c = *(FT_Face**)Data_abstract_val(face);
 
-  freetype_set_char_size(face, size);
+  freetype_set_pixel_sizes(face, size);
   {
   int result = FT_Load_Char(*face_c, ascii_value, FT_LOAD_RENDER);
   if (result) {

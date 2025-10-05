@@ -31,8 +31,6 @@ and contains text
         events should be handled with event an emitter instead of going through each object that composes the UI.
             Each event that comes from SDL, will be passed to each event handler that is stored somewhere
 
-    boxes need to specify it's own font size
-
     scrollbar rendering...
     scrolling...
 

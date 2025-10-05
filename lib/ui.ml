@@ -77,6 +77,7 @@ let get_text_texture_atlas_info
     current_width := !current_width + glyph_info.width
   done;
   {
+    (* width and height of text texture *)
     width = widths_summed;
     height = global_font_height;
     bytes = bytes_texture_atlas;
@@ -84,6 +85,10 @@ let get_text_texture_atlas_info
 
 let get_new_font_info_with_font_size ~(font_size : int)
     ~(face : FreeType.ft_face) =
+  let _, window_height = Sdl.sdl_get_window_size Sdl.w in
+  let _, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
+  (* scaling font_size appropriately based on ratio between the opengl window in pixels and the sdl window's pixels *)
+  let font_size = font_size * window_height_gl / window_height in
   let glyph_info_with_char =
     Array.init
       (126 - 32 + 1)
@@ -133,14 +138,14 @@ let smol_box : box =
 let text_box : box =
   {
     name = None;
-    background_color = (1., 0., 0., 1.);
+    background_color = (1., 1., 1., 0.);
     content = Some (Text "SAVE DEEZ NUTS");
-    bbox = Some { width = 100; height = 100; x = 0; y = 150 };
+    bbox = Some { width = 100; height = 100; x = 0; y = 0 };
     text_wrap = false;
     border = false;
     flow = None;
     take_remaining_space = None;
-    font_size = Some 100;
+    font_size = Some 10;
     width_min_content = false;
     height_min_content = false;
     clip_content = false;
@@ -168,15 +173,37 @@ let text_box2 : box =
     allow_horizontal_scroll = false;
   }
 
+let boxes =
+  List.init 10 (fun i ->
+      ({
+         name = None;
+         content = Some (Text "asdf");
+         background_color =
+           (Random.float 1., Random.float 1., Random.float 1., 1.);
+         bbox = Some { x = 0; y = 0; width = 100; height = 100 };
+         text_wrap = false;
+         border = false;
+         flow = None;
+         take_remaining_space = None;
+         font_size = Some 14;
+         width_min_content = false;
+         height_min_content = false;
+         clip_content = false;
+         position_type = Relative;
+         allow_vertical_scroll = false;
+         allow_horizontal_scroll = false;
+       }
+        : box))
+
 let box : box =
   {
     name = None;
-    background_color = (0., 1., 0., 1.);
-    content = Some (Boxes [ smol_box; text_box; text_box2 ]);
-    bbox = Some { width = 100; height = 200; x = 0; y = 0 };
+    background_color = (0., 0., 0., 0.);
+    content = Some (Boxes boxes);
+    bbox = Some { x = 0; y = 100; width = 0; height = 0 };
     text_wrap = false;
     border = false;
-    flow = Some Vertical;
+    flow = Some Horizontal;
     take_remaining_space = None;
     font_size = None;
     width_min_content = false;
