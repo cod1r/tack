@@ -86,8 +86,8 @@ let write_container_values_to_ui_buffer ~(box : Ui.box)
 
 let () =
   Opengl.gl_bind_buffer gl_ui_lib_buffer;
-  Opengl.gl_buffer_data_big_array ~render_buffer:Render.Render.ui_buffer.buffer
-    ~capacity:(Bigarray.Array1.dim Render.Render.ui_buffer.buffer)
+  Opengl.gl_buffer_data_big_array ~render_buffer:Render.ui_buffer.buffer
+    ~capacity:(Bigarray.Array1.dim Render.ui_buffer.buffer)
 
 let write_to_text_buffer ~(render_buf_container : Render.render_buffer_wrapper)
     ~(glyph_info : Freetype.FreeType.glyph_info_) ~x ~y ~(glyph : char)
@@ -185,13 +185,13 @@ let draw_to_gl_buffer_text () =
     ~start_idx:5;
 
   Opengl.gl_buffer_subdata_big_array
-    ~render_buffer:Render.Render.ui_buffer.buffer
-    ~length:Render.Render.ui_buffer.length;
+    ~render_buffer:Render.ui_buffer.buffer
+    ~length:Render.ui_buffer.length;
 
   Opengl.gl_draw_arrays_with_quads
-    (Render.Render.ui_buffer.length / Render._EACH_POINT_FLOAT_AMOUNT);
+    (Render.ui_buffer.length / Render._EACH_POINT_FLOAT_AMOUNT);
 
-  Render.Render.ui_buffer.length <- 0
+  Render.ui_buffer.length <- 0
 
 let draw_to_gl_buffer () =
   Opengl.gl_bind_buffer gl_ui_lib_buffer;
@@ -199,21 +199,21 @@ let draw_to_gl_buffer () =
   Opengl.gl_use_program ui_program;
 
   Opengl.gl_vertex_attrib_pointer_float_type
-    ~location:Render.Render.location_point_vertex ~size:2
+    ~location:Render.location_point_vertex ~size:2
     ~stride:Render._EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
 
   Opengl.gl_vertex_attrib_pointer_float_type
-    ~location:Render.Render.location_color ~size:4
+    ~location:Render.location_color ~size:4
     ~stride:Render._EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
 
   Opengl.gl_buffer_subdata_big_array
-    ~render_buffer:Render.Render.ui_buffer.buffer
-    ~length:Render.Render.ui_buffer.length;
+    ~render_buffer:Render.ui_buffer.buffer
+    ~length:Render.ui_buffer.length;
 
   Opengl.gl_draw_arrays_with_quads
-    (Render.Render.ui_buffer.length / Render._EACH_POINT_FLOAT_AMOUNT);
+    (Render.ui_buffer.length / Render._EACH_POINT_FLOAT_AMOUNT);
 
-  Render.Render.ui_buffer.length <- 0
+  Render.ui_buffer.length <- 0
 
 module TextTextureInfo = struct
   type texture_info = {
@@ -270,7 +270,7 @@ let draw_text ~(s : string) ~(box : Ui.box) =
         Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
       in
       let c, glyph = Option.get found in
-      write_to_text_buffer ~render_buf_container:Render.Render.ui_buffer
+      write_to_text_buffer ~render_buf_container:Render.ui_buffer
         ~glyph_info:glyph ~x:!horizontal_pos
         ~y:(box_bbox.y + font_info.ascender)
         ~glyph:c ~font_texture_atlas:font_info.font_texture_atlas
@@ -350,7 +350,7 @@ let rec draw_box ~(box : Ui.box) =
   if not !validated then validate ~box;
   if box.clip_content then clip_content ~box;
   clamp_min_width_height ~box;
-  write_container_values_to_ui_buffer ~box ~buffer:Render.Render.ui_buffer;
+  write_container_values_to_ui_buffer ~box ~buffer:Render.ui_buffer;
   draw_to_gl_buffer ();
   (match box.content with
   | Some (Box b) -> draw_box ~box:b

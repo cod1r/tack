@@ -434,270 +434,267 @@ module FileModeRendering = struct
          })
 end
 
-module Render = struct
-  let ui_buffer : render_buffer_wrapper =
-    {
-      buffer =
-        Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
-          (1000 * 1000 * _EACH_POINT_FLOAT_AMOUNT);
-      length = 0;
-    }
+let ui_buffer : render_buffer_wrapper =
+  {
+    buffer =
+      Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
+        (1000 * 1000 * _EACH_POINT_FLOAT_AMOUNT);
+    length = 0;
+  }
 
-  let cursor_buffer =
-    {
-      buffer =
-        Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
-          (4 * _EACH_POINT_FLOAT_AMOUNT);
-      length = 0;
-    }
+let cursor_buffer =
+  {
+    buffer =
+      Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
+        (4 * _EACH_POINT_FLOAT_AMOUNT);
+    length = 0;
+  }
 
-  let _ = gl_enable_texture_2d ()
-  let _ = gl_enable_blending ()
+let _ = gl_enable_texture_2d ()
+let _ = gl_enable_blending ()
 
-  let fragment =
-    match gl_create_fragment_shader () with Ok f -> f | Error e -> failwith e
+let fragment =
+  match gl_create_fragment_shader () with Ok f -> f | Error e -> failwith e
 
-  let vertex =
-    match gl_create_vertex_shader () with Ok v -> v | Error e -> failwith e
+let vertex =
+  match gl_create_vertex_shader () with Ok v -> v | Error e -> failwith e
 
-  let vertex_cursor =
-    match gl_create_vertex_shader () with
-    | Ok v -> v
-    | Error e -> failwith (e ^ "_CURSOR")
+let vertex_cursor =
+  match gl_create_vertex_shader () with
+  | Ok v -> v
+  | Error e -> failwith (e ^ "_CURSOR")
 
-  let fragment_cursor =
-    match gl_create_fragment_shader () with
-    | Ok f -> f
-    | Error e -> failwith (e ^ "_CURSOR")
+let fragment_cursor =
+  match gl_create_fragment_shader () with
+  | Ok f -> f
+  | Error e -> failwith (e ^ "_CURSOR")
 
-  let vertex_highlight =
-    match gl_create_vertex_shader () with Ok v -> v | Error e -> failwith e
+let vertex_highlight =
+  match gl_create_vertex_shader () with Ok v -> v | Error e -> failwith e
 
-  let fragment_highlight =
-    match gl_create_fragment_shader () with Ok v -> v | Error e -> failwith e
+let fragment_highlight =
+  match gl_create_fragment_shader () with Ok v -> v | Error e -> failwith e
 
-  let text_vertex_id =
-    match gl_create_vertex_shader () with
-    | Ok v -> v
-    | Error e -> failwith (e ^ "; couldn't create vertex shader for text")
+let text_vertex_id =
+  match gl_create_vertex_shader () with
+  | Ok v -> v
+  | Error e -> failwith (e ^ "; couldn't create vertex shader for text")
 
-  let text_fragment_id =
-    match gl_create_fragment_shader () with
-    | Ok v -> v
-    | Error e -> failwith (e ^ "; couldn't create vertex shader for text")
+let text_fragment_id =
+  match gl_create_fragment_shader () with
+  | Ok v -> v
+  | Error e -> failwith (e ^ "; couldn't create vertex shader for text")
 
-  let text_shader_program =
-    compile_shaders_and_return_program ~vertex_id:text_vertex_id
-      ~fragment_id:text_fragment_id ~vertex_src:text_vertex_shader
-      ~fragment_src:text_fragment_shader
+let text_shader_program =
+  compile_shaders_and_return_program ~vertex_id:text_vertex_id
+    ~fragment_id:text_fragment_id ~vertex_src:text_vertex_shader
+    ~fragment_src:text_fragment_shader
 
-  let program =
-    compile_shaders_and_return_program ~vertex_id:vertex ~fragment_id:fragment
-      ~vertex_src:generic_vertex_shader ~fragment_src:generic_fragment_shader
+let program =
+  compile_shaders_and_return_program ~vertex_id:vertex ~fragment_id:fragment
+    ~vertex_src:generic_vertex_shader ~fragment_src:generic_fragment_shader
 
-  (*
+(*
         At first, it seems like there could be a write_rope_to_text_buffer function, BUT
         there are specific details like wrapping that I'd like to handle. Maybe there could be
         an abstraction for that specific wrapping behavior, but let's consider that later.
         *)
 
-  let draw_editor (editor : Editor.editor) =
-    let window_dims = Sdl.sdl_gl_getdrawablesize () in
-    let window_width, window_height = window_dims in
-    let current_rope_wrapper =
-      List.nth editor.ropes (editor.current_rope_idx |> Option.get)
-    in
-    match current_rope_wrapper with
-    | File { rope; cursor_pos; vertical_scroll_y_offset; highlight; _ } -> (
-        match rope with
-        | Some r ->
-            let lines = Editor.num_lines r in
-            let digits_widths_summed =
-              Editor.get_digits_widths_summed ~num_lines:lines ~editor
-            in
-            let Editor.{ line_number_placements; _ } =
-              FileModeRendering.draw_text ~editor ~rope:r ~window_width
-                ~window_height ~digits_widths_summed ~vertical_scroll_y_offset
-                ~text_buffer:ui_buffer
-            in
-            FileModeRendering.draw_line_numbers ~editor
-              ~vertical_scroll_y_offset ~window_width ~window_height
-              ~text_buffer:ui_buffer ~line_number_placements;
-            FileModeRendering.draw_highlight ~editor ~r
-              ~vertical_scroll_y_offset ~highlight ~window_width ~window_height
-              ~highlight_buffer:ui_buffer ~digits_widths_summed;
-            FileModeRendering.draw_cursor ~editor ~r ~cursor_buffer ~cursor_pos
-              ~vertical_scroll_y_offset ~window_width ~window_height
-              ~digits_widths_summed
-        | None -> ())
-    | FileSearch { search_rope; results; _ } -> (
-        (* todo -> implement filesearch writing to buffer logic for drawing *)
-        let fold_fn (acc : Editor.rope_traversal_info_ Editor.traverse_info) c =
-          let (Editor.Rope_Traversal_Info acc) = acc in
-          let found_glyph =
-            Array.find_opt
-              (fun (c', _) -> c' = c)
-              editor.config_info.glyph_info_with_char
+let draw_editor (editor : Editor.editor) =
+  let window_dims = Sdl.sdl_gl_getdrawablesize () in
+  let window_width, window_height = window_dims in
+  let current_rope_wrapper =
+    List.nth editor.ropes (editor.current_rope_idx |> Option.get)
+  in
+  match current_rope_wrapper with
+  | File { rope; cursor_pos; vertical_scroll_y_offset; highlight; _ } -> (
+      match rope with
+      | Some r ->
+          let lines = Editor.num_lines r in
+          let digits_widths_summed =
+            Editor.get_digits_widths_summed ~num_lines:lines ~editor
           in
-          match found_glyph with
-          | Some (_, gi) ->
-              let x_advance = gi.x_advance in
-              Printf.eprintf "write search to text buffer\n";
-              Editor.Rope_Traversal_Info
-                { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
-          | None -> failwith "NO GLYPH FOUND BRUH"
+          let Editor.{ line_number_placements; _ } =
+            FileModeRendering.draw_text ~editor ~rope:r ~window_width
+              ~window_height ~digits_widths_summed ~vertical_scroll_y_offset
+              ~text_buffer:ui_buffer
+          in
+          FileModeRendering.draw_line_numbers ~editor ~vertical_scroll_y_offset
+            ~window_width ~window_height ~text_buffer:ui_buffer
+            ~line_number_placements;
+          FileModeRendering.draw_highlight ~editor ~r ~vertical_scroll_y_offset
+            ~highlight ~window_width ~window_height ~highlight_buffer:ui_buffer
+            ~digits_widths_summed;
+          FileModeRendering.draw_cursor ~editor ~r ~cursor_buffer ~cursor_pos
+            ~vertical_scroll_y_offset ~window_width ~window_height
+            ~digits_widths_summed
+      | None -> ())
+  | FileSearch { search_rope; results; _ } -> (
+      (* todo -> implement filesearch writing to buffer logic for drawing *)
+      let fold_fn (acc : Editor.rope_traversal_info_ Editor.traverse_info) c =
+        let (Editor.Rope_Traversal_Info acc) = acc in
+        let found_glyph =
+          Array.find_opt
+            (fun (c', _) -> c' = c)
+            editor.config_info.glyph_info_with_char
         in
-        match search_rope with
-        | Some r ->
-            let _ =
-              Editor.traverse_rope r fold_fn
-                (Editor.Rope_Traversal_Info
-                   {
-                     rope_pos = 0;
-                     x = editor.bounds.x;
-                     y = editor.bounds.y;
-                     line_num = 0;
-                     line_number_placements = [];
-                   })
-            in
-            ();
+        match found_glyph with
+        | Some (_, gi) ->
+            let x_advance = gi.x_advance in
+            Printf.eprintf "write search to text buffer\n";
+            Editor.Rope_Traversal_Info
+              { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
+        | None -> failwith "NO GLYPH FOUND BRUH"
+      in
+      match search_rope with
+      | Some r ->
+          let _ =
+            Editor.traverse_rope r fold_fn
+              (Editor.Rope_Traversal_Info
+                 {
+                   rope_pos = 0;
+                   x = editor.bounds.x;
+                   y = editor.bounds.y;
+                   line_num = 0;
+                   line_number_placements = [];
+                 })
+          in
+          ();
 
-            List.iteri
-              (fun idx file ->
-                (* scuffed offset to move text below the title bar but the real reason the text is behind the title bar is because
+          List.iteri
+            (fun idx file ->
+              (* scuffed offset to move text below the title bar but the real reason the text is behind the title bar is because
                    of the bearingY added to the text; basically the baseline is at 0,0 so the text is above it *)
-                let row_pos = (idx + 2) * editor.config_info.font_height in
-                if row_pos < window_height then
-                  (*
+              let row_pos = (idx + 2) * editor.config_info.font_height in
+              if row_pos < window_height then
+                (*
                   there are two coordinate systems, the one that is used in ocaml is top left being the origin.
                   The one used in opengl and the c stub code has the center of the window as the origin.
                    *)
-                  let x_offset = ref 0 in
-                  String.iter
-                    (fun c ->
-                      let gi =
-                        Array.find_opt
-                          (fun (c', _) -> c' = c)
-                          editor.config_info.glyph_info_with_char
-                      in
-                      match gi with
-                      | Some (_, gi') ->
-                          let x_advance = gi'.x_advance in
-                          failwith
-                            "TODO: implement file search mode functions for \
-                             writing search to text buffer";
-                          x_offset := !x_offset + x_advance
-                      | None -> ())
-                    file)
-              results
-        | None -> ())
+                let x_offset = ref 0 in
+                String.iter
+                  (fun c ->
+                    let gi =
+                      Array.find_opt
+                        (fun (c', _) -> c' = c)
+                        editor.config_info.glyph_info_with_char
+                    in
+                    match gi with
+                    | Some (_, gi') ->
+                        let x_advance = gi'.x_advance in
+                        failwith
+                          "TODO: implement file search mode functions for \
+                           writing search to text buffer";
+                        x_offset := !x_offset + x_advance
+                    | None -> ())
+                  file)
+            results
+      | None -> ())
 
-  let gl_buffer_obj = gl_gen_one_buffer ()
-  let gl_buffer_cursor = gl_gen_one_buffer ()
-  let gl_buffer_highlight = gl_gen_one_buffer ()
-  let gl_buffer_glyph_texture_atlas = gl_gen_texture ()
+let gl_buffer_obj = gl_gen_one_buffer ()
+let gl_buffer_cursor = gl_gen_one_buffer ()
+let gl_buffer_highlight = gl_gen_one_buffer ()
+let gl_buffer_glyph_texture_atlas = gl_gen_texture ()
 
-  let location_point_vertex =
-    match gl_getattriblocation program "point_vertex" with
-    | Ok l -> l
-    | Error e -> failwith e
+let location_point_vertex =
+  match gl_getattriblocation program "point_vertex" with
+  | Ok l -> l
+  | Error e -> failwith e
 
-  let location_color =
-    match gl_getattriblocation program "color_attrib" with
-    | Ok l -> l
-    | Error e -> failwith e
+let location_color =
+  match gl_getattriblocation program "color_attrib" with
+  | Ok l -> l
+  | Error e -> failwith e
 
-  let vertex_text_location =
-    match gl_getattriblocation text_shader_program "vertex" with
-    | Ok l -> l
-    | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
+let vertex_text_location =
+  match gl_getattriblocation text_shader_program "vertex" with
+  | Ok l -> l
+  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
 
-  let color_text_location =
-    match gl_getattriblocation text_shader_program "color" with
-    | Ok l -> l
-    | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
+let color_text_location =
+  match gl_getattriblocation text_shader_program "color" with
+  | Ok l -> l
+  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
 
-  let tex_coord_text_location =
-    match gl_getattriblocation text_shader_program "tex_coord" with
-    | Ok l -> l
-    | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
+let tex_coord_text_location =
+  match gl_getattriblocation text_shader_program "tex_coord" with
+  | Ok l -> l
+  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
 
-  let sampler_text_location =
-    match gl_getuniformlocation text_shader_program "sampler" with
-    | Ok l -> l
-    | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
+let sampler_text_location =
+  match gl_getuniformlocation text_shader_program "sampler" with
+  | Ok l -> l
+  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
 
-  let setup_glyph_texture ~(editor : Editor.editor) =
-    gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
-    set_gl_tex_parameters ();
-    gl_teximage_2d ~bytes:editor.config_info.font_glyph_texture_atlas_info.bytes
-      ~width:editor.config_info.font_glyph_texture_atlas_info.width
-      ~height:editor.config_info.font_glyph_texture_atlas_info.height
+let setup_glyph_texture ~(editor : Editor.editor) =
+  gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
+  set_gl_tex_parameters ();
+  gl_teximage_2d ~bytes:editor.config_info.font_glyph_texture_atlas_info.bytes
+    ~width:editor.config_info.font_glyph_texture_atlas_info.width
+    ~height:editor.config_info.font_glyph_texture_atlas_info.height
 
-  let () =
-    gl_enable_vertex_attrib_array vertex_text_location;
-    gl_enable_vertex_attrib_array color_text_location;
-    gl_enable_vertex_attrib_array tex_coord_text_location;
-    gl_enable_vertex_attrib_array location_point_vertex;
-    gl_enable_vertex_attrib_array location_color;
-    gl_bind_buffer gl_buffer_obj;
-    gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
-      ~capacity:(Bigarray.Array1.dim ui_buffer.buffer);
-    gl_bind_buffer gl_buffer_cursor;
-    gl_buffer_data_big_array ~render_buffer:cursor_buffer.buffer
-      ~capacity:(Bigarray.Array1.dim cursor_buffer.buffer);
-    gl_bind_buffer gl_buffer_highlight;
-    gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
-      ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
+let () =
+  gl_enable_vertex_attrib_array vertex_text_location;
+  gl_enable_vertex_attrib_array color_text_location;
+  gl_enable_vertex_attrib_array tex_coord_text_location;
+  gl_enable_vertex_attrib_array location_point_vertex;
+  gl_enable_vertex_attrib_array location_color;
+  gl_bind_buffer gl_buffer_obj;
+  gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
+    ~capacity:(Bigarray.Array1.dim ui_buffer.buffer);
+  gl_bind_buffer gl_buffer_cursor;
+  gl_buffer_data_big_array ~render_buffer:cursor_buffer.buffer
+    ~capacity:(Bigarray.Array1.dim cursor_buffer.buffer);
+  gl_bind_buffer gl_buffer_highlight;
+  gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
+    ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
 
-  let draw (editor : Editor.editor) =
-    gl_clear_color 1. 1. 1. 1.;
-    gl_clear ();
+let draw (editor : Editor.editor) =
+  gl_clear_color 1. 1. 1. 1.;
+  gl_clear ();
 
-    draw_editor editor;
+  draw_editor editor;
 
-    gl_bind_buffer gl_buffer_cursor;
+  gl_bind_buffer gl_buffer_cursor;
 
-    gl_use_program program;
+  gl_use_program program;
 
-    gl_vertex_attrib_pointer_float_type ~location:location_point_vertex ~size:2
-      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
+  gl_vertex_attrib_pointer_float_type ~location:location_point_vertex ~size:2
+    ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
 
-    gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
-      ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
+  gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
+    ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
 
-    gl_buffer_subdata_big_array ~render_buffer:cursor_buffer.buffer
-      ~length:cursor_buffer.length;
+  gl_buffer_subdata_big_array ~render_buffer:cursor_buffer.buffer
+    ~length:cursor_buffer.length;
 
-    gl_draw_arrays_with_quads (cursor_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
+  gl_draw_arrays_with_quads (cursor_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
 
-    cursor_buffer.length <- 0;
+  cursor_buffer.length <- 0;
 
-    gl_bind_buffer gl_buffer_obj;
+  gl_bind_buffer gl_buffer_obj;
 
-    (* 0 is default texture unit; reminder that sampler is not location but texture unit *)
-    gl_uniform_1i ~location:sampler_text_location ~value:0;
+  (* 0 is default texture unit; reminder that sampler is not location but texture unit *)
+  gl_uniform_1i ~location:sampler_text_location ~value:0;
 
-    gl_use_program text_shader_program;
+  gl_use_program text_shader_program;
 
-    gl_vertex_attrib_pointer_float_type ~location:vertex_text_location ~size:2
-      ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:0;
+  gl_vertex_attrib_pointer_float_type ~location:vertex_text_location ~size:2
+    ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:0;
 
-    gl_vertex_attrib_pointer_float_type ~location:color_text_location ~size:3
-      ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:2;
+  gl_vertex_attrib_pointer_float_type ~location:color_text_location ~size:3
+    ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:2;
 
-    gl_vertex_attrib_pointer_float_type ~location:tex_coord_text_location
-      ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
-      ~start_idx:5;
+  gl_vertex_attrib_pointer_float_type ~location:tex_coord_text_location ~size:2
+    ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:5;
 
-    gl_buffer_subdata_big_array ~render_buffer:ui_buffer.buffer
-      ~length:ui_buffer.length;
+  gl_buffer_subdata_big_array ~render_buffer:ui_buffer.buffer
+    ~length:ui_buffer.length;
 
-    gl_draw_arrays_with_quads (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
+  gl_draw_arrays_with_quads (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
 
-    Bigarray.Array1.fill ui_buffer.buffer 0.;
+  Bigarray.Array1.fill ui_buffer.buffer 0.;
 
-    ui_buffer.length <- 0;
+  ui_buffer.length <- 0;
 
-    Sdl.sdl_gl_swapwindow Sdl.w
-end
+  Sdl.sdl_gl_swapwindow Sdl.w

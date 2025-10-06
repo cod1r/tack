@@ -244,7 +244,20 @@ let outer_box : box =
   {
     name = None;
     background_color = (0., 0., 0., 0.);
-    content = Some (Boxes (List.init 10 (fun _ -> clone_box ~box)));
+    content =
+      Some
+        (Boxes
+           (List.init 10 (fun _ ->
+                let box' = clone_box ~box in
+                (match box'.content with
+                | Some (Boxes list) ->
+                    List.iter
+                      (fun b ->
+                        b.background_color <-
+                          (Random.float 1., Random.float 1., Random.float 1., 1.))
+                      list
+                | _ -> ());
+                box')));
     bbox = Some { x = 0; y = 100; width = 0; height = 0 };
     text_wrap = false;
     border = false;
