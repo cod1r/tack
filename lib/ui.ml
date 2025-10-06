@@ -195,29 +195,8 @@ let text_box : box =
     vertical_align = None;
   }
 
-let text_box2 : box =
-  {
-    name = None;
-    background_color = (1., 0., 0., 1.);
-    content = Some (Text "SAVE DEEZ URMOM");
-    bbox = Some { width = 100; height = 100; x = 0; y = 150 };
-    text_wrap = false;
-    border = false;
-    flow = None;
-    take_remaining_space = None;
-    font_size = Some 25;
-    width_min_content = false;
-    height_min_content = false;
-    clip_content = true;
-    position_type = Relative;
-    allow_vertical_scroll = false;
-    allow_horizontal_scroll = false;
-    horizontal_align = None;
-    vertical_align = None;
-  }
-
 let boxes =
-  List.init 10 (fun i ->
+  List.init 10 (fun _ ->
       ({
          name = None;
          content = Some (Text "asdf");
@@ -265,7 +244,7 @@ let outer_box : box =
   {
     name = None;
     background_color = (0., 0., 0., 0.);
-    content = Some (Boxes (List.init 5 (fun _ -> clone_box ~box)));
+    content = Some (Boxes (List.init 10 (fun _ -> clone_box ~box)));
     bbox = Some { x = 0; y = 100; width = 0; height = 0 };
     text_wrap = false;
     border = false;

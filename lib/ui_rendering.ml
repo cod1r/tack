@@ -33,12 +33,6 @@ let text_shader_program =
     ~fragment_id:text_fragment_id ~vertex_src:Render.text_vertex_shader
     ~fragment_src:Render.text_fragment_shader
 
-let gl_buffer_glyph_texture_atlas = Opengl.gl_gen_texture ()
-
-let () =
-  Opengl.gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
-  Opengl.set_gl_tex_parameters_ui_text ()
-
 let vertex_text_location =
   match Opengl.gl_getattriblocation text_shader_program "vertex" with
   | Ok l -> l
@@ -221,25 +215,55 @@ let draw_to_gl_buffer () =
 
   Render.Render.ui_buffer.length <- 0
 
-let font_info_with_non_overridden_font_size =
-  Ui.get_new_font_info_with_font_size ~font_size:FreeType.font_pixel_size
-    ~face:FreeType.face
+module TextTextureInfo = struct
+  type texture_info = {
+    gl_texture_id : int;
+    font_size : int;
+    font_info : Ui.font_info;
+  }
 
-module TextTextureInfo = struct end
+  let text_textures_with_different_font_sizes : texture_info list ref = ref []
+
+  let get_or_add_font_size_text_texture ~(font_size : int) =
+    let option =
+      List.find_opt
+        (fun { font_size = font_size'; _ } -> font_size' = font_size)
+        !text_textures_with_different_font_sizes
+    in
+    match option with
+    | Some { font_info; gl_texture_id; _ } -> (font_info, gl_texture_id)
+    | None ->
+        let gl_buffer_glyph_texture_atlas = Opengl.gl_gen_texture () in
+        let font_info =
+          Ui.get_new_font_info_with_font_size ~font_size ~face:FreeType.face
+        in
+        text_textures_with_different_font_sizes :=
+          {
+            gl_texture_id = gl_buffer_glyph_texture_atlas;
+            font_size;
+            font_info;
+          }
+          :: !text_textures_with_different_font_sizes;
+        Opengl.gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
+        Opengl.set_gl_tex_parameters_ui_text ();
+        Opengl.gl_teximage_2d ~bytes:font_info.font_texture_atlas.bytes
+          ~width:font_info.font_texture_atlas.width
+          ~height:font_info.font_texture_atlas.height;
+        (font_info, gl_buffer_glyph_texture_atlas)
+end
 
 let draw_text ~(s : string) ~(box : Ui.box) =
-  let font_info =
-    if Option.is_some box.font_size then
-      Ui.get_new_font_info_with_font_size ~font_size:(Option.get box.font_size)
-        ~face:FreeType.face
-    else font_info_with_non_overridden_font_size
-  in
   let l = String.fold_right (fun c acc -> c :: acc) s [] in
   let box_bbox =
     try Option.get box.bbox
     with Invalid_argument e -> failwith (__FUNCTION__ ^ "; " ^ e)
   in
   let horizontal_pos = ref box_bbox.x in
+  let font_info, gl_texture_id =
+    TextTextureInfo.get_or_add_font_size_text_texture
+      ~font_size:(Option.value box.font_size ~default:FreeType.font_size)
+  in
+  Opengl.gl_bind_texture ~texture_id:gl_texture_id;
   List.iter
     (fun c ->
       let found =
@@ -251,10 +275,6 @@ let draw_text ~(s : string) ~(box : Ui.box) =
         ~y:(box_bbox.y + font_info.ascender)
         ~glyph:c ~font_texture_atlas:font_info.font_texture_atlas
         ~glyph_info_with_char:font_info.glyph_info_with_char;
-      Opengl.gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
-      Opengl.gl_teximage_2d ~bytes:font_info.font_texture_atlas.bytes
-        ~width:font_info.font_texture_atlas.width
-        ~height:font_info.font_texture_atlas.height;
       draw_to_gl_buffer_text ();
       horizontal_pos := !horizontal_pos + glyph.x_advance)
     l

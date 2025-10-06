@@ -47,6 +47,6 @@ module FreeType = struct
     in
     freetype_get_face font_path library
 
-  let font_pixel_size =
+  let font_size =
     Yojson.Safe.Util.member "ui_font_size" config |> Yojson.Safe.Util.to_int
 end
