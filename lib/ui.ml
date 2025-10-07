@@ -257,4 +257,18 @@ let smol_box_event_handler ~(e : Sdl.event) =
       else smol_box.background_color <- (1., 1., 0., 1.)
   | _ -> ()
 
+let box_hover_event_handler ~(e : Sdl.event) =
+  match e with
+  | Sdl.MouseMotionEvt { x; y; _ } ->
+      List.iter
+        (fun b ->
+          let { left; right; top; bottom } = get_box_sides ~box:b in
+          if x >= left / 2 && x <= right / 2 && y >= top / 2 && y <= bottom / 2
+          then
+            b.background_color <-
+              (Random.float 1., Random.float 1., Random.float 1., 1.))
+        boxes
+  | _ -> ()
+
 let () = Ui_events.add_event_handler ~event_handler:smol_box_event_handler
+let () = Ui_events.add_event_handler ~event_handler:box_hover_event_handler

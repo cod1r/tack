@@ -426,6 +426,8 @@ let rec draw_box ~(box : Ui.box) =
               (fun b ->
                 match b.Ui.bbox with
                 | Some bbbox ->
+                    b.Ui.bbox <-
+                      Some { bbbox with x = fst !boxes_pos; y = snd !boxes_pos };
                     let new_box =
                       {
                         b with
