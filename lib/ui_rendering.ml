@@ -184,8 +184,7 @@ let draw_to_gl_buffer_text () =
     ~size:2 ~stride:Render._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
     ~start_idx:5;
 
-  Opengl.gl_buffer_subdata_big_array
-    ~render_buffer:Render.ui_buffer.buffer
+  Opengl.gl_buffer_subdata_big_array ~render_buffer:Render.ui_buffer.buffer
     ~length:Render.ui_buffer.length;
 
   Opengl.gl_draw_arrays_with_quads
@@ -202,12 +201,11 @@ let draw_to_gl_buffer () =
     ~location:Render.location_point_vertex ~size:2
     ~stride:Render._EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
 
-  Opengl.gl_vertex_attrib_pointer_float_type
-    ~location:Render.location_color ~size:4
-    ~stride:Render._EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
+  Opengl.gl_vertex_attrib_pointer_float_type ~location:Render.location_color
+    ~size:4 ~stride:Render._EACH_POINT_FLOAT_AMOUNT ~normalized:false
+    ~start_idx:2;
 
-  Opengl.gl_buffer_subdata_big_array
-    ~render_buffer:Render.ui_buffer.buffer
+  Opengl.gl_buffer_subdata_big_array ~render_buffer:Render.ui_buffer.buffer
     ~length:Render.ui_buffer.length;
 
   Opengl.gl_draw_arrays_with_quads
@@ -252,18 +250,56 @@ module TextTextureInfo = struct
         (font_info, gl_buffer_glyph_texture_atlas)
 end
 
+let get_vertical_text_start ~(box : Ui.box) ~(font_info : Ui.font_info) =
+  try
+    let bbox = Option.get box.bbox in
+    let start_of_vertical =
+      match box.vertical_align with
+      | Some Top | None -> bbox.y
+      | Some Center ->
+          let start =
+            bbox.y + (bbox.height / 2) - (font_info.font_height / 2)
+          in
+          start
+      | Some Bottom -> bbox.y + bbox.height - font_info.font_height
+    in
+    start_of_vertical + font_info.ascender
+  with Invalid_argument e -> failwith ("alignment requires a bbox;" ^ e)
+
+let get_horizontal_text_start ~(box : Ui.box) ~(font_info : Ui.font_info)
+    ~(s : string) =
+  let width_of_string =
+    String.fold_left
+      (fun acc c ->
+        try
+          let _, glyph =
+            Array.find_opt
+              (fun (c', _) -> c' = c)
+              font_info.glyph_info_with_char
+            |> Option.get
+          in
+          acc + glyph.x_advance
+        with Invalid_argument e -> failwith (__FUNCTION__ ^ ";" ^ e))
+      0 s
+  in
+  try
+    let bbox = Option.get box.bbox in
+    match box.horizontal_align with
+    | Some Left | None -> bbox.x
+    | Some Center -> bbox.x + (bbox.width / 2) - (width_of_string / 2)
+    | Some Right -> bbox.x + bbox.width - width_of_string
+  with Invalid_argument e -> failwith ("alignment requires a bbox;" ^ e)
+
 let draw_text ~(s : string) ~(box : Ui.box) =
   let l = String.fold_right (fun c acc -> c :: acc) s [] in
-  let box_bbox =
-    try Option.get box.bbox
-    with Invalid_argument e -> failwith (__FUNCTION__ ^ "; " ^ e)
-  in
-  let horizontal_pos = ref box_bbox.x in
   let font_info, gl_texture_id =
     TextTextureInfo.get_or_add_font_size_text_texture
       ~font_size:(Option.value box.font_size ~default:FreeType.font_size)
   in
   Opengl.gl_bind_texture ~texture_id:gl_texture_id;
+  let start_y = get_vertical_text_start ~box ~font_info in
+  let start_x = get_horizontal_text_start ~box ~font_info ~s in
+  let horizontal_pos = ref start_x in
   List.iter
     (fun c ->
       let found =
@@ -271,9 +307,8 @@ let draw_text ~(s : string) ~(box : Ui.box) =
       in
       let c, glyph = Option.get found in
       write_to_text_buffer ~render_buf_container:Render.ui_buffer
-        ~glyph_info:glyph ~x:!horizontal_pos
-        ~y:(box_bbox.y + font_info.ascender)
-        ~glyph:c ~font_texture_atlas:font_info.font_texture_atlas
+        ~glyph_info:glyph ~x:!horizontal_pos ~y:start_y ~glyph:c
+        ~font_texture_atlas:font_info.font_texture_atlas
         ~glyph_info_with_char:font_info.glyph_info_with_char;
       draw_to_gl_buffer_text ();
       horizontal_pos := !horizontal_pos + glyph.x_advance)
@@ -345,6 +380,29 @@ let validate ~(box : Ui.box) =
   validated := true;
   validate' box []
 
+let handle_list_of_boxes_initial_position ~(box : Ui.box) ~(d : Ui.direction)
+    ~(box_bbox : Ui.bounding_box) ~(list : Ui.box list) =
+  let acc_width, acc_height =
+    List.fold_left
+      (fun (acc_w, acc_h) b ->
+        let bbox = Option.value b.Ui.bbox ~default:default_bbox in
+        (acc_w + bbox.width, acc_h + bbox.height))
+      (0, 0) list
+  in
+  let x_pos =
+    match box.horizontal_align with
+    | Some Left | None -> box_bbox.x
+    | Some Center -> box_bbox.x + (box_bbox.width / 2) - (acc_width / 2)
+    | Some Right -> box_bbox.x + box_bbox.width - acc_width
+  in
+  let y_pos =
+    match box.vertical_align with
+    | Some Top | None -> box_bbox.y
+    | Some Center -> box_bbox.y + (box_bbox.height / 2) - (acc_height / 2)
+    | Some Bottom -> box_bbox.y + box_bbox.height - acc_height
+  in
+  match d with Horizontal -> max 0 x_pos | Vertical -> max 0 y_pos
+
 let rec draw_box ~(box : Ui.box) =
   (* Opengl.gl_check_error (); *)
   if not !validated then validate ~box;
@@ -356,10 +414,11 @@ let rec draw_box ~(box : Ui.box) =
   | Some (Box b) -> draw_box ~box:b
   | Some (Boxes list) -> (
       match box.flow with
-      | Some Horizontal | Some Vertical ->
+      | Some ((Horizontal | Vertical) as d) ->
           let box_bbox = Option.value box.bbox ~default:default_bbox in
-          let horizontal_pos = ref box_bbox.x in
-          let vertical_pos = ref box_bbox.y in
+          let vert_or_horizontal_val =
+            ref (handle_list_of_boxes_initial_position ~box ~d ~box_bbox ~list)
+          in
           let new_boxes =
             List.map
               (fun b ->
@@ -370,31 +429,25 @@ let rec draw_box ~(box : Ui.box) =
                         b with
                         Ui.bbox =
                           Some
-                            (match box.flow with
-                            | Some Horizontal ->
-                                let new_box' =
-                                  {
-                                    bbbox with
-                                    x = !horizontal_pos;
-                                    y = box_bbox.y;
-                                  }
-                                in
-                                horizontal_pos :=
-                                  !horizontal_pos + bbbox.Ui.width;
-                                new_box'
-                            | Some Vertical ->
-                                let new_box' =
-                                  {
-                                    bbbox with
-                                    y = !vertical_pos;
-                                    x = box_bbox.x;
-                                  }
-                                in
-                                vertical_pos := !vertical_pos + bbbox.Ui.height;
-                                new_box'
-                            | None -> bbbox);
+                            {
+                              bbbox with
+                              x =
+                                (match d with
+                                | Horizontal -> !vert_or_horizontal_val
+                                | Vertical -> box_bbox.x);
+                              y =
+                                (match d with
+                                | Horizontal -> box_bbox.y
+                                | Vertical -> !vert_or_horizontal_val);
+                            };
                       }
                     in
+                    (vert_or_horizontal_val :=
+                       !vert_or_horizontal_val
+                       +
+                       match d with
+                       | Horizontal -> bbbox.width
+                       | Vertical -> bbbox.height);
                     new_box
                 | None -> b)
               list

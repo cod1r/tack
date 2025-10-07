@@ -214,8 +214,8 @@ let boxes =
          position_type = Relative;
          allow_vertical_scroll = false;
          allow_horizontal_scroll = false;
-         horizontal_align = None;
-         vertical_align = None;
+         horizontal_align = Some Center;
+         vertical_align = Some Center;
        }
         : box))
 
