@@ -386,7 +386,9 @@ let handle_list_of_boxes_initial_position ~(box : Ui.box) ~(d : Ui.direction)
     List.fold_left
       (fun (acc_w, acc_h) b ->
         let bbox = Option.value b.Ui.bbox ~default:default_bbox in
-        (acc_w + bbox.width, acc_h + bbox.height))
+        match d with
+        | Horizontal -> (acc_w + bbox.width, bbox.height)
+        | Vertical -> (bbox.width, acc_h + bbox.height))
       (0, 0) list
   in
   let x_pos =
@@ -401,7 +403,7 @@ let handle_list_of_boxes_initial_position ~(box : Ui.box) ~(d : Ui.direction)
     | Some Center -> box_bbox.y + (box_bbox.height / 2) - (acc_height / 2)
     | Some Bottom -> box_bbox.y + box_bbox.height - acc_height
   in
-  match d with Horizontal -> max 0 x_pos | Vertical -> max 0 y_pos
+  (x_pos, y_pos)
 
 let rec draw_box ~(box : Ui.box) =
   (* Opengl.gl_check_error (); *)
@@ -416,8 +418,8 @@ let rec draw_box ~(box : Ui.box) =
       match box.flow with
       | Some ((Horizontal | Vertical) as d) ->
           let box_bbox = Option.value box.bbox ~default:default_bbox in
-          let vert_or_horizontal_val =
-            ref (handle_list_of_boxes_initial_position ~box ~d ~box_bbox ~list)
+          let boxes_pos =
+            ref (handle_list_of_boxes_initial_position ~d ~box ~box_bbox ~list)
           in
           let new_boxes =
             List.map
@@ -431,23 +433,16 @@ let rec draw_box ~(box : Ui.box) =
                           Some
                             {
                               bbbox with
-                              x =
-                                (match d with
-                                | Horizontal -> !vert_or_horizontal_val
-                                | Vertical -> box_bbox.x);
-                              y =
-                                (match d with
-                                | Horizontal -> box_bbox.y
-                                | Vertical -> !vert_or_horizontal_val);
+                              x = fst !boxes_pos;
+                              y = snd !boxes_pos;
                             };
                       }
                     in
-                    (vert_or_horizontal_val :=
-                       !vert_or_horizontal_val
-                       +
+                    (boxes_pos :=
+                       let x, y = !boxes_pos in
                        match d with
-                       | Horizontal -> bbbox.width
-                       | Vertical -> bbbox.height);
+                       | Horizontal -> (x + bbbox.width, y)
+                       | Vertical -> (x, y + bbbox.height));
                     new_box
                 | None -> b)
               list

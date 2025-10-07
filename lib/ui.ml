@@ -224,7 +224,7 @@ let box : box =
     name = None;
     background_color = (0., 0., 0., 0.);
     content = Some (Boxes boxes);
-    bbox = Some { x = 0; y = 100; width = 0; height = 100 };
+    bbox = Some { x = 0; y = 0; width = 2000; height = 2000 };
     text_wrap = false;
     border = false;
     flow = Some Horizontal;
@@ -236,42 +236,8 @@ let box : box =
     position_type = Relative;
     allow_vertical_scroll = false;
     allow_horizontal_scroll = false;
-    horizontal_align = None;
-    vertical_align = None;
-  }
-
-let outer_box : box =
-  {
-    name = None;
-    background_color = (0., 0., 0., 0.);
-    content =
-      Some
-        (Boxes
-           (List.init 10 (fun _ ->
-                let box' = clone_box ~box in
-                (match box'.content with
-                | Some (Boxes list) ->
-                    List.iter
-                      (fun b ->
-                        b.background_color <-
-                          (Random.float 1., Random.float 1., Random.float 1., 1.))
-                      list
-                | _ -> ());
-                box')));
-    bbox = Some { x = 0; y = 100; width = 0; height = 0 };
-    text_wrap = false;
-    border = false;
-    flow = Some Vertical;
-    take_remaining_space = None;
-    font_size = None;
-    width_min_content = false;
-    height_min_content = false;
-    clip_content = false;
-    position_type = Relative;
-    allow_vertical_scroll = false;
-    allow_horizontal_scroll = false;
-    horizontal_align = None;
-    vertical_align = None;
+    horizontal_align = Some Center;
+    vertical_align = Some Center;
   }
 
 let smol_box_event_handler ~(e : Sdl.event) =

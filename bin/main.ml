@@ -13,10 +13,10 @@ let rec loop () =
     match evt with
     | Some Quit -> false
     | None ->
-        Tack.Ui_rendering.draw ~box:Tack.Ui.outer_box;
+        Tack.Ui_rendering.draw ~box:Tack.Ui.box;
         true
     | Some e ->
-        Tack.Ui_rendering.draw ~box:Tack.Ui.outer_box;
+        Tack.Ui_rendering.draw ~box:Tack.Ui.box;
         Tack.Ui_events.emit_event ~e;
         true
   in
