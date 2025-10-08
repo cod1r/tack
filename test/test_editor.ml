@@ -12,7 +12,6 @@ let cursor_positioning_on_mousedown_test _ =
       Editor.default_editor with
       ropes =
         [
-          File
             {
               rope = Some rope;
               cursor_pos = 0;

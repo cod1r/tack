@@ -10,19 +10,16 @@ module FileMode : Mode = struct
   (* function i made in the process of thinking of a good answer to different editor modes (file search mode, editing mode, etc; this probably isn't needed *)
   let handle_kbd_evt_editor_mode (editor : Editor.editor) ~char_code
       ~kbd_evt_type ~keysym ~file_path =
-    let rope_wrapper =
-      List.nth editor.ropes (editor.current_rope_idx |> Option.get)
-    in
-    match rope_wrapper with
-    | File
-        {
+    let Editor.{
           rope;
           cursor_pos;
           file_name;
           vertical_scroll_y_offset;
           last_modification_time;
           highlight;
-        } -> (
+        } =
+      List.nth editor.ropes (editor.current_rope_idx |> Option.get)
+    in
         let other_rope_wrappers =
           List.filteri
             (fun idx _ -> idx != (editor.current_rope_idx |> Option.get))
@@ -38,8 +35,7 @@ module FileMode : Mode = struct
                 | Keyup -> { editor with holding_ctrl = false })
             | 1073741904 (* left arrow key *) when kbd_evt_type = Keydown ->
                 let new_rope_wrapper =
-                  Editor.File
-                    {
+                    Editor.{
                       rope;
                       cursor_pos = max 0 (cursor_pos - 1);
                       file_name;
@@ -66,8 +62,7 @@ module FileMode : Mode = struct
                     ~lower_y:(y - editor.config_info.font_height)
                 in
                 let new_rope_wrapper =
-                  Editor.File
-                    {
+                    Editor.{
                       rope;
                       cursor_pos = max 0 cursor_pos';
                       file_name;
@@ -88,8 +83,7 @@ module FileMode : Mode = struct
                 new_editor
             | 1073741903 (* right arrow key *) when kbd_evt_type = Keydown ->
                 let new_rope_wrapper =
-                  Editor.File
-                    {
+                    Editor.{
                       rope;
                       cursor_pos =
                         min
@@ -112,7 +106,7 @@ module FileMode : Mode = struct
                 new_editor
             | 1073741905 (* down arrow key *) when kbd_evt_type = Keydown ->
                 if Option.is_some rope then
-                  let num_lines = Editor.num_lines (Option.get rope) in
+                  let num_lines' = Editor.num_lines (Option.get rope) in
                   let Editor.{ x; y; _ } =
                     Editor.find_coords_for_cursor_pos ~editor
                   in
@@ -123,8 +117,7 @@ module FileMode : Mode = struct
                       ~lower_y:(y + editor.config_info.font_height)
                   in
                   let new_rope_wrapper =
-                    Editor.File
-                      {
+                      Editor.{
                         rope;
                         cursor_pos;
                         file_name;
@@ -133,7 +126,7 @@ module FileMode : Mode = struct
                              y + editor.config_info.font_height
                              = editor.bounds.y + editor.bounds.height
                            then
-                             max (-num_lines + 1) (vertical_scroll_y_offset - 1)
+                             max (-num_lines' + 1) (vertical_scroll_y_offset - 1)
                            else vertical_scroll_y_offset);
                         last_modification_time;
                         highlight;
@@ -161,8 +154,7 @@ module FileMode : Mode = struct
                           | None -> Rope.delete r ~start:(cursor_pos - 1) ~len:1)
                       in
                       let new_rope_wrapper =
-                        Editor.File
-                          {
+                          Editor.{
                             file_name;
                             cursor_pos = cursor_pos - 1;
                             rope = new_rope;
@@ -198,8 +190,7 @@ module FileMode : Mode = struct
                           | None -> Some (Leaf clipboard_contents)
                         in
                         let new_rope_wrapper =
-                          Editor.File
-                            {
+                            Editor.{
                               file_name;
                               cursor_pos =
                                 cursor_pos + String.length clipboard_contents;
@@ -232,8 +223,7 @@ module FileMode : Mode = struct
                     (* on macos, the return key gives \r instead of \n *)
                     let new_rope = Some (Rope.insert r cursor_pos "\n") in
                     let new_rope_wrapper =
-                      Editor.File
-                        {
+                        Editor.{
                           last_modification_time;
                           file_name;
                           cursor_pos = cursor_pos + 1;
@@ -254,8 +244,7 @@ module FileMode : Mode = struct
                     (* horizontal tab will be two spaces *)
                     let new_rope = Some (Rope.insert r cursor_pos "  ") in
                     let new_rope_wrapper =
-                      Editor.File
-                        {
+                        Editor.{
                           file_name;
                           cursor_pos = cursor_pos + 2;
                           rope = new_rope;
@@ -272,36 +261,20 @@ module FileMode : Mode = struct
                       }
                     in
                     new_editor
-                | 'p' when kbd_evt_type = Keydown && editor.holding_ctrl ->
-                    let new_rope_wrapper =
-                      Editor.FileSearch
-                        { search_rope = None; cursor_pos = 0; results = [] }
-                    in
-                    let new_editor =
-                      {
-                        editor with
-                        ropes = new_rope_wrapper :: other_rope_wrappers;
-                      }
-                    in
-                    new_editor
                 | _ -> editor))
-        | None -> editor)
-    | _ -> editor
+        | None -> editor
 
   let handle_mode_evt (editor : Editor.editor) (evt : Sdl.event option) =
-    let current_rope_wrapper =
-      List.nth editor.ropes (editor.current_rope_idx |> Option.get)
-    in
-    match current_rope_wrapper with
-    | File
-        {
+    let Editor.{
           rope;
           file_name;
           cursor_pos;
           vertical_scroll_y_offset;
           last_modification_time;
           highlight;
-        } -> (
+        } =
+      List.nth editor.ropes (editor.current_rope_idx |> Option.get)
+    in
         let other_rope_wrappers =
           List.filteri
             (fun idx _ -> idx != (editor.current_rope_idx |> Option.get))
@@ -333,8 +306,7 @@ module FileMode : Mode = struct
                 Printf.printf "ROPE POS: %d" crp;
                 print_newline ();
                 let new_rope_wrapper =
-                  Editor.File
-                    {
+                    Editor.{
                       file_name;
                       cursor_pos = crp;
                       rope;
@@ -354,8 +326,7 @@ module FileMode : Mode = struct
                 Printf.printf "Mouseup: %d %d" x y;
                 print_newline ();
                 let new_rope_wrapper =
-                  Editor.File
-                    {
+                    Editor.{
                       file_name;
                       cursor_pos;
                       rope;
@@ -389,20 +360,19 @@ module FileMode : Mode = struct
             print_newline (); *)
             editor
         | Some (MouseWheelEvt { y; _ }) ->
-            let num_lines =
+            let num_lines' =
               if Option.is_some rope then Editor.num_lines (Option.get rope)
               else 0
             in
             let limit = 0 in
             let new_rope_wrapper =
-              Editor.File
-                {
+                Editor.{
                   rope;
                   cursor_pos;
                   file_name;
                   vertical_scroll_y_offset =
                     min limit
-                      (max (-num_lines + 1) (vertical_scroll_y_offset + y));
+                      (max (-num_lines' + 1) (vertical_scroll_y_offset + y));
                   last_modification_time;
                   highlight;
                 }
@@ -422,8 +392,7 @@ module FileMode : Mode = struct
               | None -> Some (Leaf text)
             in
             let new_rope_wrapper =
-              Editor.File
-                {
+                Editor.{
                   file_name;
                   cursor_pos = cursor_pos + 1;
                   rope = new_rope;
@@ -440,258 +409,5 @@ module FileMode : Mode = struct
               }
             in
             new_editor
-        | _ -> editor)
-    | _ -> editor
-end
-
-module FileSearchMode : Mode = struct
-  let handle_mode_evt (editor : Editor.editor) (evt : Sdl.event option) =
-    let current_rope_wrapper =
-      List.nth editor.ropes (editor.current_rope_idx |> Option.get)
-    and other_rope_wrappers =
-      List.filteri
-        (fun idx _ -> idx != (editor.current_rope_idx |> Option.get))
-        editor.ropes
-    in
-    match current_rope_wrapper with
-    | FileSearch { search_rope; cursor_pos; results } -> (
-        match evt with
-        | Some (KeyboardEvt { keysym; kbd_evt_type; _ }) -> (
-            Printf.printf "KBD file search mode: %d, %s" (Char.code keysym)
-              (Char.escaped keysym);
-            print_newline ();
-            let char_code = Char.code keysym in
-            match search_rope with
-            | Some r -> (
-                match char_code with
-                | 1073742048 -> (
-                    (* this is the integer encoding for ctrl in SDL *)
-                    match kbd_evt_type with
-                    | Sdl.Keydown -> { editor with holding_ctrl = true }
-                    | Keyup -> { editor with holding_ctrl = false })
-                | _ -> (
-                    match keysym with
-                    | '\b' when kbd_evt_type = Keydown ->
-                        (* backspace *)
-                        let rope_len = Rope.length r in
-                        if rope_len > 0 && cursor_pos > 0 then
-                          let new_rope =
-                            Some (Rope.delete r ~start:(cursor_pos - 1) ~len:1)
-                          in
-                          let new_rope_wrapper =
-                            Editor.FileSearch
-                              {
-                                results;
-                                search_rope = new_rope;
-                                cursor_pos = cursor_pos - 1;
-                              }
-                          in
-                          let new_editor : Editor.editor =
-                            {
-                              editor with
-                              ropes = new_rope_wrapper :: other_rope_wrappers;
-                              current_rope_idx = Some 0;
-                            }
-                          in
-                          new_editor
-                        else editor
-                    | 'c' when kbd_evt_type = Keydown -> editor
-                    | 'v' when kbd_evt_type = Keydown -> (
-                        match editor.holding_ctrl with
-                        | true ->
-                            let clipboard_contents =
-                              Sdl.get_clipboard_text ()
-                            in
-                            print_string clipboard_contents;
-                            print_newline ();
-                            let new_rope =
-                              match search_rope with
-                              | Some r ->
-                                  Rope.insert r cursor_pos clipboard_contents
-                              | None -> Leaf clipboard_contents
-                            in
-                            let new_rope_wrapper =
-                              Editor.FileSearch
-                                {
-                                  results;
-                                  search_rope = Some new_rope;
-                                  cursor_pos =
-                                    cursor_pos
-                                    + String.length clipboard_contents;
-                                }
-                            in
-                            let new_editor =
-                              {
-                                editor with
-                                ropes = new_rope_wrapper :: other_rope_wrappers;
-                                current_rope_idx = Some 0;
-                              }
-                            in
-                            new_editor
-                        | false -> editor)
-                    | 's' when kbd_evt_type = Keydown -> editor
-                    | ('\r' | '\n') when kbd_evt_type = Keydown -> editor
-                    | '\t' when kbd_evt_type = Keydown ->
-                        (* horizontal tab will be two spaces *)
-                        let new_rope = Some (Rope.insert r cursor_pos "  ") in
-                        let new_rope_wrapper =
-                          Editor.FileSearch
-                            {
-                              results;
-                              search_rope = new_rope;
-                              cursor_pos = cursor_pos + 2;
-                            }
-                        in
-                        let new_editor : Editor.editor =
-                          {
-                            editor with
-                            ropes = new_rope_wrapper :: other_rope_wrappers;
-                            current_rope_idx = Some 0;
-                          }
-                        in
-                        new_editor
-                    | _ -> editor))
-            | None -> (
-                match char_code with
-                | 1073742048 -> (
-                    (* this is the integer encoding for ctrl in SDL *)
-                    match kbd_evt_type with
-                    | Sdl.Keydown -> { editor with holding_ctrl = true }
-                    | Keyup -> { editor with holding_ctrl = false })
-                | _ -> editor))
-        | Some
-            (MouseButtonEvt
-               { mouse_evt_type; timestamp; x; y; windowID; button; clicks })
-          -> (
-            (* the x and y that comes from these events are not scaled to match the sdl drawable size
-          and it scales to match the sdl window size *)
-            let window_width, _ = Sdl.sdl_gl_getdrawablesize ()
-            and window_width_without_high_dpi, _ =
-              Sdl.sdl_get_window_size Sdl.w
-            in
-            let ratio = window_width / window_width_without_high_dpi in
-            match mouse_evt_type with
-            | Mousedown ->
-                Printf.printf "Mousedown %d, %d, %d, %d, %d, %d\n" x y windowID
-                  button clicks timestamp;
-                let used_y = y * ratio in
-                Printf.printf "clicked y: %d, font_height: %d" used_y
-                  editor.config_info.font_height;
-                print_newline ();
-                let idx_value = (used_y / editor.config_info.font_height) - 1 in
-                let filename = List.nth_opt results idx_value in
-                if Option.is_some filename then
-                  let filename_unwrapped = Option.get filename in
-                  let find_file =
-                    List.find_mapi
-                      (fun idx mode_variant ->
-                        match mode_variant with
-                        | Editor.File { file_name; _ } ->
-                            if file_name = filename_unwrapped then
-                              Some (idx, mode_variant)
-                            else None
-                        | Editor.FileSearch _ -> None)
-                      editor.ropes
-                  in
-                  let current_mod_time =
-                    Unix.stat filename_unwrapped |> fun s -> s.st_mtime
-                  in
-                  match find_file with
-                  | Some (idx, File { last_modification_time; _ }) ->
-                      if last_modification_time != current_mod_time then
-                        let new_rope_wrapper =
-                          Editor.File
-                            {
-                              rope = Some (Editor.open_file filename_unwrapped);
-                              file_name = filename_unwrapped;
-                              cursor_pos = 0;
-                              vertical_scroll_y_offset = 0;
-                              last_modification_time = current_mod_time;
-                              highlight = None;
-                            }
-                        in
-                        {
-                          editor with
-                          ropes = new_rope_wrapper :: other_rope_wrappers;
-                          current_rope_idx = Some 0;
-                        }
-                      else { editor with current_rope_idx = Some idx }
-                  | None | _ ->
-                      let new_rope_wrapper =
-                        Editor.File
-                          {
-                            highlight = None;
-                            rope = Some (Editor.open_file filename_unwrapped);
-                            file_name = filename_unwrapped;
-                            cursor_pos = 0;
-                            vertical_scroll_y_offset = 0;
-                            last_modification_time = current_mod_time;
-                          }
-                      in
-                      {
-                        editor with
-                        ropes = new_rope_wrapper :: other_rope_wrappers;
-                        current_rope_idx = Some 0;
-                      }
-                else editor
-            | Mouseup ->
-                Printf.printf "Mouseup: %d %d" x y;
-                print_newline ();
-                let new_rope_wrapper =
-                  Editor.FileSearch { search_rope; results; cursor_pos }
-                in
-                let new_editor =
-                  {
-                    editor with
-                    ropes = new_rope_wrapper :: other_rope_wrappers;
-                    current_rope_idx = Some 0;
-                  }
-                in
-                new_editor)
-        | Some (WindowEvt { event; _ }) -> (
-            match event with
-            | WindowClose -> editor
-            | WindowResize ->
-                let window_width, window_height =
-                  Sdl.sdl_gl_getdrawablesize ()
-                in
-                Opengl.gl_set_viewport 0 0 window_width window_height;
-                editor
-            | Unhandled -> editor)
-        | Some (MouseMotionEvt _) ->
-            (* Printf.printf "Mousemotion %d %d" x y; *)
-            (* print_newline (); *)
-            editor
-        | Some (MouseWheelEvt _) -> editor
-        | Some (TextInputEvt { text; _ }) ->
-            let no_new_lines =
-              String.split_on_char '\n' text
-              |> List.fold_left (fun acc s -> acc ^ s) ""
-              |> String.split_on_char '\r'
-              |> List.fold_left (fun acc s -> acc ^ s) ""
-            in
-            let new_rope =
-              match search_rope with
-              | Some r -> Some (Rope.insert r cursor_pos no_new_lines)
-              | None -> Some (Leaf text)
-            in
-            let files = Search.list_files "." in
-            let results =
-              Search.includes_search files
-                (Rope.to_string (new_rope |> Option.get))
-            in
-            let new_rope_wrapper =
-              Editor.FileSearch
-                { search_rope = new_rope; cursor_pos = cursor_pos + 1; results }
-            in
-            let new_editor : Editor.editor =
-              {
-                editor with
-                ropes = new_rope_wrapper :: other_rope_wrappers;
-                current_rope_idx = Some 0;
-              }
-            in
-            new_editor
-        | _ -> editor)
-    | _ -> failwith "NOT FILE SEARCH"
+        | _ -> editor
 end

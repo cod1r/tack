@@ -14,23 +14,17 @@ module Editor = struct
     font_glyph_texture_atlas_info : Ui.text_texture_atlas_info;
   }
 
-  type rope_wrapper =
-    | FileSearch of {
-        search_rope : Rope.rope option;
-        cursor_pos : int;
-        results : string list;
-      }
-    | File of {
-        rope : Rope.rope option;
-        cursor_pos : int;
-        file_name : string;
-        vertical_scroll_y_offset : int;
-        last_modification_time : float;
-        highlight : (int * int) option;
-      }
+  type file = {
+    rope : Rope.rope option;
+    cursor_pos : int;
+    file_name : string;
+    vertical_scroll_y_offset : int;
+    last_modification_time : float;
+    highlight : (int * int) option;
+  }
 
   type editor = {
-    ropes : rope_wrapper list;
+    ropes : file list;
     holding_ctrl : bool;
     config_info : information_relating_to_config;
     current_rope_idx : int option;
@@ -401,22 +395,19 @@ module Editor = struct
     (* ratio is needed because the x,y coords given from MouseEvent is based on window without high dpi so scaling needs to happen *)
     let ratio = window_width / window_width_without_high_dpi in
     let x = x * ratio and y = y * ratio in
-    let current_rope =
+    let { rope; vertical_scroll_y_offset; _ } =
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
     in
-    match current_rope with
-    | File { rope; vertical_scroll_y_offset; _ } ->
-        let rope = Option.get rope in
-        let closest_vertical_range =
-          find_closest_vertical_range ~editor ~rope ~digits_widths_summed
-            ~vertical_scroll_y_offset ~y
-        in
-        let closest_rope =
-          find_closest_horizontal_pos ~editor ~rope ~digits_widths_summed
-            ~vertical_scroll_y_offset ~closest_vertical_range ~x
-        in
-        if closest_rope = -1 then length rope else closest_rope
-    | _ -> failwith "NOT FILE"
+    let rope = Option.get rope in
+    let closest_vertical_range =
+      find_closest_vertical_range ~editor ~rope ~digits_widths_summed
+        ~vertical_scroll_y_offset ~y
+    in
+    let closest_rope =
+      find_closest_horizontal_pos ~editor ~rope ~digits_widths_summed
+        ~vertical_scroll_y_offset ~closest_vertical_range ~x
+    in
+    if closest_rope = -1 then length rope else closest_rope
 
   let calc_new_xy ~(char : char) ~(editor : editor) ~x ~y ~digits_widths_summed
       =
@@ -438,59 +429,45 @@ module Editor = struct
         else (x + x_advance, y)
 
   let find_coords_for_cursor_pos ~(editor : editor) =
-    let current_rope =
+    let { cursor_pos; rope; vertical_scroll_y_offset; _ } =
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
     in
-    match current_rope with
-    | File { cursor_pos; rope; vertical_scroll_y_offset; _ } ->
-        let rope = Option.get rope in
-        let num_lines = num_lines rope in
-        let digits_widths_summed =
-          get_digits_widths_summed ~num_lines ~editor
+    let rope = Option.get rope in
+    let num_lines = num_lines rope in
+    let digits_widths_summed = get_digits_widths_summed ~num_lines ~editor in
+    let fold_fn_for_finding_coords (acc : rope_traversal_info traverse_info) c =
+      let (Finding_Coords_Cursor acc) = acc in
+      if acc.rope_pos != cursor_pos then
+        let new_x, new_y =
+          calc_new_xy ~editor ~x:acc.x ~y:acc.y ~digits_widths_summed ~char:c
         in
-        let fold_fn_for_finding_coords (acc : rope_traversal_info traverse_info)
-            c =
-          let (Finding_Coords_Cursor acc) = acc in
-          if acc.rope_pos != cursor_pos then
-            let new_x, new_y =
-              calc_new_xy ~editor ~x:acc.x ~y:acc.y ~digits_widths_summed
-                ~char:c
-            in
-            Finding_Coords_Cursor
-              { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
-          else Finding_Coords_Cursor acc
-        in
-        traverse_rope rope fold_fn_for_finding_coords
-          (Finding_Coords_Cursor
-             {
-               x = editor.bounds.x + digits_widths_summed;
-               y =
-                 editor.bounds.y
-                 + (vertical_scroll_y_offset * editor.config_info.font_height);
-               rope_pos = 0;
-             })
-    | _ ->
-        failwith
-          "find_coords_for_cursor_pos not handled yet for other rope types"
+        Finding_Coords_Cursor
+          { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
+      else Finding_Coords_Cursor acc
+    in
+    traverse_rope rope fold_fn_for_finding_coords
+      (Finding_Coords_Cursor
+         {
+           x = editor.bounds.x + digits_widths_summed;
+           y =
+             editor.bounds.y
+             + (vertical_scroll_y_offset * editor.config_info.font_height);
+           rope_pos = 0;
+         })
 
   let find_closest_rope_pos_for_moving_cursor_in_vertical_range
       ~(editor : editor) ~cursor_x ~lower_y =
-    let current_rope =
+    let { vertical_scroll_y_offset; rope; _ } =
       List.nth editor.ropes (editor.current_rope_idx |> Option.get)
     in
-    match current_rope with
-    | File { vertical_scroll_y_offset; rope; _ } ->
-        let rope = Option.get rope in
-        let num_lines = num_lines rope in
-        let digits_widths_summed =
-          get_digits_widths_summed ~num_lines ~editor
-        in
-        let hor_pos =
-          find_closest_horizontal_pos ~editor ~rope ~x:cursor_x
-            ~digits_widths_summed ~vertical_scroll_y_offset
-            ~closest_vertical_range:
-              (Some (lower_y, lower_y + editor.config_info.font_height))
-        in
-        hor_pos
-    | _ -> failwith "supposed to be used for file modes"
+    let rope = Option.get rope in
+    let num_lines = num_lines rope in
+    let digits_widths_summed = get_digits_widths_summed ~num_lines ~editor in
+    let hor_pos =
+      find_closest_horizontal_pos ~editor ~rope ~x:cursor_x
+        ~digits_widths_summed ~vertical_scroll_y_offset
+        ~closest_vertical_range:
+          (Some (lower_y, lower_y + editor.config_info.font_height))
+    in
+    hor_pos
 end

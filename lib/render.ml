@@ -503,11 +503,9 @@ let program =
 let draw_editor (editor : Editor.editor) =
   let window_dims = Sdl.sdl_gl_getdrawablesize () in
   let window_width, window_height = window_dims in
-  let current_rope_wrapper =
+  let Editor.{ rope; cursor_pos; vertical_scroll_y_offset; highlight; _ } =
     List.nth editor.ropes (editor.current_rope_idx |> Option.get)
   in
-  match current_rope_wrapper with
-  | File { rope; cursor_pos; vertical_scroll_y_offset; highlight; _ } -> (
       match rope with
       | Some r ->
           let lines = Editor.num_lines r in
@@ -528,68 +526,7 @@ let draw_editor (editor : Editor.editor) =
           FileModeRendering.draw_cursor ~editor ~r ~cursor_buffer ~cursor_pos
             ~vertical_scroll_y_offset ~window_width ~window_height
             ~digits_widths_summed
-      | None -> ())
-  | FileSearch { search_rope; results; _ } -> (
-      (* todo -> implement filesearch writing to buffer logic for drawing *)
-      let fold_fn (acc : Editor.rope_traversal_info_ Editor.traverse_info) c =
-        let (Editor.Rope_Traversal_Info acc) = acc in
-        let found_glyph =
-          Array.find_opt
-            (fun (c', _) -> c' = c)
-            editor.config_info.glyph_info_with_char
-        in
-        match found_glyph with
-        | Some (_, gi) ->
-            let x_advance = gi.x_advance in
-            Printf.eprintf "write search to text buffer\n";
-            Editor.Rope_Traversal_Info
-              { acc with x = acc.x + x_advance; rope_pos = acc.rope_pos + 1 }
-        | None -> failwith "NO GLYPH FOUND BRUH"
-      in
-      match search_rope with
-      | Some r ->
-          let _ =
-            Editor.traverse_rope r fold_fn
-              (Editor.Rope_Traversal_Info
-                 {
-                   rope_pos = 0;
-                   x = editor.bounds.x;
-                   y = editor.bounds.y;
-                   line_num = 0;
-                   line_number_placements = [];
-                 })
-          in
-          ();
-
-          List.iteri
-            (fun idx file ->
-              (* scuffed offset to move text below the title bar but the real reason the text is behind the title bar is because
-                   of the bearingY added to the text; basically the baseline is at 0,0 so the text is above it *)
-              let row_pos = (idx + 2) * editor.config_info.font_height in
-              if row_pos < window_height then
-                (*
-                  there are two coordinate systems, the one that is used in ocaml is top left being the origin.
-                  The one used in opengl and the c stub code has the center of the window as the origin.
-                   *)
-                let x_offset = ref 0 in
-                String.iter
-                  (fun c ->
-                    let gi =
-                      Array.find_opt
-                        (fun (c', _) -> c' = c)
-                        editor.config_info.glyph_info_with_char
-                    in
-                    match gi with
-                    | Some (_, gi') ->
-                        let x_advance = gi'.x_advance in
-                        failwith
-                          "TODO: implement file search mode functions for \
-                           writing search to text buffer";
-                        x_offset := !x_offset + x_advance
-                    | None -> ())
-                  file)
-            results
-      | None -> ())
+      | None -> ()
 
 let gl_buffer_obj = gl_gen_one_buffer ()
 let gl_buffer_cursor = gl_gen_one_buffer ()
