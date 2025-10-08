@@ -223,7 +223,7 @@ let box : box =
   {
     name = None;
     background_color = (0., 0., 0., 0.);
-    content = Some (Boxes boxes);
+    content = Some (Box (List.hd boxes));
     bbox = Some { x = 0; y = 0; width = 2000; height = 2000 };
     text_wrap = false;
     border = false;

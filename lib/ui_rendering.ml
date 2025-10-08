@@ -405,6 +405,52 @@ let handle_list_of_boxes_initial_position ~(box : Ui.box) ~(d : Ui.direction)
   in
   (x_pos, y_pos)
 
+let align_inner_box_vertically ~(box : Ui.box) ~(inner_box : Ui.box) =
+  match box.bbox with
+  | Some bbox -> (
+      let inner_box_bbox = Option.value inner_box.bbox ~default:default_bbox in
+      match box.vertical_align with
+      | Some Top | None ->
+          inner_box.bbox <- Some { inner_box_bbox with y = bbox.y }
+      | Some Center ->
+          inner_box.bbox <-
+            Some
+              {
+                inner_box_bbox with
+                y = bbox.y + (bbox.height / 2) - (inner_box_bbox.height / 2);
+              }
+      | Some Bottom ->
+          inner_box.bbox <-
+            Some
+              {
+                inner_box_bbox with
+                y = bbox.y + bbox.height - inner_box_bbox.height;
+              })
+  | None -> ()
+
+let align_inner_box_horizontally ~(box : Ui.box) ~(inner_box : Ui.box) =
+  match box.bbox with
+  | Some bbox -> (
+      let inner_box_bbox = Option.value inner_box.bbox ~default:default_bbox in
+      match box.horizontal_align with
+      | Some Left | None ->
+          inner_box.bbox <- Some { inner_box_bbox with x = bbox.x }
+      | Some Center ->
+          inner_box.bbox <-
+            Some
+              {
+                inner_box_bbox with
+                x = bbox.x + (bbox.width / 2) - (inner_box_bbox.width / 2);
+              }
+      | Some Right ->
+          inner_box.bbox <-
+            Some
+              {
+                inner_box_bbox with
+                x = bbox.x + bbox.width - inner_box_bbox.width;
+              })
+  | None -> ()
+
 let rec draw_box ~(box : Ui.box) =
   (* Opengl.gl_check_error (); *)
   if not !validated then validate ~box;
@@ -413,7 +459,10 @@ let rec draw_box ~(box : Ui.box) =
   write_container_values_to_ui_buffer ~box ~buffer:Render.ui_buffer;
   draw_to_gl_buffer ();
   (match box.content with
-  | Some (Box b) -> draw_box ~box:b
+  | Some (Box b) ->
+      align_inner_box_horizontally ~box ~inner_box:b;
+      align_inner_box_vertically ~box ~inner_box:b;
+      draw_box ~box:b
   | Some (Boxes list) -> (
       match box.flow with
       | Some ((Horizontal | Vertical) as d) ->
