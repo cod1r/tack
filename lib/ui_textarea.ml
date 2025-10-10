@@ -59,17 +59,12 @@ type closest_information = {
   rope_pos : int;
 }
 
-type rope_traversal_info = { x : int; y : int; rope_pos : int }
-
 type _ traverse_info =
   | Rope_Traversal_Info :
       rope_traversal_info_
       -> rope_traversal_info_ traverse_info
   | Num_Lines : int -> int traverse_info
   | Finding_Cursor : closest_information -> closest_information traverse_info
-  | Finding_Coords_Cursor :
-      rope_traversal_info
-      -> rope_traversal_info traverse_info
 
 let rec traverse_rope : type p.
     _ -> (p traverse_info -> char -> p traverse_info) -> p traverse_info -> p =
@@ -85,16 +80,6 @@ let rec traverse_rope : type p.
           for i = 0 to len - 1 do
             let (Rope_Traversal_Info temp) =
               handle_result (Rope_Traversal_Info !acc) l.[i]
-            in
-            acc := temp
-          done;
-          !acc
-      | Finding_Coords_Cursor r ->
-          let acc = ref r in
-          let len = String.length l in
-          for i = 0 to len - 1 do
-            let (Finding_Coords_Cursor temp) =
-              handle_result (Finding_Coords_Cursor !acc) l.[i]
             in
             acc := temp
           done;
@@ -123,7 +108,6 @@ let rec traverse_rope : type p.
         traverse_rope right handle_result
           (match result with
           | Rope_Traversal_Info _ -> Rope_Traversal_Info left_result
-          | Finding_Coords_Cursor _ -> Finding_Coords_Cursor left_result
           | Finding_Cursor _ -> Finding_Cursor left_result
           | Num_Lines _ -> Num_Lines left_result)
       in
@@ -335,23 +319,26 @@ let find_coords_for_cursor_pos ~(font_info : Ui.font_info)
     ~(bbox : Ui.bounding_box) ~rope ~cursor_pos ~scroll_y_offset =
   let num_lines = num_lines rope in
   let digits_widths_summed = get_digits_widths_summed ~num_lines ~font_info in
-  let fold_fn_for_finding_coords (acc : rope_traversal_info traverse_info) c =
-    let (Finding_Coords_Cursor acc) = acc in
+  let fold_fn_for_finding_coords (acc : rope_traversal_info_ traverse_info) c =
+    let (Rope_Traversal_Info acc) = acc in
     if acc.rope_pos != cursor_pos then
       let new_x, new_y =
         calc_new_xy ~bbox ~font_info ~x:acc.x ~y:acc.y ~digits_widths_summed
           ~char:c
       in
-      Finding_Coords_Cursor
-        { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
-    else Finding_Coords_Cursor acc
+      Rope_Traversal_Info
+        { acc with x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
+    else Rope_Traversal_Info acc
   in
   traverse_rope rope fold_fn_for_finding_coords
-    (Finding_Coords_Cursor
+    (Rope_Traversal_Info
        {
          x = bbox.x + digits_widths_summed;
          y = bbox.y + (scroll_y_offset * font_info.font_height);
+         (* these three aren't used here but are needed for the type *)
          rope_pos = 0;
+         line_num = 0;
+         line_number_placements = [];
        })
 
 let find_closest_rope_pos_for_moving_cursor_in_vertical_range
