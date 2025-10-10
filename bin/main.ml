@@ -1,7 +1,6 @@
 open Tack.Sdl
-open Tack.Editor
 open Tack.Rope
-open Tack.Render
+open Tack.Ui_textarea
 open Tack.Modes
 
 let () = Sdl.sdl_gl_setswapinterval 0

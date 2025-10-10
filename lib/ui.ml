@@ -34,7 +34,17 @@ type box = {
   mutable vertical_align : vertical_alignment option;
 }
 
-and box_content = Box of box | Boxes of box list | Text of string
+and box_content =
+  | Box of box
+  | Boxes of box list
+  | Text of string
+  | Textarea of {
+      text : Rope.rope;
+      cursor_pos : int option;
+      highlight_pos : (int * int) option;
+      scroll_x_offset : int;
+      scroll_y_offset : int;
+    }
 
 type text_texture_atlas_info = { width : int; height : int; bytes : bytes }
 
@@ -60,7 +70,8 @@ let clone_box ~(box : box) =
         | Some (Box b) -> Some (Box (clone_box' b))
         | Some (Boxes list) ->
             Some (Boxes (List.map (fun b -> clone_box' b) list))
-        | Some (Text _) | None -> box.content);
+        | Some (Text _) | None -> box.content
+        | Some (Textarea _) -> None);
       bbox = box.bbox;
       text_wrap = box.text_wrap;
       background_color = box.background_color;

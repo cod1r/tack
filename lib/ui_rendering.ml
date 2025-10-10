@@ -24,14 +24,14 @@ let text_fragment_id =
   | Error s -> failwith s
 
 let ui_program =
-  Render.compile_shaders_and_return_program ~vertex_id ~fragment_id
-    ~vertex_src:Render.generic_vertex_shader
-    ~fragment_src:Render.generic_fragment_shader
+  Ui_textarea.compile_shaders_and_return_program ~vertex_id ~fragment_id
+    ~vertex_src:Ui_textarea.generic_vertex_shader
+    ~fragment_src:Ui_textarea.generic_fragment_shader
 
 let text_shader_program =
-  Render.compile_shaders_and_return_program ~vertex_id:text_vtx_id
-    ~fragment_id:text_fragment_id ~vertex_src:Render.text_vertex_shader
-    ~fragment_src:Render.text_fragment_shader
+  Ui_textarea.compile_shaders_and_return_program ~vertex_id:text_vtx_id
+    ~fragment_id:text_fragment_id ~vertex_src:Ui_textarea.text_vertex_shader
+    ~fragment_src:Ui_textarea.text_fragment_shader
 
 let vertex_text_location =
   match Opengl.gl_getattriblocation text_shader_program "vertex" with
@@ -56,7 +56,7 @@ let sampler_text_location =
 let default_bbox : Ui.bounding_box = { width = 0; height = 0; x = 0; y = 0 }
 
 let write_container_values_to_ui_buffer ~(box : Ui.box)
-    ~(buffer : Render.render_buffer_wrapper) =
+    ~(buffer : Ui_textarea.render_buffer_wrapper) =
   let window_width, window_height = Sdl.sdl_get_window_size Sdl.w in
   let window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
   let width_ratio = Float.of_int (window_width_gl / window_width) in
@@ -86,10 +86,11 @@ let write_container_values_to_ui_buffer ~(box : Ui.box)
 
 let () =
   Opengl.gl_bind_buffer gl_ui_lib_buffer;
-  Opengl.gl_buffer_data_big_array ~render_buffer:Render.ui_buffer.buffer
-    ~capacity:(Bigarray.Array1.dim Render.ui_buffer.buffer)
+  Opengl.gl_buffer_data_big_array ~render_buffer:Ui_textarea.ui_buffer.buffer
+    ~capacity:(Bigarray.Array1.dim Ui_textarea.ui_buffer.buffer)
 
-let write_to_text_buffer ~(render_buf_container : Render.render_buffer_wrapper)
+let write_to_text_buffer
+    ~(render_buf_container : Ui_textarea.render_buffer_wrapper)
     ~(glyph_info : Freetype.FreeType.glyph_info_) ~x ~y ~(glyph : char)
     ~(glyph_info_with_char : (char * FreeType.glyph_info_) Array.t)
     ~(font_texture_atlas : Ui.text_texture_atlas_info) =
@@ -103,7 +104,7 @@ let write_to_text_buffer ~(render_buf_container : Render.render_buffer_wrapper)
     Float.of_int glyph_info.rows /. Float.of_int window_height
   in
   let left, right, top, bottom =
-    Render.get_tex_coords
+    Ui_textarea.get_tex_coords
       ~config:
         {
           glyph_info_with_char;
@@ -173,24 +174,24 @@ let draw_to_gl_buffer_text () =
   Opengl.gl_uniform_1i ~location:sampler_text_location ~value:0;
 
   Opengl.gl_vertex_attrib_pointer_float_type ~location:vertex_text_location
-    ~size:2 ~stride:Render._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
+    ~size:2 ~stride:Ui_textarea._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
     ~start_idx:0;
 
   Opengl.gl_vertex_attrib_pointer_float_type ~location:color_text_location
-    ~size:3 ~stride:Render._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
+    ~size:3 ~stride:Ui_textarea._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
     ~start_idx:2;
 
   Opengl.gl_vertex_attrib_pointer_float_type ~location:tex_coord_text_location
-    ~size:2 ~stride:Render._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
+    ~size:2 ~stride:Ui_textarea._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
     ~start_idx:5;
 
-  Opengl.gl_buffer_subdata_big_array ~render_buffer:Render.ui_buffer.buffer
-    ~length:Render.ui_buffer.length;
+  Opengl.gl_buffer_subdata_big_array ~render_buffer:Ui_textarea.ui_buffer.buffer
+    ~length:Ui_textarea.ui_buffer.length;
 
   Opengl.gl_draw_arrays_with_quads
-    (Render.ui_buffer.length / Render._EACH_POINT_FLOAT_AMOUNT);
+    (Ui_textarea.ui_buffer.length / Ui_textarea._EACH_POINT_FLOAT_AMOUNT);
 
-  Render.ui_buffer.length <- 0
+  Ui_textarea.ui_buffer.length <- 0
 
 let draw_to_gl_buffer () =
   Opengl.gl_bind_buffer gl_ui_lib_buffer;
@@ -198,20 +199,20 @@ let draw_to_gl_buffer () =
   Opengl.gl_use_program ui_program;
 
   Opengl.gl_vertex_attrib_pointer_float_type
-    ~location:Render.location_point_vertex ~size:2
-    ~stride:Render._EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
+    ~location:Ui_textarea.location_point_vertex ~size:2
+    ~stride:Ui_textarea._EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
 
-  Opengl.gl_vertex_attrib_pointer_float_type ~location:Render.location_color
-    ~size:4 ~stride:Render._EACH_POINT_FLOAT_AMOUNT ~normalized:false
-    ~start_idx:2;
+  Opengl.gl_vertex_attrib_pointer_float_type
+    ~location:Ui_textarea.location_color ~size:4
+    ~stride:Ui_textarea._EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
 
-  Opengl.gl_buffer_subdata_big_array ~render_buffer:Render.ui_buffer.buffer
-    ~length:Render.ui_buffer.length;
+  Opengl.gl_buffer_subdata_big_array ~render_buffer:Ui_textarea.ui_buffer.buffer
+    ~length:Ui_textarea.ui_buffer.length;
 
   Opengl.gl_draw_arrays_with_quads
-    (Render.ui_buffer.length / Render._EACH_POINT_FLOAT_AMOUNT);
+    (Ui_textarea.ui_buffer.length / Ui_textarea._EACH_POINT_FLOAT_AMOUNT);
 
-  Render.ui_buffer.length <- 0
+  Ui_textarea.ui_buffer.length <- 0
 
 module TextTextureInfo = struct
   type texture_info = {
@@ -306,7 +307,7 @@ let draw_text ~(s : string) ~(box : Ui.box) =
         Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
       in
       let c, glyph = Option.get found in
-      write_to_text_buffer ~render_buf_container:Render.ui_buffer
+      write_to_text_buffer ~render_buf_container:Ui_textarea.ui_buffer
         ~glyph_info:glyph ~x:!horizontal_pos ~y:start_y ~glyph:c
         ~font_texture_atlas:font_info.font_texture_atlas
         ~glyph_info_with_char:font_info.glyph_info_with_char;
@@ -346,6 +347,7 @@ let rec clamp_min_width_height ~(box : Ui.box) =
             if box.height_min_content then bbox.height <- summed_heights;
             if box.width_min_content then bbox.width <- summed_widths
         | Some (Text s) -> ()
+        | Some (Textarea _) -> failwith "// TODO"
         | None -> ())
     | None -> ()
 
@@ -375,6 +377,7 @@ let validate ~(box : Ui.box) =
           let visited = box :: visited in
           List.iter (fun b -> validate' b visited) list
       | Some (Ui.Text _) -> ()
+      | Some (Ui.Textarea _) -> failwith "// TODO"
       | None -> ()
   in
   validated := true;
@@ -456,7 +459,7 @@ let rec draw_box ~(box : Ui.box) =
   if not !validated then validate ~box;
   if box.clip_content then clip_content ~box;
   clamp_min_width_height ~box;
-  write_container_values_to_ui_buffer ~box ~buffer:Render.ui_buffer;
+  write_container_values_to_ui_buffer ~box ~buffer:Ui_textarea.ui_buffer;
   draw_to_gl_buffer ();
   (match box.content with
   | Some (Box b) ->
@@ -501,6 +504,7 @@ let rec draw_box ~(box : Ui.box) =
           List.iter (fun b -> draw_box ~box:b) new_boxes
       | None -> List.iter (fun b -> draw_box ~box:b) list)
   | Some (Text s) -> draw_text ~s ~box
+  | Some (Textarea _) -> failwith "// TODO"
   | None -> ());
   if box.clip_content then Opengl.gl_disable_scissor ()
 
