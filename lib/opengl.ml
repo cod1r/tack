@@ -111,3 +111,19 @@ external gl_get_viewport : unit -> int * int * int * int
 
 external gl_set_viewport : int -> int -> int -> int -> unit
   = "gl_set_viewport" "gl_set_viewport"
+
+let compile_shaders_and_return_program ~vertex_id ~fragment_id ~vertex_src
+    ~fragment_src =
+  gl_shader_source fragment_id fragment_src;
+  gl_shader_source vertex_id vertex_src;
+  gl_compileshader fragment_id;
+  if not (gl_get_shader_compile_status fragment_id) then
+    failwith (gl_get_shader_info_log fragment_id);
+  gl_compileshader vertex_id;
+  if not (gl_get_shader_compile_status vertex_id) then
+    failwith (gl_get_shader_info_log vertex_id);
+  let p = match gl_createprogram () with Ok p -> p | Error e -> failwith e in
+  gl_attach_shader p fragment_id;
+  gl_attach_shader p vertex_id;
+  gl_linkprogram p;
+  p

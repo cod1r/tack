@@ -1,6 +1,166 @@
 open Sdl
 open Freetype
 
+let _EACH_POINT_FLOAT_AMOUNT = 6
+let _EACH_POINT_FLOAT_AMOUNT_TEXT = 7
+
+type render_buffer_wrapper = {
+  buffer : Opengl.render_buffer;
+  mutable length : int;
+}
+
+let get_tex_coords ~(font_info : Ui.font_info) ~(glyph : char)
+    ~(glyph_info : FreeType.glyph_info_) =
+  let _, starting_x =
+    Array.fold_left
+      (fun (found, acc) (c, gi) ->
+        if c = glyph || found then (true, acc)
+        else (false, acc + gi.FreeType.width))
+      (false, 0) font_info.glyph_info_with_char
+  in
+  let starting_x, ending_x = (starting_x, starting_x + glyph_info.width) in
+  let width_float = Float.of_int font_info.font_texture_atlas.width in
+  let height_float = Float.of_int font_info.font_texture_atlas.height in
+  let left = Float.of_int starting_x /. width_float in
+  let right = Float.of_int ending_x /. width_float in
+  (left, right, 0., Float.of_int glyph_info.rows /. height_float)
+
+
+let ui_buffer : render_buffer_wrapper =
+  {
+    buffer =
+      Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
+        (1000 * 1000 * _EACH_POINT_FLOAT_AMOUNT);
+    length = 0;
+  }
+
+let fragment =
+  match Opengl.gl_create_fragment_shader () with Ok f -> f | Error e -> failwith e
+
+let vertex =
+  match Opengl.gl_create_vertex_shader () with Ok v -> v | Error e -> failwith e
+
+let vertex_cursor =
+  match Opengl.gl_create_vertex_shader () with
+  | Ok v -> v
+  | Error e -> failwith (e ^ "_CURSOR")
+
+let fragment_cursor =
+  match Opengl.gl_create_fragment_shader () with
+  | Ok f -> f
+  | Error e -> failwith (e ^ "_CURSOR")
+
+let vertex_highlight =
+  match Opengl.gl_create_vertex_shader () with Ok v -> v | Error e -> failwith e
+
+let fragment_highlight =
+  match Opengl.gl_create_fragment_shader () with Ok v -> v | Error e -> failwith e
+
+let text_vertex_id =
+  match Opengl.gl_create_vertex_shader () with
+  | Ok v -> v
+  | Error e -> failwith (e ^ "; couldn't create vertex shader for text")
+
+let text_fragment_id =
+  match Opengl.gl_create_fragment_shader () with
+  | Ok v -> v
+  | Error e -> failwith (e ^ "; couldn't create vertex shader for text")
+
+let text_vertex_shader =
+  {|
+  #version 120
+
+  attribute vec2 vertex;
+  attribute vec3 color;
+  attribute vec2 tex_coord;
+
+  varying vec3 color_frag;
+  varying vec2 tex_coord_frag;
+
+  void main() {
+    color_frag = color;
+    tex_coord_frag = tex_coord;
+    gl_Position = vec4(vertex.x, vertex.y, 0.0, 1.0);
+  }
+  |}
+
+let text_fragment_shader =
+  {|
+  #version 120
+
+  varying vec2 tex_coord_frag;
+  varying vec3 color_frag;
+
+  uniform sampler2D sampler;
+
+  void main() {
+    gl_FragColor = vec4(color_frag.r, color_frag.g, color_frag.b, texture2D(sampler, tex_coord_frag).a);
+  }
+  |}
+
+let generic_vertex_shader =
+  {|
+  #version 120
+
+  attribute vec2 point_vertex;
+  attribute vec4 color_attrib;
+
+  varying vec4 color;
+
+  void main() {
+    gl_Position = vec4(point_vertex.x, point_vertex.y, 0.0, 1.0);
+    color = color_attrib;
+  }
+  |}
+
+let generic_fragment_shader =
+  {|
+  #version 120
+  varying vec4 color;
+  void main() {
+    gl_FragColor = vec4(color.r, color.g, color.b, color.a);
+  }
+  |}
+
+let text_shader_program =
+  Opengl.compile_shaders_and_return_program ~vertex_id:text_vertex_id
+    ~fragment_id:text_fragment_id ~vertex_src:text_vertex_shader
+    ~fragment_src:text_fragment_shader
+
+let program =
+  Opengl.compile_shaders_and_return_program ~vertex_id:vertex ~fragment_id:fragment
+    ~vertex_src:generic_vertex_shader ~fragment_src:generic_fragment_shader
+
+let location_point_vertex =
+  match Opengl.gl_getattriblocation program "point_vertex" with
+  | Ok l -> l
+  | Error e -> failwith e
+
+let location_color =
+  match Opengl.gl_getattriblocation program "color_attrib" with
+  | Ok l -> l
+  | Error e -> failwith e
+
+let vertex_text_location =
+  match Opengl.gl_getattriblocation text_shader_program "vertex" with
+  | Ok l -> l
+  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
+
+let color_text_location =
+  match Opengl.gl_getattriblocation text_shader_program "color" with
+  | Ok l -> l
+  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
+
+let tex_coord_text_location =
+  match Opengl.gl_getattriblocation text_shader_program "tex_coord" with
+  | Ok l -> l
+  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
+
+let sampler_text_location =
+  match Opengl.gl_getuniformlocation text_shader_program "sampler" with
+  | Ok l -> l
+  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
+
 let gl_ui_lib_buffer = Opengl.gl_gen_one_buffer ()
 
 let vertex_id =
@@ -24,14 +184,14 @@ let text_fragment_id =
   | Error s -> failwith s
 
 let ui_program =
-  Ui_textarea.compile_shaders_and_return_program ~vertex_id ~fragment_id
-    ~vertex_src:Ui_textarea.generic_vertex_shader
-    ~fragment_src:Ui_textarea.generic_fragment_shader
+  Opengl.compile_shaders_and_return_program ~vertex_id ~fragment_id
+    ~vertex_src:generic_vertex_shader
+    ~fragment_src:generic_fragment_shader
 
 let text_shader_program =
-  Ui_textarea.compile_shaders_and_return_program ~vertex_id:text_vtx_id
-    ~fragment_id:text_fragment_id ~vertex_src:Ui_textarea.text_vertex_shader
-    ~fragment_src:Ui_textarea.text_fragment_shader
+  Opengl.compile_shaders_and_return_program ~vertex_id:text_vtx_id
+    ~fragment_id:text_fragment_id ~vertex_src:text_vertex_shader
+    ~fragment_src:text_fragment_shader
 
 let vertex_text_location =
   match Opengl.gl_getattriblocation text_shader_program "vertex" with
@@ -56,7 +216,7 @@ let sampler_text_location =
 let default_bbox : Ui.bounding_box = { width = 0; height = 0; x = 0; y = 0 }
 
 let write_container_values_to_ui_buffer ~(box : Ui.box)
-    ~(buffer : Ui_textarea.render_buffer_wrapper) =
+    ~(buffer : render_buffer_wrapper) =
   let window_width, window_height = Sdl.sdl_get_window_size Sdl.w in
   let window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
   let width_ratio = Float.of_int (window_width_gl / window_width) in
@@ -86,14 +246,13 @@ let write_container_values_to_ui_buffer ~(box : Ui.box)
 
 let () =
   Opengl.gl_bind_buffer gl_ui_lib_buffer;
-  Opengl.gl_buffer_data_big_array ~render_buffer:Ui_textarea.ui_buffer.buffer
-    ~capacity:(Bigarray.Array1.dim Ui_textarea.ui_buffer.buffer)
+  Opengl.gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
+    ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
 
 let write_to_text_buffer
-    ~(render_buf_container : Ui_textarea.render_buffer_wrapper)
+    ~(render_buf_container : render_buffer_wrapper)
     ~(glyph_info : Freetype.FreeType.glyph_info_) ~x ~y ~(glyph : char)
-    ~(glyph_info_with_char : (char * FreeType.glyph_info_) Array.t)
-    ~(font_texture_atlas : Ui.text_texture_atlas_info) =
+    ~(font_info: Ui.font_info) =
   let window_width, window_height = Sdl.sdl_get_window_size Sdl.w in
   let x_scaled, y_scaled =
     ( Float.of_int x /. Float.of_int window_width,
@@ -104,12 +263,8 @@ let write_to_text_buffer
     Float.of_int glyph_info.rows /. Float.of_int window_height
   in
   let left, right, top, bottom =
-    Ui_textarea.get_tex_coords
-      ~config:
-        {
-          glyph_info_with_char;
-          font_glyph_texture_atlas_info = font_texture_atlas;
-        }
+    get_tex_coords
+      ~font_info
       ~glyph ~glyph_info
   and horiBearing_Y_Scaled =
     Float.of_int glyph_info.horiBearingY /. Float.of_int window_height
@@ -174,24 +329,24 @@ let draw_to_gl_buffer_text () =
   Opengl.gl_uniform_1i ~location:sampler_text_location ~value:0;
 
   Opengl.gl_vertex_attrib_pointer_float_type ~location:vertex_text_location
-    ~size:2 ~stride:Ui_textarea._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
+    ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
     ~start_idx:0;
 
   Opengl.gl_vertex_attrib_pointer_float_type ~location:color_text_location
-    ~size:3 ~stride:Ui_textarea._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
+    ~size:3 ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
     ~start_idx:2;
 
   Opengl.gl_vertex_attrib_pointer_float_type ~location:tex_coord_text_location
-    ~size:2 ~stride:Ui_textarea._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
+    ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
     ~start_idx:5;
 
-  Opengl.gl_buffer_subdata_big_array ~render_buffer:Ui_textarea.ui_buffer.buffer
-    ~length:Ui_textarea.ui_buffer.length;
+  Opengl.gl_buffer_subdata_big_array ~render_buffer:ui_buffer.buffer
+    ~length:ui_buffer.length;
 
   Opengl.gl_draw_arrays_with_quads
-    (Ui_textarea.ui_buffer.length / Ui_textarea._EACH_POINT_FLOAT_AMOUNT);
+    (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
 
-  Ui_textarea.ui_buffer.length <- 0
+  ui_buffer.length <- 0
 
 let draw_to_gl_buffer () =
   Opengl.gl_bind_buffer gl_ui_lib_buffer;
@@ -199,20 +354,20 @@ let draw_to_gl_buffer () =
   Opengl.gl_use_program ui_program;
 
   Opengl.gl_vertex_attrib_pointer_float_type
-    ~location:Ui_textarea.location_point_vertex ~size:2
-    ~stride:Ui_textarea._EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
+    ~location:location_point_vertex ~size:2
+    ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
 
   Opengl.gl_vertex_attrib_pointer_float_type
-    ~location:Ui_textarea.location_color ~size:4
-    ~stride:Ui_textarea._EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
+    ~location:location_color ~size:4
+    ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
 
-  Opengl.gl_buffer_subdata_big_array ~render_buffer:Ui_textarea.ui_buffer.buffer
-    ~length:Ui_textarea.ui_buffer.length;
+  Opengl.gl_buffer_subdata_big_array ~render_buffer:ui_buffer.buffer
+    ~length:ui_buffer.length;
 
   Opengl.gl_draw_arrays_with_quads
-    (Ui_textarea.ui_buffer.length / Ui_textarea._EACH_POINT_FLOAT_AMOUNT);
+    (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
 
-  Ui_textarea.ui_buffer.length <- 0
+  ui_buffer.length <- 0
 
 module TextTextureInfo = struct
   type texture_info = {
@@ -307,10 +462,9 @@ let draw_text ~(s : string) ~(box : Ui.box) =
         Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
       in
       let c, glyph = Option.get found in
-      write_to_text_buffer ~render_buf_container:Ui_textarea.ui_buffer
+      write_to_text_buffer ~render_buf_container:ui_buffer
         ~glyph_info:glyph ~x:!horizontal_pos ~y:start_y ~glyph:c
-        ~font_texture_atlas:font_info.font_texture_atlas
-        ~glyph_info_with_char:font_info.glyph_info_with_char;
+        ~font_info;
       draw_to_gl_buffer_text ();
       horizontal_pos := !horizontal_pos + glyph.x_advance)
     l
@@ -459,7 +613,7 @@ let rec draw_box ~(box : Ui.box) =
   if not !validated then validate ~box;
   if box.clip_content then clip_content ~box;
   clamp_min_width_height ~box;
-  write_container_values_to_ui_buffer ~box ~buffer:Ui_textarea.ui_buffer;
+  write_container_values_to_ui_buffer ~box ~buffer:ui_buffer;
   draw_to_gl_buffer ();
   (match box.content with
   | Some (Box b) ->

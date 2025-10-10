@@ -365,192 +365,7 @@ let find_closest_rope_pos_for_moving_cursor_in_vertical_range
   in
   hor_pos
 
-let _EACH_POINT_FLOAT_AMOUNT = 6
-let _EACH_POINT_FLOAT_AMOUNT_TEXT = 7
-
-let text_vertex_shader =
-  {|
-  #version 120
-
-  attribute vec2 vertex;
-  attribute vec3 color;
-  attribute vec2 tex_coord;
-
-  varying vec3 color_frag;
-  varying vec2 tex_coord_frag;
-
-  void main() {
-    color_frag = color;
-    tex_coord_frag = tex_coord;
-    gl_Position = vec4(vertex.x, vertex.y, 0.0, 1.0);
-  }
-  |}
-
-let text_fragment_shader =
-  {|
-  #version 120
-
-  varying vec2 tex_coord_frag;
-  varying vec3 color_frag;
-
-  uniform sampler2D sampler;
-
-  void main() {
-    gl_FragColor = vec4(color_frag.r, color_frag.g, color_frag.b, texture2D(sampler, tex_coord_frag).a);
-  }
-  |}
-
-let generic_vertex_shader =
-  {|
-  #version 120
-
-  attribute vec2 point_vertex;
-  attribute vec4 color_attrib;
-
-  varying vec4 color;
-
-  void main() {
-    gl_Position = vec4(point_vertex.x, point_vertex.y, 0.0, 1.0);
-    color = color_attrib;
-  }
-  |}
-
-let generic_fragment_shader =
-  {|
-  #version 120
-  varying vec4 color;
-  void main() {
-    gl_FragColor = vec4(color.r, color.g, color.b, color.a);
-  }
-  |}
-
-let compile_shaders_and_return_program ~vertex_id ~fragment_id ~vertex_src
-    ~fragment_src =
-  gl_shader_source fragment_id fragment_src;
-  gl_shader_source vertex_id vertex_src;
-  gl_compileshader fragment_id;
-  if not (gl_get_shader_compile_status fragment_id) then
-    failwith (gl_get_shader_info_log fragment_id);
-  gl_compileshader vertex_id;
-  if not (gl_get_shader_compile_status vertex_id) then
-    failwith (gl_get_shader_info_log vertex_id);
-  let p = match gl_createprogram () with Ok p -> p | Error e -> failwith e in
-  gl_attach_shader p fragment_id;
-  gl_attach_shader p vertex_id;
-  gl_linkprogram p;
-  p
-
-type render_buffer_wrapper = {
-  buffer : Opengl.render_buffer;
-  mutable length : int;
-}
-
-type font_info_type = {
-  glyph_info_with_char : (char * FreeType.glyph_info_) Array.t;
-  font_glyph_texture_atlas_info : Ui.text_texture_atlas_info;
-}
-
-let get_tex_coords ~(config : font_info_type) ~(glyph : char)
-    ~(glyph_info : FreeType.glyph_info_) =
-  let _, starting_x =
-    Array.fold_left
-      (fun (found, acc) (c, gi) ->
-        if c = glyph || found then (true, acc)
-        else (false, acc + gi.FreeType.width))
-      (false, 0) config.glyph_info_with_char
-  in
-  let starting_x, ending_x = (starting_x, starting_x + glyph_info.width) in
-  let width_float = Float.of_int config.font_glyph_texture_atlas_info.width in
-  let height_float = Float.of_int config.font_glyph_texture_atlas_info.height in
-  let left = Float.of_int starting_x /. width_float in
-  let right = Float.of_int ending_x /. width_float in
-  (left, right, 0., Float.of_int glyph_info.rows /. height_float)
-
-let write_to_text_buffer ~(render_buf_container : render_buffer_wrapper)
-    ~(glyph_info : FreeType.glyph_info_) ~x ~y ~(glyph : char)
-    ~(font_info : Ui.font_info) =
-  let window_width, window_height = Sdl.sdl_get_window_size Sdl.w in
-  let window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
-  let width_ratio = Float.of_int (window_width_gl / window_width) in
-  let height_ratio = Float.of_int (window_height_gl / window_height) in
-  let x_scaled, y_scaled =
-    List.map (fun v -> Float.of_int v) [ x; y ] |> function
-    | first :: second :: _ ->
-        ( first /. Float.of_int window_width *. width_ratio,
-          second /. Float.of_int window_height *. height_ratio )
-    | _ -> failwith "failed to match list"
-  in
-  let width_scaled =
-    Float.of_int glyph_info.width /. Float.of_int window_width *. width_ratio
-  and height_scaled =
-    Float.of_int glyph_info.rows /. Float.of_int window_height *. height_ratio
-  in
-  let left, right, top, bottom =
-    get_tex_coords
-      ~config:
-        {
-          glyph_info_with_char = font_info.glyph_info_with_char;
-          font_glyph_texture_atlas_info = font_info.font_texture_atlas;
-        }
-      ~glyph ~glyph_info
-  and horiBearing_Y_Scaled =
-    Float.of_int glyph_info.horiBearingY
-    /. Float.of_int window_height *. height_ratio
-  and horiBearing_X_Scaled =
-    Float.of_int glyph_info.horiBearingX
-    /. Float.of_int window_width *. width_ratio
-  in
-  (*
-     layout of the values list is:
-       vertex x
-       vertex y
-       r
-       g
-       b
-       texel coord x
-       texel coord y
-
-      that is repeated for the 4 points of the quad
-   *)
-  let values =
-    [|
-      x_scaled +. horiBearing_X_Scaled -. 1.;
-      -.(y_scaled +. height_scaled) +. horiBearing_Y_Scaled +. 1.;
-      0.;
-      0.;
-      0.;
-      left;
-      bottom;
-      x_scaled +. horiBearing_X_Scaled -. 1.;
-      -.y_scaled +. horiBearing_Y_Scaled +. 1.;
-      0.;
-      0.;
-      0.;
-      left;
-      top;
-      x_scaled +. width_scaled +. horiBearing_X_Scaled -. 1.;
-      -.y_scaled +. horiBearing_Y_Scaled +. 1.;
-      0.;
-      0.;
-      0.;
-      right;
-      top;
-      x_scaled +. width_scaled +. horiBearing_X_Scaled -. 1.;
-      -.(y_scaled +. height_scaled) +. horiBearing_Y_Scaled +. 1.;
-      0.;
-      0.;
-      0.;
-      right;
-      bottom;
-    |]
-  in
-  let start = render_buf_container.length in
-  Array.iteri
-    (fun idx v -> render_buf_container.buffer.{idx + start} <- v)
-    values;
-  render_buf_container.length <- start + Array.length values
-
-let write_to_cursor_buffer ~(cursor_buffer : render_buffer_wrapper) ~x ~y
+let write_to_cursor_buffer ~(cursor_buffer : Ui_rendering.render_buffer_wrapper) ~x ~y
     ~window_width ~window_height ~font_height =
   let points =
     [ (x, y + font_height); (x, y); (x + 10, y); (x + 10, y + font_height) ]
@@ -650,7 +465,8 @@ let draw_line_numbers ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
         let curr_x_offset = ref 0 in
         List.iter
           (fun (c', gi) ->
-            write_to_text_buffer ~font_info ~render_buf_container:text_buffer
+            Ui_rendering.write_to_text_buffer ~font_info
+            ~render_buf_container:text_buffer
               ~glyph_info:gi ~x:!curr_x_offset
               ~y:(y_pos + font_info.descender)
               ~glyph:c';
@@ -659,7 +475,7 @@ let draw_line_numbers ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
     line_number_placements
 
 let draw_cursor ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
-    ~(r : Rope.rope) ~cursor_pos ~(cursor_buffer : render_buffer_wrapper)
+    ~(r : Rope.rope) ~cursor_pos ~(cursor_buffer : Ui_rendering.render_buffer_wrapper)
     ~scroll_y_offset ~window_width ~window_height ~digits_widths_summed =
   let fold_fn_draw_cursor (acc : rope_traversal_info_ traverse_info) c =
     let (Rope_Traversal_Info acc) = acc in
@@ -750,7 +566,7 @@ let draw_text ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
       if
         y_pos <= bbox.y + bbox.height && y_pos >= 0 && Bytes.length gi.bytes > 0
       then
-        write_to_text_buffer ~render_buf_container:text_buffer
+        Ui_rendering.write_to_text_buffer ~render_buf_container:text_buffer
           ~x:(if wraps then digits_widths_summed else acc.x)
           ~y:(y_pos + descender + if wraps then font_info.font_height else 0)
           ~glyph_info:gi ~glyph:c ~font_info;
@@ -767,65 +583,16 @@ let draw_text ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
          line_num = 1;
        })
 
-let ui_buffer : render_buffer_wrapper =
+let cursor_buffer: Ui_rendering.render_buffer_wrapper =
   {
     buffer =
       Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
-        (1000 * 1000 * _EACH_POINT_FLOAT_AMOUNT);
-    length = 0;
-  }
-
-let cursor_buffer =
-  {
-    buffer =
-      Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
-        (4 * _EACH_POINT_FLOAT_AMOUNT);
+        (4 * Ui_rendering._EACH_POINT_FLOAT_AMOUNT);
     length = 0;
   }
 
 let _ = gl_enable_texture_2d ()
 let _ = gl_enable_blending ()
-
-let fragment =
-  match gl_create_fragment_shader () with Ok f -> f | Error e -> failwith e
-
-let vertex =
-  match gl_create_vertex_shader () with Ok v -> v | Error e -> failwith e
-
-let vertex_cursor =
-  match gl_create_vertex_shader () with
-  | Ok v -> v
-  | Error e -> failwith (e ^ "_CURSOR")
-
-let fragment_cursor =
-  match gl_create_fragment_shader () with
-  | Ok f -> f
-  | Error e -> failwith (e ^ "_CURSOR")
-
-let vertex_highlight =
-  match gl_create_vertex_shader () with Ok v -> v | Error e -> failwith e
-
-let fragment_highlight =
-  match gl_create_fragment_shader () with Ok v -> v | Error e -> failwith e
-
-let text_vertex_id =
-  match gl_create_vertex_shader () with
-  | Ok v -> v
-  | Error e -> failwith (e ^ "; couldn't create vertex shader for text")
-
-let text_fragment_id =
-  match gl_create_fragment_shader () with
-  | Ok v -> v
-  | Error e -> failwith (e ^ "; couldn't create vertex shader for text")
-
-let text_shader_program =
-  compile_shaders_and_return_program ~vertex_id:text_vertex_id
-    ~fragment_id:text_fragment_id ~vertex_src:text_vertex_shader
-    ~fragment_src:text_fragment_shader
-
-let program =
-  compile_shaders_and_return_program ~vertex_id:vertex ~fragment_id:fragment
-    ~vertex_src:generic_vertex_shader ~fragment_src:generic_fragment_shader
 
 (* At first, it seems like there could be a write_rope_to_text_buffer function, BUT
   there are specific details like wrapping that I'd like to handle. Maybe there could be
@@ -843,12 +610,12 @@ let draw_text_editor ~(font_info : Ui.font_info) ~rope ~(scroll_y_offset : int)
       in
       let Editor.{ line_number_placements; _ } =
         draw_text ~font_info ~rope:r ~window_width ~window_height ~bbox
-          ~digits_widths_summed ~scroll_y_offset ~text_buffer:ui_buffer
+          ~digits_widths_summed ~scroll_y_offset ~text_buffer:Ui_rendering.ui_buffer
       in
       draw_line_numbers ~font_info ~scroll_y_offset ~window_width ~bbox
-        ~window_height ~text_buffer:ui_buffer ~line_number_placements;
+        ~window_height ~text_buffer:Ui_rendering.ui_buffer ~line_number_placements;
       draw_highlight ~r ~scroll_y_offset ~highlight ~bbox ~font_info
-        ~window_width ~window_height ~highlight_buffer:ui_buffer
+        ~window_width ~window_height ~highlight_buffer:Ui_rendering.ui_buffer
         ~digits_widths_summed;
       draw_cursor ~r ~cursor_buffer ~cursor_pos ~scroll_y_offset ~window_width
         ~window_height ~digits_widths_summed ~font_info ~bbox
@@ -859,36 +626,6 @@ let gl_buffer_cursor = gl_gen_one_buffer ()
 let gl_buffer_highlight = gl_gen_one_buffer ()
 let gl_buffer_glyph_texture_atlas = gl_gen_texture ()
 
-let location_point_vertex =
-  match gl_getattriblocation program "point_vertex" with
-  | Ok l -> l
-  | Error e -> failwith e
-
-let location_color =
-  match gl_getattriblocation program "color_attrib" with
-  | Ok l -> l
-  | Error e -> failwith e
-
-let vertex_text_location =
-  match gl_getattriblocation text_shader_program "vertex" with
-  | Ok l -> l
-  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
-
-let color_text_location =
-  match gl_getattriblocation text_shader_program "color" with
-  | Ok l -> l
-  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
-
-let tex_coord_text_location =
-  match gl_getattriblocation text_shader_program "tex_coord" with
-  | Ok l -> l
-  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
-
-let sampler_text_location =
-  match gl_getuniformlocation text_shader_program "sampler" with
-  | Ok l -> l
-  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
-
 let setup_glyph_texture ~(font_info : Ui.font_info) =
   gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
   set_gl_tex_parameters ();
@@ -897,20 +634,20 @@ let setup_glyph_texture ~(font_info : Ui.font_info) =
     ~height:font_info.font_texture_atlas.height
 
 let () =
-  gl_enable_vertex_attrib_array vertex_text_location;
-  gl_enable_vertex_attrib_array color_text_location;
-  gl_enable_vertex_attrib_array tex_coord_text_location;
-  gl_enable_vertex_attrib_array location_point_vertex;
-  gl_enable_vertex_attrib_array location_color;
+  gl_enable_vertex_attrib_array Ui_rendering.vertex_text_location;
+  gl_enable_vertex_attrib_array Ui_rendering.color_text_location;
+  gl_enable_vertex_attrib_array Ui_rendering.tex_coord_text_location;
+  gl_enable_vertex_attrib_array Ui_rendering.location_point_vertex;
+  gl_enable_vertex_attrib_array Ui_rendering.location_color;
   gl_bind_buffer gl_buffer_obj;
-  gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
-    ~capacity:(Bigarray.Array1.dim ui_buffer.buffer);
+  gl_buffer_data_big_array ~render_buffer:Ui_rendering.ui_buffer.buffer
+    ~capacity:(Bigarray.Array1.dim Ui_rendering.ui_buffer.buffer);
   gl_bind_buffer gl_buffer_cursor;
   gl_buffer_data_big_array ~render_buffer:cursor_buffer.buffer
     ~capacity:(Bigarray.Array1.dim cursor_buffer.buffer);
   gl_bind_buffer gl_buffer_highlight;
-  gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
-    ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
+  gl_buffer_data_big_array ~render_buffer:Ui_rendering.ui_buffer.buffer
+    ~capacity:(Bigarray.Array1.dim Ui_rendering.ui_buffer.buffer)
 
 let draw ~(rope : Rope.rope option) ~cursor_pos ~highlight_pos ~scroll_y_offset
     ~scroll_x_offset ~font_info ~bbox =
@@ -922,44 +659,44 @@ let draw ~(rope : Rope.rope option) ~cursor_pos ~highlight_pos ~scroll_y_offset
 
   gl_bind_buffer gl_buffer_cursor;
 
-  gl_use_program program;
+  gl_use_program Ui_rendering.program;
 
-  gl_vertex_attrib_pointer_float_type ~location:location_point_vertex ~size:2
-    ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
+  gl_vertex_attrib_pointer_float_type ~location:Ui_rendering.location_point_vertex ~size:2
+    ~stride:Ui_rendering._EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
 
-  gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
-    ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
+  gl_vertex_attrib_pointer_float_type ~location:Ui_rendering.location_color ~size:4
+    ~stride:Ui_rendering._EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
 
   gl_buffer_subdata_big_array ~render_buffer:cursor_buffer.buffer
     ~length:cursor_buffer.length;
 
-  gl_draw_arrays_with_quads (cursor_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
+  gl_draw_arrays_with_quads (cursor_buffer.length / Ui_rendering._EACH_POINT_FLOAT_AMOUNT);
 
   cursor_buffer.length <- 0;
 
   gl_bind_buffer gl_buffer_obj;
 
   (* 0 is default texture unit; reminder that sampler is not location but texture unit *)
-  gl_uniform_1i ~location:sampler_text_location ~value:0;
+  gl_uniform_1i ~location:Ui_rendering.sampler_text_location ~value:0;
 
-  gl_use_program text_shader_program;
+  gl_use_program Ui_rendering.text_shader_program;
 
-  gl_vertex_attrib_pointer_float_type ~location:vertex_text_location ~size:2
-    ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:0;
+  gl_vertex_attrib_pointer_float_type ~location:Ui_rendering.vertex_text_location ~size:2
+    ~stride:Ui_rendering._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:0;
 
-  gl_vertex_attrib_pointer_float_type ~location:color_text_location ~size:3
-    ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:2;
+  gl_vertex_attrib_pointer_float_type ~location:Ui_rendering.color_text_location ~size:3
+    ~stride:Ui_rendering._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:2;
 
-  gl_vertex_attrib_pointer_float_type ~location:tex_coord_text_location ~size:2
-    ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:5;
+  gl_vertex_attrib_pointer_float_type ~location:Ui_rendering.tex_coord_text_location ~size:2
+    ~stride:Ui_rendering._EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:5;
 
-  gl_buffer_subdata_big_array ~render_buffer:ui_buffer.buffer
-    ~length:ui_buffer.length;
+  gl_buffer_subdata_big_array ~render_buffer:Ui_rendering.ui_buffer.buffer
+    ~length:Ui_rendering.ui_buffer.length;
 
-  gl_draw_arrays_with_quads (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
+  gl_draw_arrays_with_quads (Ui_rendering.ui_buffer.length / Ui_rendering._EACH_POINT_FLOAT_AMOUNT);
 
-  Bigarray.Array1.fill ui_buffer.buffer 0.;
+  Bigarray.Array1.fill Ui_rendering.ui_buffer.buffer 0.;
 
-  ui_buffer.length <- 0;
+  Ui_rendering.ui_buffer.length <- 0;
 
   Sdl.sdl_gl_swapwindow Sdl.w
