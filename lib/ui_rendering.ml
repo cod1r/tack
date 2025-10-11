@@ -582,7 +582,6 @@ let draw_cursor ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
     | None -> ()
 
 let draw_text ~(s : string) ~(box : Ui.box) =
-  let l = String.fold_right (fun c acc -> c :: acc) s [] in
   let font_info, gl_texture_id =
     TextTextureInfo.get_or_add_font_size_text_texture
       ~font_size:(Option.value box.font_size ~default:FreeType.font_size)
@@ -591,7 +590,7 @@ let draw_text ~(s : string) ~(box : Ui.box) =
   let start_y = get_vertical_text_start ~box ~font_info in
   let start_x = get_horizontal_text_start ~box ~font_info ~s in
   let horizontal_pos = ref start_x in
-  List.iter
+  String.iter
     (fun c ->
       let found =
         Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
@@ -600,9 +599,9 @@ let draw_text ~(s : string) ~(box : Ui.box) =
       write_to_text_buffer ~render_buf_container:ui_buffer
         ~glyph_info:glyph ~x:!horizontal_pos ~y:start_y ~glyph:c
         ~font_info;
-      draw_to_gl_buffer_text ();
       horizontal_pos := !horizontal_pos + glyph.x_advance)
-    l
+    s;
+    draw_to_gl_buffer_text ()
 
 (* I'm not sure how to handle cases where the contents are positioned outside of
    the container. Originally I thought that having elements/boxes being absolutely
@@ -866,8 +865,13 @@ let rec draw_box ~(box : Ui.box) =
   if not !validated then validate ~box;
   if box.clip_content then clip_content ~box;
   clamp_min_width_height ~box;
-  write_container_values_to_ui_buffer ~box ~buffer:ui_buffer;
-  draw_to_gl_buffer ();
+  (match box.bbox with
+  | Some _ -> (
+    let Ui.{ left; top; bottom; right } = Ui.get_box_sides ~box in
+    let window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
+    if left >= 0 && right <= window_width_gl && top >= 0 && bottom <= window_height_gl then
+    (write_container_values_to_ui_buffer ~box ~buffer:ui_buffer;
+    draw_to_gl_buffer ();
   (match box.content with
   | Some (Box b) ->
       align_inner_box_horizontally ~box ~inner_box:b;
@@ -922,6 +926,8 @@ let rec draw_box ~(box : Ui.box) =
       ~bbox:(Option.value box.bbox ~default:default_bbox)
       ~scroll_y_offset ~scroll_x_offset;
       Opengl.gl_disable_scissor ()
+  | None -> ());
+    ))
   | None -> ());
   if box.clip_content then Opengl.gl_disable_scissor ()
 

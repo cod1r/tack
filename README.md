@@ -24,6 +24,8 @@ and contains text
     borders?
 
     border radius?
+        - ellipse formula (x^2/a^2 + y^2/b^2 = 1)
+        - each corner of the box is curved using an ellipse
 
     click events?
     hover events?
@@ -33,7 +35,7 @@ and contains text
     scrollbar rendering...
     scrolling...
 
-    vertical/horizontal alignment of contents...
+    line numbers for textareas...
 
 vim motions?
 
