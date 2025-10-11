@@ -48,27 +48,28 @@ and box_content =
       scroll_y_offset : int;
     }
 
-let default_box = {
-  name = None;
-  content = None;
-  bbox = None;
-  text_wrap = false;
-  background_color = (1., 1., 1., 1.);
-  border = false;
-  take_remaining_space = None;
-  font_size = None;
-  width_min_content = false;
-  height_min_content = false;
-  clip_content = false;
-  position_type = Relative;
-  allow_horizontal_scroll = false;
-  allow_vertical_scroll = false;
-  horizontal_align = None;
-  vertical_align = None;
-  flow = None;
-  on_hover = None;
-  on_click = None;
-}
+let default_box =
+  {
+    name = None;
+    content = None;
+    bbox = None;
+    text_wrap = false;
+    background_color = (1., 1., 1., 1.);
+    border = false;
+    take_remaining_space = None;
+    font_size = None;
+    width_min_content = false;
+    height_min_content = false;
+    clip_content = false;
+    position_type = Relative;
+    allow_horizontal_scroll = false;
+    allow_vertical_scroll = false;
+    horizontal_align = None;
+    vertical_align = None;
+    flow = None;
+    on_hover = None;
+    on_click = None;
+  }
 
 type text_texture_atlas_info = { width : int; height : int; bytes : bytes }
 

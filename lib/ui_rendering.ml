@@ -25,7 +25,6 @@ let get_tex_coords ~(font_info : Ui.font_info) ~(glyph : char)
   let right = Float.of_int ending_x /. width_float in
   (left, right, 0., Float.of_int glyph_info.rows /. height_float)
 
-
 let ui_buffer : render_buffer_wrapper =
   {
     buffer =
@@ -33,7 +32,8 @@ let ui_buffer : render_buffer_wrapper =
         (1000 * 1000 * _EACH_POINT_FLOAT_AMOUNT);
     length = 0;
   }
-let cursor_buffer: render_buffer_wrapper =
+
+let cursor_buffer : render_buffer_wrapper =
   {
     buffer =
       Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
@@ -52,10 +52,14 @@ let fragment_cursor =
   | Error e -> failwith (e ^ "_CURSOR")
 
 let vertex_highlight =
-  match Opengl.gl_create_vertex_shader () with Ok v -> v | Error e -> failwith e
+  match Opengl.gl_create_vertex_shader () with
+  | Ok v -> v
+  | Error e -> failwith e
 
 let fragment_highlight =
-  match Opengl.gl_create_fragment_shader () with Ok v -> v | Error e -> failwith e
+  match Opengl.gl_create_fragment_shader () with
+  | Ok v -> v
+  | Error e -> failwith e
 
 let text_vertex_id =
   match Opengl.gl_create_vertex_shader () with
@@ -172,8 +176,7 @@ let text_fragment_id =
 
 let ui_program =
   Opengl.compile_shaders_and_return_program ~vertex_id ~fragment_id
-    ~vertex_src:generic_vertex_shader
-    ~fragment_src:generic_fragment_shader
+    ~vertex_src:generic_vertex_shader ~fragment_src:generic_fragment_shader
 
 let location_point_vertex =
   match Opengl.gl_getattriblocation ui_program "point_vertex" with
@@ -184,7 +187,6 @@ let location_color =
   match Opengl.gl_getattriblocation ui_program "color_attrib" with
   | Ok l -> l
   | Error e -> failwith e
-
 
 let text_shader_program =
   Opengl.compile_shaders_and_return_program ~vertex_id:text_vtx_id
@@ -247,10 +249,9 @@ let () =
   Opengl.gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
     ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
 
-let write_to_text_buffer
-    ~(render_buf_container : render_buffer_wrapper)
+let write_to_text_buffer ~(render_buf_container : render_buffer_wrapper)
     ~(glyph_info : Freetype.FreeType.glyph_info_) ~x ~y ~(glyph : char)
-    ~(font_info: Ui.font_info) =
+    ~(font_info : Ui.font_info) =
   let window_width, window_height = Sdl.sdl_get_window_size Sdl.w in
   let x_scaled, y_scaled =
     ( Float.of_int x /. Float.of_int window_width,
@@ -260,10 +261,7 @@ let write_to_text_buffer
   and height_scaled =
     Float.of_int glyph_info.rows /. Float.of_int window_height
   in
-  let left, right, top, bottom =
-    get_tex_coords
-      ~font_info
-      ~glyph ~glyph_info
+  let left, right, top, bottom = get_tex_coords ~font_info ~glyph ~glyph_info
   and horiBearing_Y_Scaled =
     Float.of_int glyph_info.horiBearingY /. Float.of_int window_height
   and horiBearing_X_Scaled =
@@ -327,22 +325,18 @@ let draw_to_gl_buffer_text () =
   Opengl.gl_uniform_1i ~location:sampler_text_location ~value:0;
 
   Opengl.gl_vertex_attrib_pointer_float_type ~location:vertex_text_location
-    ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
-    ~start_idx:0;
+    ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:0;
 
   Opengl.gl_vertex_attrib_pointer_float_type ~location:color_text_location
-    ~size:3 ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
-    ~start_idx:2;
+    ~size:3 ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:2;
 
   Opengl.gl_vertex_attrib_pointer_float_type ~location:tex_coord_text_location
-    ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false
-    ~start_idx:5;
+    ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:5;
 
   Opengl.gl_buffer_subdata_big_array ~render_buffer:ui_buffer.buffer
     ~length:ui_buffer.length;
 
-  Opengl.gl_draw_arrays_with_quads
-    (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
+  Opengl.gl_draw_arrays_with_quads (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
 
   ui_buffer.length <- 0
 
@@ -351,19 +345,16 @@ let draw_to_gl_buffer () =
 
   Opengl.gl_use_program ui_program;
 
-  Opengl.gl_vertex_attrib_pointer_float_type
-    ~location:location_point_vertex ~size:2
-    ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
+  Opengl.gl_vertex_attrib_pointer_float_type ~location:location_point_vertex
+    ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
 
-  Opengl.gl_vertex_attrib_pointer_float_type
-    ~location:location_color ~size:4
+  Opengl.gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
     ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
 
   Opengl.gl_buffer_subdata_big_array ~render_buffer:ui_buffer.buffer
     ~length:ui_buffer.length;
 
-  Opengl.gl_draw_arrays_with_quads
-    (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
+  Opengl.gl_draw_arrays_with_quads (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
 
   ui_buffer.length <- 0
 
@@ -449,8 +440,8 @@ let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
     ~highlight_buffer =
   match highlight with
   | Some (highlight_start, highlight_end) ->
-      let fold_fn_for_draw_highlight (acc : Ui_textarea.rope_traversal_info_ Ui_textarea.traverse_info)
-          c =
+      let fold_fn_for_draw_highlight
+          (acc : Ui_textarea.rope_traversal_info_ Ui_textarea.traverse_info) c =
         let (Rope_Traversal_Info acc) = acc in
         match c with
         | '\n' ->
@@ -526,60 +517,61 @@ let write_to_cursor_buffer ~(cursor_buffer : render_buffer_wrapper) ~x ~y
 let draw_cursor ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
     ~(r : Rope.rope) ~cursor_pos ~(cursor_buffer : render_buffer_wrapper)
     ~scroll_y_offset ~window_width ~window_height =
-      match cursor_pos with
-      | Some cursor_pos ->
-  (let fold_fn_draw_cursor (acc : Ui_textarea.rope_traversal_info_ Ui_textarea.traverse_info) c =
-    let (Rope_Traversal_Info acc) = acc in
-    let y_pos = acc.y in
-    if
-      acc.rope_pos = cursor_pos && y_pos >= bbox.y && y_pos >= bbox.y
-      && y_pos <= bbox.y + bbox.height
-      && acc.x >= bbox.x
-      && acc.x <= bbox.x + bbox.width
-    then
-      write_to_cursor_buffer ~cursor_buffer ~x:acc.x ~y:acc.y ~window_width
-        ~window_height ~font_height:font_info.font_height;
-    match c with
-    | '\n' ->
-        Ui_textarea.Rope_Traversal_Info
-          {
-            acc with
-            x = bbox.x;
-            y = acc.y + font_info.font_height;
-            rope_pos = acc.rope_pos + 1;
-          }
-    | _ ->
-        let _, glyph_info =
-          Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
-          |> Option.get
-        in
-        let x_advance = glyph_info.x_advance in
-        let wraps = acc.x + x_advance > bbox.x + bbox.width in
-        Rope_Traversal_Info
-          {
-            acc with
-            x =
-              (if wraps then bbox.x + x_advance
-               else acc.x + x_advance);
-            y = (if wraps then acc.y + font_info.font_height else acc.y);
-            rope_pos = acc.rope_pos + 1;
-          }
-  in
-  let res =
-    Ui_textarea.traverse_rope r fold_fn_draw_cursor
-      (Ui_textarea.Rope_Traversal_Info
-         {
-           line_number_placements = [];
-           x = bbox.x;
-           y = bbox.y + (scroll_y_offset * font_info.font_height);
-           rope_pos = 0;
-           line_num = 0;
-         })
-  in
-  if res.rope_pos = cursor_pos then
-    write_to_cursor_buffer ~cursor_buffer ~x:res.x ~y:res.y ~window_width
-      ~window_height ~font_height:font_info.font_height)
-    | None -> ()
+  match cursor_pos with
+  | Some cursor_pos ->
+      let fold_fn_draw_cursor
+          (acc : Ui_textarea.rope_traversal_info_ Ui_textarea.traverse_info) c =
+        let (Rope_Traversal_Info acc) = acc in
+        let y_pos = acc.y in
+        if
+          acc.rope_pos = cursor_pos && y_pos >= bbox.y && y_pos >= bbox.y
+          && y_pos <= bbox.y + bbox.height
+          && acc.x >= bbox.x
+          && acc.x <= bbox.x + bbox.width
+        then
+          write_to_cursor_buffer ~cursor_buffer ~x:acc.x ~y:acc.y ~window_width
+            ~window_height ~font_height:font_info.font_height;
+        match c with
+        | '\n' ->
+            Ui_textarea.Rope_Traversal_Info
+              {
+                acc with
+                x = bbox.x;
+                y = acc.y + font_info.font_height;
+                rope_pos = acc.rope_pos + 1;
+              }
+        | _ ->
+            let _, glyph_info =
+              Array.find_opt
+                (fun (c', _) -> c' = c)
+                font_info.glyph_info_with_char
+              |> Option.get
+            in
+            let x_advance = glyph_info.x_advance in
+            let wraps = acc.x + x_advance > bbox.x + bbox.width in
+            Rope_Traversal_Info
+              {
+                acc with
+                x = (if wraps then bbox.x + x_advance else acc.x + x_advance);
+                y = (if wraps then acc.y + font_info.font_height else acc.y);
+                rope_pos = acc.rope_pos + 1;
+              }
+      in
+      let res =
+        Ui_textarea.traverse_rope r fold_fn_draw_cursor
+          (Ui_textarea.Rope_Traversal_Info
+             {
+               line_number_placements = [];
+               x = bbox.x;
+               y = bbox.y + (scroll_y_offset * font_info.font_height);
+               rope_pos = 0;
+               line_num = 0;
+             })
+      in
+      if res.rope_pos = cursor_pos then
+        write_to_cursor_buffer ~cursor_buffer ~x:res.x ~y:res.y ~window_width
+          ~window_height ~font_height:font_info.font_height
+  | None -> ()
 
 let draw_text ~(s : string) ~(box : Ui.box) =
   let font_info, gl_texture_id =
@@ -596,12 +588,11 @@ let draw_text ~(s : string) ~(box : Ui.box) =
         Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
       in
       let c, glyph = Option.get found in
-      write_to_text_buffer ~render_buf_container:ui_buffer
-        ~glyph_info:glyph ~x:!horizontal_pos ~y:start_y ~glyph:c
-        ~font_info;
+      write_to_text_buffer ~render_buf_container:ui_buffer ~glyph_info:glyph
+        ~x:!horizontal_pos ~y:start_y ~glyph:c ~font_info;
       horizontal_pos := !horizontal_pos + glyph.x_advance)
     s;
-    draw_to_gl_buffer_text ()
+  draw_to_gl_buffer_text ()
 
 (* I'm not sure how to handle cases where the contents are positioned outside of
    the container. Originally I thought that having elements/boxes being absolutely
@@ -746,8 +737,10 @@ let _ = Opengl.gl_enable_texture_2d ()
 let _ = Opengl.gl_enable_blending ()
 
 let draw_text_textarea ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
-    ~(rope : Rope.rope) ~text_buffer ~window_width ~window_height ~scroll_y_offset =
-  let fold_fn_for_drawing_text (acc : Ui_textarea.rope_traversal_info_ Ui_textarea.traverse_info) c =
+    ~(rope : Rope.rope) ~text_buffer ~window_width ~window_height
+    ~scroll_y_offset =
+  let fold_fn_for_drawing_text
+      (acc : Ui_textarea.rope_traversal_info_ Ui_textarea.traverse_info) c =
     let (Ui_textarea.Rope_Traversal_Info acc) = acc in
     if c = '\n' then
       Ui_textarea.Rope_Traversal_Info
@@ -771,20 +764,25 @@ let draw_text_textarea ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
       let x_advance = gi.x_advance in
       let wraps = acc.x + x_advance > bbox.x + bbox.width in
       let new_x, new_y =
-        if wraps then
-          (bbox.x + x_advance, acc.y + font_info.font_height)
+        if wraps then (bbox.x + x_advance, acc.y + font_info.font_height)
         else (acc.x + x_advance, acc.y)
       in
       (* descender is a negative value *)
       let descender = font_info.descender in
-      let y_pos_start = acc.y + (scroll_y_offset * font_info.font_height) + descender + if wraps then font_info.font_height else 0 in
+      let y_pos_start =
+        acc.y
+        + (scroll_y_offset * font_info.font_height)
+        + descender
+        + if wraps then font_info.font_height else 0
+      in
       if
-        y_pos_start <= bbox.y + bbox.height && y_pos_start >= bbox.y && Bytes.length gi.bytes > 0
+        y_pos_start <= bbox.y + bbox.height
+        && y_pos_start >= bbox.y
+        && Bytes.length gi.bytes > 0
       then
-        (write_to_text_buffer ~render_buf_container:text_buffer
+        write_to_text_buffer ~render_buf_container:text_buffer
           ~x:(if wraps then bbox.x else acc.x)
-          ~y:(y_pos_start)
-          ~glyph_info:gi ~glyph:c ~font_info);
+          ~y:y_pos_start ~glyph_info:gi ~glyph:c ~font_info;
       Ui_textarea.Rope_Traversal_Info
         { acc with rope_pos = acc.rope_pos + 1; x = new_x; y = new_y }
   in
@@ -811,7 +809,7 @@ let draw_textarea' ~(font_info : Ui.font_info) ~rope ~(scroll_y_offset : int)
       let lines = Ui_textarea.num_lines r in
       let Ui_textarea.{ line_number_placements; _ } =
         draw_text_textarea ~font_info ~rope:r ~window_width ~window_height ~bbox
-        ~scroll_y_offset ~text_buffer:ui_buffer
+          ~scroll_y_offset ~text_buffer:ui_buffer
       in
       draw_highlight ~r ~scroll_y_offset ~highlight ~bbox ~font_info
         ~window_width ~window_height ~highlight_buffer:ui_buffer;
@@ -835,23 +833,23 @@ let () =
   Opengl.gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
     ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
 
-let draw_textarea ~(rope : Rope.rope option) ~cursor_pos ~highlight_pos ~scroll_y_offset
-    ~scroll_x_offset ~font_info ~bbox =
-
+let draw_textarea ~(rope : Rope.rope option) ~cursor_pos ~highlight_pos
+    ~scroll_y_offset ~scroll_x_offset ~font_info ~bbox =
   Opengl.gl_bind_buffer gl_buffer_cursor;
 
   Opengl.gl_use_program ui_program;
 
-  Opengl.gl_vertex_attrib_pointer_float_type ~location:location_point_vertex ~size:2
-   ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
+  Opengl.gl_vertex_attrib_pointer_float_type ~location:location_point_vertex
+    ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
 
   Opengl.gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
-   ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
+    ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
 
   Opengl.gl_buffer_subdata_big_array ~render_buffer:cursor_buffer.buffer
     ~length:cursor_buffer.length;
 
-  Opengl.gl_draw_arrays_with_quads (cursor_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
+  Opengl.gl_draw_arrays_with_quads
+    (cursor_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
 
   cursor_buffer.length <- 0;
 
@@ -866,68 +864,87 @@ let rec draw_box ~(box : Ui.box) =
   if box.clip_content then clip_content ~box;
   clamp_min_width_height ~box;
   (match box.bbox with
-  | Some _ -> (
-    let Ui.{ left; top; bottom; right } = Ui.get_box_sides ~box in
-    let window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
-    if left >= 0 && right <= window_width_gl && top >= 0 && bottom <= window_height_gl then
-    (write_container_values_to_ui_buffer ~box ~buffer:ui_buffer;
-    draw_to_gl_buffer ();
-  (match box.content with
-  | Some (Box b) ->
-      align_inner_box_horizontally ~box ~inner_box:b;
-      align_inner_box_vertically ~box ~inner_box:b;
-      draw_box ~box:b
-  | Some (Boxes list) -> (
-      match box.flow with
-      | Some ((Horizontal | Vertical) as d) ->
-          let box_bbox = Option.value box.bbox ~default:default_bbox in
-          let boxes_pos =
-            ref (handle_list_of_boxes_initial_position ~d ~box ~box_bbox ~list)
-          in
-          let new_boxes =
-            List.map
-              (fun b ->
-                match b.Ui.bbox with
-                | Some bbbox ->
-                    b.Ui.bbox <-
-                      Some { bbbox with x = fst !boxes_pos; y = snd !boxes_pos };
-                    let new_box =
-                      {
-                        b with
-                        Ui.bbox =
-                          Some
+  | Some _ ->
+      let Ui.{ left; top; bottom; right } = Ui.get_box_sides ~box in
+      let window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
+      if
+        left >= 0 && right <= window_width_gl && top >= 0
+        && bottom <= window_height_gl
+      then (
+        write_container_values_to_ui_buffer ~box ~buffer:ui_buffer;
+        draw_to_gl_buffer ();
+        match box.content with
+        | Some (Box b) ->
+            align_inner_box_horizontally ~box ~inner_box:b;
+            align_inner_box_vertically ~box ~inner_box:b;
+            draw_box ~box:b
+        | Some (Boxes list) -> (
+            match box.flow with
+            | Some ((Horizontal | Vertical) as d) ->
+                let box_bbox = Option.value box.bbox ~default:default_bbox in
+                let boxes_pos =
+                  ref
+                    (handle_list_of_boxes_initial_position ~d ~box ~box_bbox
+                       ~list)
+                in
+                let new_boxes =
+                  List.map
+                    (fun b ->
+                      match b.Ui.bbox with
+                      | Some bbbox ->
+                          b.Ui.bbox <-
+                            Some
+                              {
+                                bbbox with
+                                x = fst !boxes_pos;
+                                y = snd !boxes_pos;
+                              };
+                          let new_box =
                             {
-                              bbbox with
-                              x = fst !boxes_pos;
-                              y = snd !boxes_pos;
-                            };
-                      }
-                    in
-                    (boxes_pos :=
-                       let x, y = !boxes_pos in
-                       match d with
-                       | Horizontal -> (x + bbbox.width, y)
-                       | Vertical -> (x, y + bbbox.height));
-                    new_box
-                | None -> b)
-              list
-          in
-          List.iter (fun b -> draw_box ~box:b) new_boxes
-      | None -> List.iter (fun b -> draw_box ~box:b) list)
-  | Some (Text s) -> draw_text ~s ~box
-  | Some (Textarea { text; cursor_pos; highlight_pos; scroll_y_offset; scroll_x_offset }) ->
-      clip_content ~box;
-      let (font_info, gl_texture_id) = TextTextureInfo.get_or_add_font_size_text_texture
-      ~font_size:(Option.value box.font_size ~default:FreeType.font_size) in
-      Opengl.gl_bind_texture ~texture_id:gl_texture_id;
-      draw_textarea ~rope:(Some text)
-      ~cursor_pos
-      ~highlight_pos ~font_info
-      ~bbox:(Option.value box.bbox ~default:default_bbox)
-      ~scroll_y_offset ~scroll_x_offset;
-      Opengl.gl_disable_scissor ()
-  | None -> ());
-    ))
+                              b with
+                              Ui.bbox =
+                                Some
+                                  {
+                                    bbbox with
+                                    x = fst !boxes_pos;
+                                    y = snd !boxes_pos;
+                                  };
+                            }
+                          in
+                          (boxes_pos :=
+                             let x, y = !boxes_pos in
+                             match d with
+                             | Horizontal -> (x + bbbox.width, y)
+                             | Vertical -> (x, y + bbbox.height));
+                          new_box
+                      | None -> b)
+                    list
+                in
+                List.iter (fun b -> draw_box ~box:b) new_boxes
+            | None -> List.iter (fun b -> draw_box ~box:b) list)
+        | Some (Text s) -> draw_text ~s ~box
+        | Some
+            (Textarea
+               {
+                 text;
+                 cursor_pos;
+                 highlight_pos;
+                 scroll_y_offset;
+                 scroll_x_offset;
+               }) ->
+            clip_content ~box;
+            let font_info, gl_texture_id =
+              TextTextureInfo.get_or_add_font_size_text_texture
+                ~font_size:
+                  (Option.value box.font_size ~default:FreeType.font_size)
+            in
+            Opengl.gl_bind_texture ~texture_id:gl_texture_id;
+            draw_textarea ~rope:(Some text) ~cursor_pos ~highlight_pos
+              ~font_info
+              ~bbox:(Option.value box.bbox ~default:default_bbox)
+              ~scroll_y_offset ~scroll_x_offset;
+            Opengl.gl_disable_scissor ()
+        | None -> ())
   | None -> ());
   if box.clip_content then Opengl.gl_disable_scissor ()
 

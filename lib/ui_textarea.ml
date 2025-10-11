@@ -100,8 +100,7 @@ let get_pair_col_and_rope_pos ~closest_info ~x =
   | None -> (None, -1)
 
 let find_closest_vertical_range ~(bbox : Ui.bounding_box)
-    ~(font_info : Ui.font_info) ~rope ~y ~scroll_y_offset
-    =
+    ~(font_info : Ui.font_info) ~rope ~y ~scroll_y_offset =
   let fold_fn_for_vertical_range
       (closest_info : closest_information traverse_info) c =
     let (Finding_Cursor closest_info) = closest_info in
@@ -126,8 +125,7 @@ let find_closest_vertical_range ~(bbox : Ui.bounding_box)
         let x_advance = gi.x_advance in
         let new_x, new_y =
           if closest_info.x + x_advance > bbox.x + bbox.width then
-            ( bbox.x,
-              closest_info.lower_y + font_info.font_height )
+            (bbox.x, closest_info.lower_y + font_info.font_height)
           else (closest_info.x + x_advance, closest_info.lower_y)
         in
         Finding_Cursor
@@ -190,8 +188,7 @@ let find_closest_horizontal_pos ~(bbox : Ui.bounding_box)
         in
         let new_x, new_y =
           if closest_info.x + x_advance > bbox.x + bbox.width then
-            ( bbox.x,
-              closest_info.lower_y + font_info.font_height )
+            (bbox.x, closest_info.lower_y + font_info.font_height)
           else (closest_info.x + x_advance, closest_info.lower_y)
         in
         Finding_Cursor
@@ -233,20 +230,18 @@ let find_closest_horizontal_pos ~(bbox : Ui.bounding_box)
           that is within the vertical range and is closest to the x value for the mousedown event.
    *)
 let find_closest_rope_pos_for_cursor_on_coords ~(bbox : Ui.bounding_box)
-    ~(font_info : Ui.font_info) ~x ~y ~rope
-    ~scroll_y_offset =
+    ~(font_info : Ui.font_info) ~x ~y ~rope ~scroll_y_offset =
   let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
   let window_width_without_high_dpi, _ = Sdl.sdl_get_window_size Sdl.w in
   (* ratio is needed because the x,y coords given from MouseEvent is based on window without high dpi so scaling needs to happen *)
   let ratio = window_width / window_width_without_high_dpi in
   let x = x * ratio and y = y * ratio in
   let closest_vertical_range =
-    find_closest_vertical_range ~bbox ~font_info ~rope
-      ~scroll_y_offset ~y
+    find_closest_vertical_range ~bbox ~font_info ~rope ~scroll_y_offset ~y
   in
   let closest_rope =
-    find_closest_horizontal_pos ~bbox ~font_info ~rope
-      ~scroll_y_offset ~closest_vertical_range ~x
+    find_closest_horizontal_pos ~bbox ~font_info ~rope ~scroll_y_offset
+      ~closest_vertical_range ~x
   in
   if closest_rope = -1 then Rope.length rope else closest_rope
 
@@ -271,8 +266,7 @@ let find_coords_for_cursor_pos ~(font_info : Ui.font_info)
     let (Rope_Traversal_Info acc) = acc in
     if acc.rope_pos != cursor_pos then
       let new_x, new_y =
-        calc_new_xy ~bbox ~font_info ~x:acc.x ~y:acc.y
-          ~char:c
+        calc_new_xy ~bbox ~font_info ~x:acc.x ~y:acc.y ~char:c
       in
       Rope_Traversal_Info
         { acc with x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
@@ -293,8 +287,7 @@ let find_closest_rope_pos_for_moving_cursor_in_vertical_range
     ~(font_info : Ui.font_info) ~cursor_x ~lower_y ~rope ~scroll_y_offset =
   let num_lines = num_lines rope in
   let hor_pos =
-    find_closest_horizontal_pos ~font_info ~rope ~x:cursor_x
-      ~scroll_y_offset
+    find_closest_horizontal_pos ~font_info ~rope ~x:cursor_x ~scroll_y_offset
       ~closest_vertical_range:(Some (lower_y, lower_y + font_info.font_height))
   in
   hor_pos
