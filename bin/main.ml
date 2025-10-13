@@ -38,6 +38,27 @@ let file_tree =
                   Tack.Ui.default_box with
                   content = Some (Text s);
                   bbox = Some { x = 0; y = 0; width = 50; height = 50 };
+                  width_min_content = true;
+                  on_event =
+                    Some
+                      (fun ~b ~e ->
+                        match e with
+                        | Sdl.MouseMotionEvt { x; y; _ } -> (
+                            match b with
+                            | Some box ->
+                                let Tack.Ui.{ left; right; top; bottom } =
+                                  Tack.Ui.get_box_sides ~box
+                                in
+                                let left, right, top, bottom =
+                                  (left / 2, right / 2, top / 2, bottom / 2)
+                                in
+                                if
+                                  x >= left && x <= right && y >= top
+                                  && y <= bottom
+                                then box.background_color <- (0.5, 0.5, 0.5, 1.)
+                                else box.background_color <- (1., 1., 1., 1.)
+                            | None -> ())
+                        | _ -> ());
                 })
               files));
     flow = Some Vertical;
@@ -59,8 +80,8 @@ let rec loop () =
         Tack.Ui_rendering.draw ~box;
         true
     | Some e ->
-        Tack.Ui_rendering.draw ~box;
         Tack.Ui_events.emit_event ~e;
+        Tack.Ui_rendering.draw ~box;
         true
   in
   if continue then loop () else ()

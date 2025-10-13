@@ -32,9 +32,10 @@ type box = {
   mutable allow_vertical_scroll : bool;
   mutable horizontal_align : horizontal_alignment option;
   mutable vertical_align : vertical_alignment option;
-  on_hover : (box -> unit) option;
-  on_click : (box -> unit) option;
+  on_event : event_handler_t option;
 }
+
+and event_handler_t = b:box option -> e:Sdl.event -> unit
 
 and box_content =
   | Box of box
@@ -67,8 +68,7 @@ let default_box =
     horizontal_align = None;
     vertical_align = None;
     flow = None;
-    on_hover = None;
-    on_click = None;
+    on_event = None;
   }
 
 type text_texture_atlas_info = { width : int; height : int; bytes : bytes }
@@ -112,8 +112,7 @@ let clone_box ~(box : box) =
       allow_horizontal_scroll = box.allow_horizontal_scroll;
       horizontal_align = box.horizontal_align;
       vertical_align = box.vertical_align;
-      on_hover = box.on_hover;
-      on_click = box.on_click;
+      on_event = box.on_event;
     }
   in
   clone_box' box

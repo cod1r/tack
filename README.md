@@ -27,15 +27,12 @@ and contains text
         - ellipse formula (x^2/a^2 + y^2/b^2 = 1)
         - each corner of the box is curved using an ellipse
 
-    click events?
-    hover events?
-        events should be handled with event an emitter instead of going through each object that composes the UI.
-            Each event that comes from SDL, will be passed to each event handler that is stored somewhere
-
     scrollbar rendering...
     scrolling...
 
     line numbers for textareas...
+    text caret for textareas...
+    text highlighting for textareas...
 
 vim motions?
 

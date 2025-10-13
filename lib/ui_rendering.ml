@@ -223,25 +223,35 @@ let write_container_values_to_ui_buffer ~(box : Ui.box)
   let height_ratio = Float.of_int (window_height_gl / window_height) in
   let Ui.{ width; height; x; y } = Option.value box.bbox ~default:default_bbox
   and Ui.(r, g, b, alpha) = box.background_color in
-  let points =
-    [| (x, y + height); (x, y); (x + width, y); (x + width, y + height) |]
-    |> Array.map (fun (x', y') ->
-           (Float.of_int x' *. width_ratio, Float.of_int y' *. height_ratio))
+  let points : floatarray =
+    [|
+      Float.of_int x *. width_ratio;
+      Float.of_int (y + height) *. height_ratio;
+      Float.of_int x *. width_ratio;
+      Float.of_int y *. height_ratio;
+      Float.of_int (x + width) *. width_ratio;
+      Float.of_int y *. height_ratio;
+      Float.of_int (x + width) *. width_ratio;
+      Float.of_int (y + height) *. height_ratio;
+    |]
   in
   let window_width, window_height = Sdl.sdl_gl_getdrawablesize () in
   let idx = ref 0 in
-  Array.iteri
-    (fun i (x, y) ->
-      let x = (x /. Float.of_int window_width) -. 1. in
-      let y = (-.y /. Float.of_int window_height) +. 1. in
-      buffer.buffer.{!idx} <- x;
-      buffer.buffer.{!idx + 1} <- y;
-      buffer.buffer.{!idx + 2} <- r;
-      buffer.buffer.{!idx + 3} <- g;
-      buffer.buffer.{!idx + 4} <- b;
-      buffer.buffer.{!idx + 5} <- alpha;
-      idx := (i + 1) * 6)
-    points;
+  let float_array_index = ref 0 in
+  while !float_array_index < Float.Array.length points do
+    let x = Float.Array.get points !float_array_index
+    and y = Float.Array.get points (!float_array_index + 1) in
+    let x = (x /. Float.of_int window_width) -. 1. in
+    let y = (-.y /. Float.of_int window_height) +. 1. in
+    buffer.buffer.{!idx} <- x;
+    buffer.buffer.{!idx + 1} <- y;
+    buffer.buffer.{!idx + 2} <- r;
+    buffer.buffer.{!idx + 3} <- g;
+    buffer.buffer.{!idx + 4} <- b;
+    buffer.buffer.{!idx + 5} <- alpha;
+    idx := ((!float_array_index / 2) + 1) * 6;
+    float_array_index := !float_array_index + 2
+  done;
   buffer.length <- 24
 
 let () =
@@ -279,7 +289,7 @@ let write_to_text_buffer ~(render_buf_container : render_buffer_wrapper)
 
       that is repeated for the 4 points of the quad
    *)
-  let values =
+  let values : floatarray =
     [|
       x_scaled +. horiBearing_X_Scaled -. 1.;
       -.(y_scaled +. height_scaled) +. horiBearing_Y_Scaled +. 1.;
@@ -312,10 +322,10 @@ let write_to_text_buffer ~(render_buf_container : render_buffer_wrapper)
     |]
   in
   let start = render_buf_container.length in
-  Array.iteri
+  Float.Array.iteri
     (fun idx v -> render_buf_container.buffer.{idx + start} <- v)
     values;
-  render_buf_container.length <- start + Array.length values
+  render_buf_container.length <- start + Float.Array.length values
 
 let draw_to_gl_buffer_text () =
   Opengl.gl_bind_buffer gl_ui_lib_buffer;
@@ -625,7 +635,27 @@ let rec clamp_min_width_height ~(box : Ui.box) =
             in
             if box.height_min_content then bbox.height <- summed_heights;
             if box.width_min_content then bbox.width <- summed_widths
-        | Some (Text s) -> ()
+        | Some (Text s) ->
+            let font_info, _ =
+              TextTextureInfo.get_or_add_font_size_text_texture
+                ~font_size:
+                  (Option.value box.font_size ~default:FreeType.font_size)
+            in
+            let string_width =
+              String.fold_left
+                (fun acc c ->
+                  let op =
+                    Array.find_opt
+                      (fun (c', _) -> c' = c)
+                      font_info.glyph_info_with_char
+                  in
+                  match op with
+                  | Some (_, g) -> acc + g.FreeType.x_advance
+                  | None -> acc)
+                0 s
+            in
+            (* TODO: need to handle height_min_content when text_wrap is true *)
+            if box.width_min_content then bbox.width <- string_width
         | Some (Textarea _) -> failwith "// TODO"
         | None -> ())
     | None -> ()
@@ -661,6 +691,21 @@ let validate ~(box : Ui.box) =
   in
   validated := true;
   validate' box []
+
+let added_event_handlers = ref false
+
+let add_event_handlers ~(box : Ui.box) =
+  let rec add_event_handlers' (box : Ui.box) =
+    (match box.on_event with
+    | Some oc -> Ui_events.add_event_handler ~box:(Some box) ~event_handler:oc
+    | None -> ());
+    match box.content with
+    | Some (Ui.Box b) -> add_event_handlers' b
+    | Some (Ui.Boxes list) -> List.iter (fun b -> add_event_handlers' b) list
+    | Some (Ui.Text _) | Some (Ui.Textarea _) | None -> ()
+  in
+  added_event_handlers := true;
+  add_event_handlers' box
 
 let handle_list_of_boxes_initial_position ~(box : Ui.box) ~(d : Ui.direction)
     ~(box_bbox : Ui.bounding_box) ~(list : Ui.box list) =
@@ -859,8 +904,8 @@ let draw_textarea ~(rope : Rope.rope option) ~cursor_pos ~highlight_pos
   draw_to_gl_buffer_text ()
 
 let rec draw_box ~(box : Ui.box) =
-  (* Opengl.gl_check_error (); *)
   if not !validated then validate ~box;
+  if not !added_event_handlers then add_event_handlers ~box;
   if box.clip_content then clip_content ~box;
   clamp_min_width_height ~box;
   (match box.bbox with
@@ -887,40 +932,20 @@ let rec draw_box ~(box : Ui.box) =
                     (handle_list_of_boxes_initial_position ~d ~box ~box_bbox
                        ~list)
                 in
-                let new_boxes =
-                  List.map
-                    (fun b ->
-                      match b.Ui.bbox with
-                      | Some bbbox ->
-                          b.Ui.bbox <-
-                            Some
-                              {
-                                bbbox with
-                                x = fst !boxes_pos;
-                                y = snd !boxes_pos;
-                              };
-                          let new_box =
-                            {
-                              b with
-                              Ui.bbox =
-                                Some
-                                  {
-                                    bbbox with
-                                    x = fst !boxes_pos;
-                                    y = snd !boxes_pos;
-                                  };
-                            }
-                          in
-                          (boxes_pos :=
-                             let x, y = !boxes_pos in
-                             match d with
-                             | Horizontal -> (x + bbbox.width, y)
-                             | Vertical -> (x, y + bbbox.height));
-                          new_box
-                      | None -> b)
-                    list
-                in
-                List.iter (fun b -> draw_box ~box:b) new_boxes
+                List.iter
+                  (fun b ->
+                    match b.Ui.bbox with
+                    | Some bbbox -> (
+                        bbbox.x <- fst !boxes_pos;
+                        bbbox.y <- snd !boxes_pos;
+                        boxes_pos :=
+                          let x, y = !boxes_pos in
+                          match d with
+                          | Horizontal -> (x + bbbox.width, y)
+                          | Vertical -> (x, y + bbbox.height))
+                    | None -> ())
+                  list;
+                List.iter (fun b -> draw_box ~box:b) list
             | None -> List.iter (fun b -> draw_box ~box:b) list)
         | Some (Text s) -> draw_text ~s ~box
         | Some

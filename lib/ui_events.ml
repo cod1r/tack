@@ -1,7 +1,10 @@
 let event_handlers = ref []
 
 let emit_event ~(e : Sdl.Sdl.event) =
-  List.iter (fun event_handler -> event_handler ~e) !event_handlers
+  List.iter
+    (fun (box, event_handler) -> event_handler ~b:box ~e)
+    !event_handlers
 
-let add_event_handler ~(event_handler : e:Sdl.Sdl.event -> unit) =
-  event_handlers := event_handler :: !event_handlers
+let add_event_handler ~(box : Ui.box option)
+    ~(event_handler : Ui.event_handler_t) =
+  event_handlers := (box, event_handler) :: !event_handlers
