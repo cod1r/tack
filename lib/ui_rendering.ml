@@ -346,7 +346,7 @@ let draw_to_gl_buffer_text () =
   Opengl.gl_buffer_subdata_big_array ~render_buffer:ui_buffer.buffer
     ~length:ui_buffer.length;
 
-  Opengl.gl_draw_arrays_with_quads (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
+  Opengl.gl_draw_arrays_with_quads (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT_TEXT);
 
   ui_buffer.length <- 0
 
