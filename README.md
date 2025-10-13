@@ -34,6 +34,10 @@ and contains text
     text caret for textareas...
     text highlighting for textareas...
 
+    some way to detect what box is in front...something with draw order?
+
+    box focus...
+
 vim motions?
 
 basic features:
