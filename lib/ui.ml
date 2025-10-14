@@ -49,6 +49,10 @@ and box_content =
       scroll_y_offset : int;
     }
 
+let focused_element : box option ref = ref None
+let set_focused_element ~(box : box) = focused_element := Some box
+let unfocus_element () = focused_element := None
+
 let default_box =
   {
     name = None;

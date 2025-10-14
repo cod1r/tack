@@ -497,7 +497,7 @@ let write_cursor_to_ui_buffer ~(render_buf_container : render_buffer_wrapper) ~x
     ~y ~font_height =
   let window_width, window_height = Sdl.sdl_gl_getdrawablesize () in
   let points =
-    [ (x, y + font_height); (x, y); (x + 10, y); (x + 10, y + font_height) ]
+    [ (x, y + font_height); (x, y); (x + 3, y); (x + 3, y + font_height) ]
   in
   let values = Float.Array.init 24 (fun _ -> 0.) in
   List.iteri
@@ -859,18 +859,24 @@ let draw_text_textarea ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
   an abstraction for that specific wrapping behavior, but let's consider that later.
 *)
 let draw_textarea' ~(font_info : Ui.font_info) ~rope ~(scroll_y_offset : int)
-    ~(bbox : Ui.bounding_box) ~highlight ~cursor_pos =
+    ~(bbox : Ui.bounding_box) ~highlight ~cursor_pos ~(box : Ui.box) =
   let window_dims = Sdl.sdl_gl_getdrawablesize () in
   let window_width, window_height = window_dims in
   match rope with
-  | Some r ->
+  | Some r -> (
       let Ui_textarea.{ line_number_placements; _ } =
         draw_text_textarea ~font_info ~rope:r ~window_width ~window_height ~bbox
           ~scroll_y_offset ~text_buffer:ui_buffer
       in
-      draw_highlight ~r ~scroll_y_offset ~highlight ~bbox ~font_info
-        ~highlight_buffer:ui_buffer;
-      draw_cursor ~r ~cursor_pos ~scroll_y_offset ~font_info ~bbox
+      draw_to_gl_buffer_text ();
+      match !Ui.focused_element with
+      | Some b when b == box ->
+          draw_highlight ~r ~scroll_y_offset ~highlight ~bbox ~font_info
+            ~highlight_buffer:ui_buffer;
+          draw_to_gl_buffer ();
+          draw_cursor ~r ~cursor_pos ~scroll_y_offset ~font_info ~bbox;
+          draw_to_gl_buffer ()
+      | None | _ -> ())
   | None -> ()
 
 let () =
@@ -881,7 +887,7 @@ let () =
   Opengl.gl_enable_vertex_attrib_array location_color
 
 let draw_textarea ~(rope : Rope.rope option) ~cursor_pos ~highlight_pos
-    ~scroll_y_offset ~scroll_x_offset ~font_info ~bbox =
+    ~scroll_y_offset ~scroll_x_offset ~font_info ~bbox ~box =
   Opengl.gl_use_program ui_program;
 
   Opengl.gl_vertex_attrib_pointer_float_type ~location:location_point_vertex
@@ -898,9 +904,7 @@ let draw_textarea ~(rope : Rope.rope option) ~cursor_pos ~highlight_pos
   ui_buffer.length <- 0;
 
   draw_textarea' ~font_info ~rope ~cursor_pos ~highlight:highlight_pos ~bbox
-    ~scroll_y_offset;
-
-  draw_to_gl_buffer_text ()
+    ~scroll_y_offset ~box
 
 let rec draw_box ~(box : Ui.box) =
   if not !validated then validate ~box;
@@ -966,7 +970,7 @@ let rec draw_box ~(box : Ui.box) =
             draw_textarea ~rope:(Some text) ~cursor_pos ~highlight_pos
               ~font_info
               ~bbox:(Option.value box.bbox ~default:default_bbox)
-              ~scroll_y_offset ~scroll_x_offset;
+              ~scroll_y_offset ~scroll_x_offset ~box;
             Opengl.gl_disable_scissor ()
         | None -> ())
   | None -> ());
