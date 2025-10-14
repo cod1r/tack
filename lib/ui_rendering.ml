@@ -729,22 +729,33 @@ let align_inner_box_vertically ~(box : Ui.box) ~(inner_box : Ui.box) =
   | Some bbox -> (
       let inner_box_bbox = Option.value inner_box.bbox ~default:default_bbox in
       match box.vertical_align with
-      | Some Top | None ->
-          inner_box.bbox <- Some { inner_box_bbox with y = bbox.y }
+      | Some Top ->
+          let y_pos =
+            bbox.y
+            + if inner_box.position_type = Relative then inner_box_bbox.y else 0
+          in
+          inner_box.bbox <- Some { inner_box_bbox with y = y_pos }
       | Some Center ->
-          inner_box.bbox <-
-            Some
-              {
-                inner_box_bbox with
-                y = bbox.y + (bbox.height / 2) - (inner_box_bbox.height / 2);
-              }
+          let y_pos =
+            bbox.y + (bbox.height / 2)
+            - (inner_box_bbox.height / 2)
+            + if inner_box.position_type = Relative then inner_box_bbox.y else 0
+          in
+          inner_box.bbox <- Some { inner_box_bbox with y = y_pos }
       | Some Bottom ->
-          inner_box.bbox <-
-            Some
-              {
-                inner_box_bbox with
-                y = bbox.y + bbox.height - inner_box_bbox.height;
-              })
+          let y_pos =
+            bbox.y + bbox.height - inner_box_bbox.height
+            + if inner_box.position_type = Relative then inner_box_bbox.y else 0
+          in
+          inner_box.bbox <- Some { inner_box_bbox with y = y_pos }
+      | None -> (
+          match inner_box.position_type with
+          | Relative ->
+              inner_box.bbox <-
+                Some { inner_box_bbox with y = bbox.y + inner_box_bbox.y }
+          | Absolute ->
+              inner_box.bbox <-
+                Some { inner_box_bbox with y = inner_box_bbox.y }))
   | None -> ()
 
 let align_inner_box_horizontally ~(box : Ui.box) ~(inner_box : Ui.box) =
@@ -752,22 +763,32 @@ let align_inner_box_horizontally ~(box : Ui.box) ~(inner_box : Ui.box) =
   | Some bbox -> (
       let inner_box_bbox = Option.value inner_box.bbox ~default:default_bbox in
       match box.horizontal_align with
-      | Some Left | None ->
-          inner_box.bbox <- Some { inner_box_bbox with x = bbox.x }
+      | Some Left ->
+          let x_pos =
+            bbox.x
+            + if inner_box.position_type = Relative then inner_box_bbox.x else 0
+          in
+          inner_box.bbox <- Some { inner_box_bbox with x = x_pos }
       | Some Center ->
-          inner_box.bbox <-
-            Some
-              {
-                inner_box_bbox with
-                x = bbox.x + (bbox.width / 2) - (inner_box_bbox.width / 2);
-              }
+          let x_pos =
+            bbox.x + (bbox.width / 2) - (inner_box_bbox.width / 2)
+            + if inner_box.position_type = Relative then inner_box_bbox.x else 0
+          in
+          inner_box.bbox <- Some { inner_box_bbox with x = x_pos }
       | Some Right ->
-          inner_box.bbox <-
-            Some
-              {
-                inner_box_bbox with
-                x = bbox.x + bbox.width - inner_box_bbox.width;
-              })
+          let x_pos =
+            bbox.x + bbox.width - inner_box_bbox.width
+            + if inner_box.position_type = Relative then inner_box_bbox.x else 0
+          in
+          inner_box.bbox <- Some { inner_box_bbox with x = x_pos }
+      | None -> (
+          match inner_box.position_type with
+          | Relative ->
+              inner_box.bbox <-
+                Some { inner_box_bbox with x = bbox.x + inner_box_bbox.x }
+          | Absolute ->
+              inner_box.bbox <-
+                Some { inner_box_bbox with x = inner_box_bbox.x }))
   | None -> ()
 
 let _ = Opengl.gl_enable_texture_2d ()
