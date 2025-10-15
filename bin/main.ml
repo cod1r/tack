@@ -24,9 +24,11 @@ let box =
       Some
         (Textarea
            {
-             text = Tack.Rope.of_string "HI" |> Tack.Rope.rebalance;
+             text = Some (Tack.Rope.of_string "HI" |> Tack.Rope.rebalance);
              cursor_pos = Some 1;
              highlight_pos = None;
+             holding_mousedown = false;
+             holding_ctrl = false;
              scroll_y_offset = 0;
              scroll_x_offset = 0;
            });

@@ -37,21 +37,26 @@ type box = {
 
 and event_handler_t = b:box option -> e:Sdl.event -> unit
 
+and text_area_information = {
+  text : Rope.rope option;
+  cursor_pos : int option;
+  highlight_pos : (int * int) option;
+  holding_ctrl : bool;
+  holding_mousedown : bool;
+  scroll_x_offset : int;
+  scroll_y_offset : int;
+}
+
 and box_content =
   | Box of box
   | Boxes of box list
   | Text of string
-  | Textarea of {
-      text : Rope.rope;
-      cursor_pos : int option;
-      highlight_pos : (int * int) option;
-      scroll_x_offset : int;
-      scroll_y_offset : int;
-    }
+  | Textarea of text_area_information
 
 let focused_element : box option ref = ref None
 let set_focused_element ~(box : box) = focused_element := Some box
 let unfocus_element () = focused_element := None
+let default_bbox : bounding_box = { width = 0; height = 0; x = 0; y = 0 }
 
 let default_box =
   {

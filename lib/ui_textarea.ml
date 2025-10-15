@@ -261,7 +261,6 @@ let calc_new_xy ~(bbox : Ui.bounding_box) ~(char : char)
 
 let find_coords_for_cursor_pos ~(font_info : Ui.font_info)
     ~(bbox : Ui.bounding_box) ~rope ~cursor_pos ~scroll_y_offset =
-  let num_lines = num_lines rope in
   let fold_fn_for_finding_coords (acc : rope_traversal_info_ traverse_info) c =
     let (Rope_Traversal_Info acc) = acc in
     if acc.rope_pos != cursor_pos then
@@ -285,9 +284,119 @@ let find_coords_for_cursor_pos ~(font_info : Ui.font_info)
 
 let find_closest_rope_pos_for_moving_cursor_in_vertical_range
     ~(font_info : Ui.font_info) ~cursor_x ~lower_y ~rope ~scroll_y_offset =
-  let num_lines = num_lines rope in
   let hor_pos =
     find_closest_horizontal_pos ~font_info ~rope ~x:cursor_x ~scroll_y_offset
       ~closest_vertical_range:(Some (lower_y, lower_y + font_info.font_height))
   in
   hor_pos
+
+let handle_kbd_evt ~(font_info : Ui.font_info) ~char_code ~bbox ~kbd_evt_type
+    ~keysym ~(text_area_information : Ui.text_area_information) :
+    Ui.text_area_information =
+  match text_area_information.text with
+  | Some r -> (
+      match char_code with
+      | 1073742048 -> (
+          (* this is the integer encoding for ctrl in SDL *)
+          match kbd_evt_type with
+          | Sdl.Keydown -> { text_area_information with holding_ctrl = true }
+          | Keyup -> { text_area_information with holding_ctrl = false })
+      | 1073741904 (* left arrow key *) when kbd_evt_type = Keydown ->
+          let minus_1 =
+            max 0
+              (pred (Option.value text_area_information.cursor_pos ~default:0))
+          in
+          { text_area_information with cursor_pos = Some minus_1 }
+      | (1073741906 (* up arrow key *) | 1073741905 (* down arrow key *))
+        when kbd_evt_type = Keydown ->
+          let { x; y; _ } =
+            find_coords_for_cursor_pos ~bbox ~font_info ~rope:r
+              ~cursor_pos:
+                (Option.value text_area_information.cursor_pos ~default:0)
+              ~scroll_y_offset:text_area_information.scroll_y_offset
+          in
+          let cursor_pos' =
+            find_closest_rope_pos_for_moving_cursor_in_vertical_range ~rope:r
+              ~bbox ~font_info
+              ~scroll_y_offset:text_area_information.scroll_y_offset ~cursor_x:x
+              ~lower_y:
+                ((if char_code = 1073741906 then ( - ) else ( + ))
+                   y font_info.font_height)
+          in
+          { text_area_information with cursor_pos = Some cursor_pos' }
+      | 1073741903 (* right arrow key *) when kbd_evt_type = Keydown ->
+          let plus_1 =
+            min (Rope.length r)
+              (succ (Option.value text_area_information.cursor_pos ~default:0))
+          in
+          { text_area_information with cursor_pos = Some plus_1 }
+      | _ -> (
+          match keysym with
+          | '\b' when kbd_evt_type = Keydown ->
+              (* backspace *)
+              let rope_len = Rope.length r in
+              if rope_len > 0 && Option.is_some text_area_information.cursor_pos
+              then
+                let cursor_pos = Option.get text_area_information.cursor_pos in
+                let new_rope =
+                  Some
+                    (match text_area_information.highlight_pos with
+                    | Some (start, end') ->
+                        Rope.delete r ~start ~len:(end' - start)
+                    | None ->
+                        Rope.delete r ~start:(max 0 (cursor_pos - 1)) ~len:1)
+                in
+                { text_area_information with text = new_rope }
+              else text_area_information
+          | 'c'
+            when kbd_evt_type = Keydown && text_area_information.holding_ctrl ->
+              (match text_area_information.highlight_pos with
+              | Some (start, end') ->
+                  Rope.substring r ~start ~len:(end' - start)
+                  |> Rope.to_string |> Sdl.set_clipboard_text
+              | _ -> ());
+              text_area_information
+          | 'v'
+            when kbd_evt_type = Keydown && text_area_information.holding_ctrl ->
+              let clipboard_contents = Sdl.get_clipboard_text () in
+              let new_rope =
+                Rope.insert r
+                  (Option.value text_area_information.cursor_pos
+                     ~default:(Rope.length r - 1))
+                  clipboard_contents
+              in
+              { text_area_information with text = Some new_rope }
+          | ('\r' | '\n') when kbd_evt_type = Keydown ->
+              (* on macos, the return key gives \r instead of \n *)
+              let new_rope =
+                Some
+                  (Rope.insert r
+                     (Option.value text_area_information.cursor_pos
+                        ~default:(Rope.length r - 1))
+                     "\n")
+              in
+              { text_area_information with text = new_rope }
+          | '\t' when kbd_evt_type = Keydown ->
+              (* horizontal tab will be two spaces for now *)
+              let new_rope =
+                Some
+                  (Rope.insert r
+                     (Option.value text_area_information.cursor_pos
+                        ~default:(Rope.length r))
+                     "  ")
+              in
+              { text_area_information with text = new_rope }
+          | _ -> text_area_information))
+  | None -> text_area_information
+
+let handle_txt_evt ~(text_area_information : Ui.text_area_information) ~text =
+  match text_area_information.text with
+  | Some r ->
+      let new_rope =
+        Rope.insert r
+          (Option.value text_area_information.cursor_pos
+             ~default:(Rope.length r - 1))
+          text
+      in
+      { text_area_information with text = Some new_rope }
+  | None -> text_area_information

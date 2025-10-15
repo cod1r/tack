@@ -205,15 +205,14 @@ let sampler_text_location =
   | Ok l -> l
   | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
 
-let default_bbox : Ui.bounding_box = { width = 0; height = 0; x = 0; y = 0 }
-
 let write_container_values_to_ui_buffer ~(box : Ui.box)
     ~(buffer : render_buffer_wrapper) =
   let window_width, window_height = Sdl.sdl_get_window_size Sdl.w in
   let window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
   let width_ratio = Float.of_int (window_width_gl / window_width) in
   let height_ratio = Float.of_int (window_height_gl / window_height) in
-  let Ui.{ width; height; x; y } = Option.value box.bbox ~default:default_bbox
+  let Ui.{ width; height; x; y } =
+    Option.value box.bbox ~default:Ui.default_bbox
   and Ui.(r, g, b, alpha) = box.background_color in
   let points : floatarray =
     [|
@@ -360,43 +359,6 @@ let draw_to_gl_buffer () =
   Opengl.gl_draw_arrays_with_quads (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
 
   ui_buffer.length <- 0
-
-module TextTextureInfo = struct
-  type texture_info = {
-    gl_texture_id : int;
-    font_size : int;
-    font_info : Ui.font_info;
-  }
-
-  let text_textures_with_different_font_sizes : texture_info list ref = ref []
-
-  let get_or_add_font_size_text_texture ~(font_size : int) =
-    let option =
-      List.find_opt
-        (fun { font_size = font_size'; _ } -> font_size' = font_size)
-        !text_textures_with_different_font_sizes
-    in
-    match option with
-    | Some { font_info; gl_texture_id; _ } -> (font_info, gl_texture_id)
-    | None ->
-        let gl_buffer_glyph_texture_atlas = Opengl.gl_gen_texture () in
-        let font_info =
-          Ui.get_new_font_info_with_font_size ~font_size ~face:FreeType.face
-        in
-        text_textures_with_different_font_sizes :=
-          {
-            gl_texture_id = gl_buffer_glyph_texture_atlas;
-            font_size;
-            font_info;
-          }
-          :: !text_textures_with_different_font_sizes;
-        Opengl.gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
-        Opengl.set_gl_tex_parameters_ui_text ();
-        Opengl.gl_teximage_2d ~bytes:font_info.font_texture_atlas.bytes
-          ~width:font_info.font_texture_atlas.width
-          ~height:font_info.font_texture_atlas.height;
-        (font_info, gl_buffer_glyph_texture_atlas)
-end
 
 let get_vertical_text_start ~(box : Ui.box) ~(font_info : Ui.font_info) =
   try
@@ -577,7 +539,7 @@ let draw_cursor ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
 
 let draw_text ~(s : string) ~(box : Ui.box) =
   let font_info, gl_texture_id =
-    TextTextureInfo.get_or_add_font_size_text_texture
+    Ui_text_texture_info.get_or_add_font_size_text_texture
       ~font_size:(Option.value box.font_size ~default:FreeType.font_size)
   in
   Opengl.gl_bind_texture ~texture_id:gl_texture_id;
@@ -608,7 +570,7 @@ let rec clamp_min_width_height ~(box : Ui.box) =
         match box.content with
         | Some (Box b) ->
             clamp_min_width_height ~box:b;
-            let inner_bbox = Option.value b.bbox ~default:default_bbox in
+            let inner_bbox = Option.value b.bbox ~default:Ui.default_bbox in
             if box.height_min_content then bbox.height <- inner_bbox.height;
             if box.width_min_content then bbox.width <- inner_bbox.width
         | Some (Boxes list) ->
@@ -616,20 +578,20 @@ let rec clamp_min_width_height ~(box : Ui.box) =
             let summed_heights =
               List.fold_left
                 (fun acc b ->
-                  acc + (Option.value b.Ui.bbox ~default:default_bbox).height)
+                  acc + (Option.value b.Ui.bbox ~default:Ui.default_bbox).height)
                 0 list
             in
             let summed_widths =
               List.fold_left
                 (fun acc b ->
-                  acc + (Option.value b.Ui.bbox ~default:default_bbox).width)
+                  acc + (Option.value b.Ui.bbox ~default:Ui.default_bbox).width)
                 0 list
             in
             if box.height_min_content then bbox.height <- summed_heights;
             if box.width_min_content then bbox.width <- summed_widths
         | Some (Text s) ->
             let font_info, _ =
-              TextTextureInfo.get_or_add_font_size_text_texture
+              Ui_text_texture_info.get_or_add_font_size_text_texture
                 ~font_size:
                   (Option.value box.font_size ~default:FreeType.font_size)
             in
@@ -704,7 +666,7 @@ let handle_list_of_boxes_initial_position ~(box : Ui.box) ~(d : Ui.direction)
   let acc_width, acc_height =
     List.fold_left
       (fun (acc_w, acc_h) b ->
-        let bbox = Option.value b.Ui.bbox ~default:default_bbox in
+        let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
         match d with
         | Horizontal -> (acc_w + bbox.width, bbox.height)
         | Vertical -> (bbox.width, acc_h + bbox.height))
@@ -727,7 +689,9 @@ let handle_list_of_boxes_initial_position ~(box : Ui.box) ~(d : Ui.direction)
 let align_inner_box_vertically ~(box : Ui.box) ~(inner_box : Ui.box) =
   match box.bbox with
   | Some bbox -> (
-      let inner_box_bbox = Option.value inner_box.bbox ~default:default_bbox in
+      let inner_box_bbox =
+        Option.value inner_box.bbox ~default:Ui.default_bbox
+      in
       match box.vertical_align with
       | Some Top ->
           let y_pos =
@@ -761,7 +725,9 @@ let align_inner_box_vertically ~(box : Ui.box) ~(inner_box : Ui.box) =
 let align_inner_box_horizontally ~(box : Ui.box) ~(inner_box : Ui.box) =
   match box.bbox with
   | Some bbox -> (
-      let inner_box_bbox = Option.value inner_box.bbox ~default:default_bbox in
+      let inner_box_bbox =
+        Option.value inner_box.bbox ~default:Ui.default_bbox
+      in
       match box.horizontal_align with
       | Some Left ->
           let x_pos =
@@ -929,7 +895,7 @@ let rec draw_box ~(box : Ui.box) =
         | Some (Boxes list) -> (
             match box.flow with
             | Some ((Horizontal | Vertical) as d) ->
-                let box_bbox = Option.value box.bbox ~default:default_bbox in
+                let box_bbox = Option.value box.bbox ~default:Ui.default_bbox in
                 let boxes_pos =
                   ref
                     (handle_list_of_boxes_initial_position ~d ~box ~box_bbox
@@ -959,17 +925,17 @@ let rec draw_box ~(box : Ui.box) =
                  highlight_pos;
                  scroll_y_offset;
                  scroll_x_offset;
+                 _;
                }) ->
             clip_content ~box;
             let font_info, gl_texture_id =
-              TextTextureInfo.get_or_add_font_size_text_texture
+              Ui_text_texture_info.get_or_add_font_size_text_texture
                 ~font_size:
                   (Option.value box.font_size ~default:FreeType.font_size)
             in
             Opengl.gl_bind_texture ~texture_id:gl_texture_id;
-            draw_textarea ~rope:(Some text) ~cursor_pos ~highlight_pos
-              ~font_info
-              ~bbox:(Option.value box.bbox ~default:default_bbox)
+            draw_textarea ~rope:text ~cursor_pos ~highlight_pos ~font_info
+              ~bbox:(Option.value box.bbox ~default:Ui.default_bbox)
               ~scroll_y_offset ~scroll_x_offset ~box;
             Opengl.gl_disable_scissor ()
         | None -> ())

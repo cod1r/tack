@@ -23,7 +23,10 @@ let rec to_string = function
 
 let rec substring r ~start ~len =
   match r with
-  | Leaf l -> Leaf (String.sub l start len)
+  | Leaf l ->
+      Leaf
+        (try String.sub l start len
+         with Invalid_argument e -> failwith (__FUNCTION__ ^ "; " ^ e))
   | Node { left; right; _ } ->
       if start + len <= length left then substring left ~start ~len
       else if start >= length left then
