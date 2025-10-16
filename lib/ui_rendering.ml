@@ -769,7 +769,7 @@ let draw_text_textarea ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
     if c = '\n' then
       Ui_textarea.Rope_Traversal_Info
         {
-          x = acc.x;
+          x = bbox.x;
           y = acc.y + font_info.font_height;
           rope_pos = acc.rope_pos + 1;
           line_num = acc.line_num + 1;

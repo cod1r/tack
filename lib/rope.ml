@@ -26,7 +26,10 @@ let rec substring r ~start ~len =
   | Leaf l ->
       Leaf
         (try String.sub l start len
-         with Invalid_argument e -> failwith (__FUNCTION__ ^ "; " ^ e))
+         with Invalid_argument e ->
+           failwith
+             (__FUNCTION__ ^ "; start of sub: " ^ string_of_int start
+            ^ "; len: " ^ string_of_int len ^ "; str: " ^ l ^ "; " ^ e))
   | Node { left; right; _ } ->
       if start + len <= length left then substring left ~start ~len
       else if start >= length left then

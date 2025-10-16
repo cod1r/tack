@@ -8,7 +8,7 @@ let last_add = ref (Sdl.sdl_getticks ())
 let box =
   {
     Tack.Ui.default_box with
-    bbox = Some { x = 0; y = 0; height = 500; width = 500 };
+    bbox = Some { x = 0; y = 0; height = 1000; width = 1000 };
     background_color = (0.8, 0.8, 0.8, 1.0);
     on_event =
       Some
@@ -25,7 +25,7 @@ let box =
         (Textarea
            {
              text = Some (Tack.Rope.of_string "HI" |> Tack.Rope.rebalance);
-             cursor_pos = Some 1;
+             cursor_pos = None;
              highlight_pos = None;
              holding_mousedown = false;
              holding_ctrl = false;
