@@ -374,16 +374,16 @@ let handle_kbd_evt ~(font_info : Ui.font_info) ~char_code ~bbox ~kbd_evt_type
               { text_area_information with text = Some new_rope }
           | ('\r' | '\n') when kbd_evt_type = Keydown ->
               (* on macos, the return key gives \r instead of \n *)
-              let cursor_pos' = Option.value text_area_information.cursor_pos
-                        ~default:(Rope.length r)
+              let cursor_pos' =
+                Option.value text_area_information.cursor_pos
+                  ~default:(Rope.length r)
               in
-              let new_rope =
-                Some
-                  (Rope.insert r
-                     (cursor_pos')
-                     "\n")
-              in
-              { text_area_information with text = new_rope; cursor_pos = Some (cursor_pos' + 1) }
+              let new_rope = Some (Rope.insert r cursor_pos' "\n") in
+              {
+                text_area_information with
+                text = new_rope;
+                cursor_pos = Some (cursor_pos' + 1);
+              }
           | '\t' when kbd_evt_type = Keydown ->
               (* horizontal tab will be two spaces for now *)
               let cursor_pos' =

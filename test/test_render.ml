@@ -6,7 +6,7 @@ open Tack.Ui_textarea
 let timing_test_opengl_works _ =
   let w =
     match Sdl.sdl_create_window "tack" 0 0 800 800 Sdl.sdl_window_opengl with
-    | Some (Window { width; height; title; _ } as w) ->
+    | Some ({ width; height; title; _ } as w) ->
         Printf.printf "Created window: %s %d %d" title width height;
         print_newline ();
         w

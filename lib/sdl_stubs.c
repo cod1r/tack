@@ -114,7 +114,7 @@ SDL_Renderer* get_renderer_from_window(value window) {
   if (w == NULL) caml_failwith(SDL_GetError());
   SDL_Renderer* renderer = SDL_GetRenderer(w);
   if (renderer == NULL) {
-    caml_failwith("SDL_GetRenderer failed");
+    caml_failwith(SDL_GetError());
   }
   return renderer;
 }

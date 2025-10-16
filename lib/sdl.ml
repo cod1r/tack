@@ -52,15 +52,14 @@ module Sdl = struct
   external sdl_pollevent : (unit[@untagged]) -> event option
     = "sdl_pollevent" "sdl_pollevent"
 
-  type window =
-    | Window of {
-        id : int;
-        title : string;
-        x : int;
-        y : int;
-        width : int;
-        height : int;
-      }
+  type window = {
+    id : int;
+    title : string;
+    x : int;
+    y : int;
+    width : int;
+    height : int;
+  }
 
   type window_size = int * int
 
@@ -157,7 +156,7 @@ module Sdl = struct
           (sdl_window_allow_highdpi lor sdl_window_opengl
          lor sdl_window_resizable)
       with
-      | Some (Window { width; height; title; _ } as w) ->
+      | Some ({ width; height; title; _ } as w) ->
           Printf.printf "Created window: %s %d %d" title width height;
           print_newline ();
           w
