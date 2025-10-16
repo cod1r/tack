@@ -392,11 +392,15 @@ let handle_kbd_evt ~(font_info : Ui.font_info) ~char_code ~bbox ~kbd_evt_type
 let handle_txt_evt ~(text_area_information : Ui.text_area_information) ~text =
   match text_area_information.text with
   | Some r ->
-      let new_rope =
-        Rope.insert r
-          (Option.value text_area_information.cursor_pos
-             ~default:(Rope.length r - 1))
-          text
+      let cursor_pos' =
+        Option.value text_area_information.cursor_pos
+          ~default:(Rope.length r - 1)
+        + String.length text
       in
-      { text_area_information with text = Some new_rope }
+      let new_rope = Rope.insert r cursor_pos' text in
+      {
+        text_area_information with
+        text = Some new_rope;
+        cursor_pos = Some cursor_pos';
+      }
   | None -> text_area_information
