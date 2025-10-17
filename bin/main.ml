@@ -107,9 +107,18 @@ let smol_box =
 let box =
   {
     Tack.Ui.default_box with
-    bbox = Some { x = 1800; y = 200; width = 1000; height = 1000 };
+    bbox = Some { x = 0; y = 0; width = 1000; height = 1000 };
     content = Some (Boxes [ box'; box''; smol_box ]);
     flow = Some Horizontal;
+  }
+
+let box =
+  {
+    Tack.Ui.default_box with
+    bbox = Some { x = 2000; y = 2000; width = 1000; height = 1000 };
+    content = Some (Text "HI");
+    flow = Some Horizontal;
+    background_color = (0.8, 0.8, 0.8, 1.);
   }
 
 let rec loop () =

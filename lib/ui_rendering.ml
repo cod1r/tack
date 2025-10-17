@@ -205,41 +205,40 @@ let sampler_text_location =
   | Ok l -> l
   | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
 
-let transform_xy_coords_to_opengl_viewport_coords ~x ~y =
-  let x, y = (Float.of_int x, Float.of_int y) in
-  ()
-
-let write_container_values_to_ui_buffer ~(box : Ui.box)
-    ~(buffer : render_buffer_wrapper) =
+let transform_xy_coords_to_opengl_viewport_coords ~(x : float) ~(y : float) =
   let width_ratio, height_ratio =
     Ui.get_logical_to_opengl_window_dims_ratio ()
   in
   let width_ratio, height_ratio =
     (Float.of_int width_ratio, Float.of_int height_ratio)
   in
+  let window_width, window_height = Sdl.sdl_gl_getdrawablesize () in
+  ( (x *. width_ratio /. Float.of_int window_width) -. 1.,
+    (-.y *. height_ratio /. Float.of_int window_height) +. 1. )
+
+let write_container_values_to_ui_buffer ~(box : Ui.box)
+    ~(buffer : render_buffer_wrapper) =
   let Ui.{ width; height; x; y } =
     Option.value box.bbox ~default:Ui.default_bbox
   and Ui.(r, g, b, alpha) = box.background_color in
   let points : floatarray =
     [|
-      Float.of_int x *. width_ratio;
-      Float.of_int (y + height) *. height_ratio;
-      Float.of_int x *. width_ratio;
-      Float.of_int y *. height_ratio;
-      Float.of_int (x + width) *. width_ratio;
-      Float.of_int y *. height_ratio;
-      Float.of_int (x + width) *. width_ratio;
-      Float.of_int (y + height) *. height_ratio;
+      Float.of_int x;
+      Float.of_int (y + height);
+      Float.of_int x;
+      Float.of_int y;
+      Float.of_int (x + width);
+      Float.of_int y;
+      Float.of_int (x + width);
+      Float.of_int (y + height);
     |]
   in
-  let window_width, window_height = Sdl.sdl_gl_getdrawablesize () in
   let idx = ref 0 in
   let float_array_index = ref 0 in
   while !float_array_index < Float.Array.length points do
     let x = Float.Array.get points !float_array_index
     and y = Float.Array.get points (!float_array_index + 1) in
-    let x = (x /. Float.of_int window_width) -. 1. in
-    let y = (-.y /. Float.of_int window_height) +. 1. in
+    let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
     buffer.buffer.{!idx} <- x;
     buffer.buffer.{!idx + 1} <- y;
     buffer.buffer.{!idx + 2} <- r;
@@ -259,21 +258,31 @@ let () =
 let write_text_to_ui_buffer ~(render_buf_container : render_buffer_wrapper)
     ~(glyph_info : Freetype.FreeType.glyph_info_) ~x ~y ~(glyph : char)
     ~(font_info : Ui.font_info) =
-  let window_width, window_height = Sdl.sdl_get_window_size Sdl.w in
-  let x_scaled, y_scaled =
-    ( Float.of_int x /. Float.of_int window_width,
-      Float.of_int y /. Float.of_int window_height )
+  let points : floatarray =
+    [|
+      Float.of_int (x + glyph_info.horiBearingX);
+      Float.of_int (y + glyph_info.rows - glyph_info.horiBearingY);
+
+      Float.of_int (x + glyph_info.horiBearingX);
+      Float.of_int (y - glyph_info.horiBearingY);
+
+      Float.of_int (x + glyph_info.width + glyph_info.horiBearingX);
+      Float.of_int (y - glyph_info.horiBearingY);
+
+      Float.of_int (x + glyph_info.width + glyph_info.horiBearingX);
+      Float.of_int (y + glyph_info.rows - glyph_info.horiBearingY);
+    |]
   in
-  let width_scaled = Float.of_int glyph_info.width /. Float.of_int window_width
-  and height_scaled =
-    Float.of_int glyph_info.rows /. Float.of_int window_height
-  in
-  let left, right, top, bottom = get_tex_coords ~font_info ~glyph ~glyph_info
-  and horiBearing_Y_Scaled =
-    Float.of_int glyph_info.horiBearingY /. Float.of_int window_height
-  and horiBearing_X_Scaled =
-    Float.of_int glyph_info.horiBearingX /. Float.of_int window_width
-  in
+  let points_idx = ref 0 in
+  while !points_idx < Float.Array.length points do
+    let x = Float.Array.get points !points_idx
+    and y = Float.Array.get points (!points_idx + 1) in
+    let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
+    Float.Array.set points !points_idx x;
+    Float.Array.set points (!points_idx + 1) y;
+    points_idx := !points_idx + 2
+  done;
+  let left, right, top, bottom = get_tex_coords ~font_info ~glyph ~glyph_info in
   (*
      layout of the values list is:
        vertex x
@@ -288,29 +297,29 @@ let write_text_to_ui_buffer ~(render_buf_container : render_buffer_wrapper)
    *)
   let values : floatarray =
     [|
-      x_scaled +. horiBearing_X_Scaled -. 1.;
-      -.(y_scaled +. height_scaled) +. horiBearing_Y_Scaled +. 1.;
+      Float.Array.get points 0;
+      Float.Array.get points 1;
       0.;
       0.;
       0.;
       left;
       bottom;
-      x_scaled +. horiBearing_X_Scaled -. 1.;
-      -.y_scaled +. horiBearing_Y_Scaled +. 1.;
+      Float.Array.get points 2;
+      Float.Array.get points 3;
       0.;
       0.;
       0.;
       left;
       top;
-      x_scaled +. width_scaled +. horiBearing_X_Scaled -. 1.;
-      -.y_scaled +. horiBearing_Y_Scaled +. 1.;
+      Float.Array.get points 4;
+      Float.Array.get points 5;
       0.;
       0.;
       0.;
       right;
       top;
-      x_scaled +. width_scaled +. horiBearing_X_Scaled -. 1.;
-      -.(y_scaled +. height_scaled) +. horiBearing_Y_Scaled +. 1.;
+      Float.Array.get points 6;
+      Float.Array.get points 7;
       0.;
       0.;
       0.;
@@ -466,17 +475,14 @@ let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
 
 let write_cursor_to_ui_buffer ~(render_buf_container : render_buffer_wrapper) ~x
     ~y ~font_height =
-  let window_width, window_height = Sdl.sdl_gl_getdrawablesize () in
   let points =
     [ (x, y + font_height); (x, y); (x + 3, y); (x + 3, y + font_height) ]
   in
   let values = Float.Array.init 24 (fun _ -> 0.) in
   List.iteri
     (fun idx (x, y) ->
-      let x = Float.of_int x /. Float.of_int (window_width / 2) in
-      let x = x -. 1. in
-      let y = Float.of_int y /. Float.of_int (window_height / 2) in
-      let y = -.y +. 1. in
+      let x, y = Float.of_int x, Float.of_int y in
+      let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
       let start = idx * 6 in
       Float.Array.set values start x;
       Float.Array.set values (start + 1) y;
