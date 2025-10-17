@@ -205,10 +205,9 @@ let sampler_text_location =
   | Ok l -> l
   | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
 
+let width_ratio, height_ratio = Ui.get_logical_to_opengl_window_dims_ratio ()
+
 let transform_xy_coords_to_opengl_viewport_coords ~(x : float) ~(y : float) =
-  let width_ratio, height_ratio =
-    Ui.get_logical_to_opengl_window_dims_ratio ()
-  in
   let width_ratio, height_ratio =
     (Float.of_int width_ratio, Float.of_int height_ratio)
   in
@@ -262,13 +261,10 @@ let write_text_to_ui_buffer ~(render_buf_container : render_buffer_wrapper)
     [|
       Float.of_int (x + glyph_info.horiBearingX);
       Float.of_int (y + glyph_info.rows - glyph_info.horiBearingY);
-
       Float.of_int (x + glyph_info.horiBearingX);
       Float.of_int (y - glyph_info.horiBearingY);
-
       Float.of_int (x + glyph_info.width + glyph_info.horiBearingX);
       Float.of_int (y - glyph_info.horiBearingY);
-
       Float.of_int (x + glyph_info.width + glyph_info.horiBearingX);
       Float.of_int (y + glyph_info.rows - glyph_info.horiBearingY);
     |]
@@ -418,11 +414,23 @@ let get_horizontal_text_start ~(box : Ui.box) ~(font_info : Ui.font_info)
 let write_highlight_to_ui_buffer ~(buffer : render_buffer_wrapper)
     ~(points : (int * int) list) =
   let start = buffer.length in
-  List.iter (fun (x, y) -> failwith "TODO") points
+  List.iteri
+    (fun i (x, y) ->
+      let x, y = (Float.of_int x, Float.of_int y) in
+      let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
+      let idx = (i * 6) + start in
+      buffer.buffer.{idx} <- x;
+      buffer.buffer.{idx + 1} <- y;
+      buffer.buffer.{idx + 2} <- 0.;
+      buffer.buffer.{idx + 3} <- 0.;
+      buffer.buffer.{idx + 4} <- 1.;
+      buffer.buffer.{idx + 5} <- 0.5)
+    points;
+  buffer.length <- List.length points * 6
 
 let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
-    ~(r : Rope.rope) ~(highlight : int option * int option) ~scroll_y_offset
-    ~highlight_buffer =
+    ~(r : Rope.rope) ~(highlight : int option * int option) ~scroll_y_offset =
+  let entire_points_of_highlight_quads = ref [] in
   match highlight with
   | Some highlight_start, Some highlight_end ->
       let fold_fn_for_draw_highlight
@@ -431,7 +439,12 @@ let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
         match c with
         | '\n' ->
             Ui_textarea.Rope_Traversal_Info
-              { acc with y = acc.y + 1; rope_pos = acc.rope_pos + 1 }
+              {
+                acc with
+                x = bbox.x;
+                y = acc.y + font_info.font_height;
+                rope_pos = acc.rope_pos + 1;
+              }
         | _ ->
             let _, glyph_info_found =
               Array.find_opt
@@ -455,7 +468,8 @@ let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
                    (acc.x + x_advance, next_y);
                  ]
                in
-               write_highlight_to_ui_buffer ~buffer:ui_buffer ~points);
+               entire_points_of_highlight_quads :=
+                 List.append points !entire_points_of_highlight_quads);
             Rope_Traversal_Info
               { acc with x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
       in
@@ -470,7 +484,8 @@ let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
                line_num = 0;
              })
       in
-      ()
+      write_highlight_to_ui_buffer ~buffer:ui_buffer
+        ~points:!entire_points_of_highlight_quads
   | _ -> ()
 
 let write_cursor_to_ui_buffer ~(render_buf_container : render_buffer_wrapper) ~x
@@ -481,7 +496,7 @@ let write_cursor_to_ui_buffer ~(render_buf_container : render_buffer_wrapper) ~x
   let values = Float.Array.init 24 (fun _ -> 0.) in
   List.iteri
     (fun idx (x, y) ->
-      let x, y = Float.of_int x, Float.of_int y in
+      let x, y = (Float.of_int x, Float.of_int y) in
       let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
       let start = idx * 6 in
       Float.Array.set values start x;
@@ -849,8 +864,7 @@ let draw_textarea ~(font_info : Ui.font_info) ~rope ~(scroll_y_offset : int)
       draw_to_gl_buffer_text ();
       match !Ui.focused_element with
       | Some b when b == box ->
-          draw_highlight ~r ~scroll_y_offset ~highlight ~bbox ~font_info
-            ~highlight_buffer:ui_buffer;
+          draw_highlight ~r ~scroll_y_offset ~highlight ~bbox ~font_info;
           draw_to_gl_buffer ();
           draw_cursor ~r ~cursor_pos ~scroll_y_offset ~font_info ~bbox;
           draw_to_gl_buffer ()
@@ -919,7 +933,7 @@ let rec draw_box ~(box : Ui.box) =
                  scroll_x_offset;
                  _;
                }) ->
-            (* clip_content ~box; *)
+            clip_content ~box;
             let font_info, gl_texture_id =
               Ui_text_texture_info.get_or_add_font_size_text_texture
                 ~font_size:
@@ -929,8 +943,8 @@ let rec draw_box ~(box : Ui.box) =
             draw_textarea ~rope:text ~cursor_pos ~highlight:highlight_pos
               ~font_info
               ~bbox:(Option.value box.bbox ~default:Ui.default_bbox)
-              ~scroll_y_offset ~box
-            (* Opengl.gl_disable_scissor () *)
+              ~scroll_y_offset ~box;
+            Opengl.gl_disable_scissor ()
         | None -> ())
   | None -> ());
   if box.clip_content then Opengl.gl_disable_scissor ()

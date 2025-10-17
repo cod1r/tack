@@ -42,7 +42,7 @@ let box' =
   {
     Tack.Ui.default_box with
     name = Some "FIRST";
-    bbox = Some { x = 0; y = 0; height = 500; width = 500 };
+    bbox = Some { x = 0; y = 0; height = 1000; width = 1000 };
     background_color = (0.8, 0.8, 0.8, 1.0);
     font_size = Some 14;
     on_event =
@@ -112,26 +112,17 @@ let box =
     flow = Some Horizontal;
   }
 
-let box =
-  {
-    Tack.Ui.default_box with
-    bbox = Some { x = 2000; y = 2000; width = 1000; height = 1000 };
-    content = Some (Text "HI");
-    flow = Some Horizontal;
-    background_color = (0.8, 0.8, 0.8, 1.);
-  }
-
 let rec loop () =
   let evt = Sdl.sdl_pollevent () in
   let continue =
     match evt with
     | Some Quit -> false
     | None ->
-        Tack.Ui_rendering.draw ~box;
+        Tack.Ui_rendering.draw ~box:box';
         true
     | Some e ->
         Tack.Ui_events.emit_event ~e;
-        Tack.Ui_rendering.draw ~box;
+        Tack.Ui_rendering.draw ~box:box';
         true
   in
   if continue then loop () else ()
