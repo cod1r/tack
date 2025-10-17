@@ -343,10 +343,9 @@ let handle_kbd_evt ~(font_info : Ui.font_info) ~char_code ~bbox ~kbd_evt_type
                 let new_rope =
                   Some
                     (match text_area_information.highlight_pos with
-                    | Some (start, end') ->
+                    | Some start, Some end' ->
                         Rope.delete r ~start ~len:(end' - start)
-                    | None ->
-                        Rope.delete r ~start:(max 0 (cursor_pos - 1)) ~len:1)
+                    | _ -> Rope.delete r ~start:(max 0 (cursor_pos - 1)) ~len:1)
                 in
                 {
                   text_area_information with
@@ -357,7 +356,7 @@ let handle_kbd_evt ~(font_info : Ui.font_info) ~char_code ~bbox ~kbd_evt_type
           | 'c'
             when kbd_evt_type = Keydown && text_area_information.holding_ctrl ->
               (match text_area_information.highlight_pos with
-              | Some (start, end') ->
+              | Some start, Some end' ->
                   Rope.substring r ~start ~len:(end' - start)
                   |> Rope.to_string |> Sdl.set_clipboard_text
               | _ -> ());

@@ -40,7 +40,7 @@ and event_handler_t = b:box option -> e:Sdl.event -> unit
 and text_area_information = {
   text : Rope.rope option;
   cursor_pos : int option;
-  highlight_pos : (int * int) option;
+  highlight_pos : int option * int option;
   holding_ctrl : bool;
   holding_mousedown : bool;
   scroll_x_offset : int;
@@ -166,12 +166,16 @@ let get_text_texture_atlas_info
     bytes = bytes_texture_atlas;
   }
 
+let get_logical_to_opengl_window_dims_ratio () =
+  let window_width, window_height = Sdl.sdl_get_window_size Sdl.w
+  and window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
+  (window_width_gl / window_width, window_height_gl / window_height)
+
 let get_new_font_info_with_font_size ~(font_size : int)
     ~(face : FreeType.ft_face) =
-  let _, window_height = Sdl.sdl_get_window_size Sdl.w in
-  let _, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
+  let _, height_ratio = get_logical_to_opengl_window_dims_ratio () in
   (* scaling font_size appropriately based on ratio between the opengl window in pixels and the sdl window's pixels *)
-  let font_size = font_size * window_height_gl / window_height in
+  let font_size = font_size * height_ratio in
   let glyph_info_with_char =
     Array.init
       (126 - 32 + 1)

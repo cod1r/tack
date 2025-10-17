@@ -15,26 +15,14 @@ let box'' =
       Some
         (fun ~b ~e ->
           match e with
-          | Sdl.MouseButtonEvt { mouse_evt_type; x; y; _ } -> (
+          | Sdl.MouseButtonEvt { mouse_evt_type; x; y; _ } ->
               if mouse_evt_type = Mousedown then
-                match b with
-                | Some b -> (
-                    match b.bbox with
-                    | Some _ ->
-                        let Tack.Ui.{ top; left; bottom; right } =
-                          Tack.Ui.get_box_sides ~box:b
-                        in
-                        let x, y = (x * 2, y * 2) in
-                        if x >= left && x <= right && y >= top && y <= bottom
-                        then (
-                          Tack.Ui.set_focused_element ~box:b;
-                          b.background_color <-
-                            ( Random.float 1.,
-                              Random.float 1.,
-                              Random.float 1.,
-                              1. ))
-                    | None -> ())
-                | None -> ())
+                let Tack.Ui.{ top; left; bottom; right } =
+                  Tack.Ui.get_box_sides ~box:(Option.get b)
+                in
+                let x, y = (x * 2, y * 2) in
+                if x >= left && x <= right && y >= top && y <= bottom then
+                  Tack.Ui.set_focused_element ~box:(Option.get b)
           | _ -> ());
     content =
       Some
@@ -42,7 +30,7 @@ let box'' =
            {
              text = Some (Tack.Rope.of_string "HI" |> Tack.Rope.rebalance);
              cursor_pos = None;
-             highlight_pos = None;
+             highlight_pos = (None, None);
              holding_mousedown = false;
              holding_ctrl = false;
              scroll_y_offset = 0;
@@ -56,6 +44,7 @@ let box' =
     name = Some "FIRST";
     bbox = Some { x = 0; y = 0; height = 500; width = 500 };
     background_color = (0.8, 0.8, 0.8, 1.0);
+    font_size = Some 14;
     on_event =
       Some
         (fun ~b ~e ->
@@ -87,7 +76,7 @@ let box' =
            {
              text = Some (Tack.Rope.of_string "HI" |> Tack.Rope.rebalance);
              cursor_pos = None;
-             highlight_pos = None;
+             highlight_pos = (None, None);
              holding_mousedown = false;
              holding_ctrl = false;
              scroll_y_offset = 0;
@@ -118,7 +107,7 @@ let smol_box =
 let box =
   {
     Tack.Ui.default_box with
-    bbox = Some { x = 300; y = 200; width = 1000; height = 1000 };
+    bbox = Some { x = 1800; y = 200; width = 1000; height = 1000 };
     content = Some (Boxes [ box'; box''; smol_box ]);
     flow = Some Horizontal;
   }

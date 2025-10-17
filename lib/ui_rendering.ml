@@ -205,12 +205,18 @@ let sampler_text_location =
   | Ok l -> l
   | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
 
+let transform_xy_coords_to_opengl_viewport_coords ~x ~y =
+  let x, y = (Float.of_int x, Float.of_int y) in
+  ()
+
 let write_container_values_to_ui_buffer ~(box : Ui.box)
     ~(buffer : render_buffer_wrapper) =
-  let window_width, window_height = Sdl.sdl_get_window_size Sdl.w in
-  let window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
-  let width_ratio = Float.of_int (window_width_gl / window_width) in
-  let height_ratio = Float.of_int (window_height_gl / window_height) in
+  let width_ratio, height_ratio =
+    Ui.get_logical_to_opengl_window_dims_ratio ()
+  in
+  let width_ratio, height_ratio =
+    (Float.of_int width_ratio, Float.of_int height_ratio)
+  in
   let Ui.{ width; height; x; y } =
     Option.value box.bbox ~default:Ui.default_bbox
   and Ui.(r, g, b, alpha) = box.background_color in
@@ -400,10 +406,16 @@ let get_horizontal_text_start ~(box : Ui.box) ~(font_info : Ui.font_info)
     | Some Right -> bbox.x + bbox.width - width_of_string
   with Invalid_argument e -> failwith ("alignment requires a bbox;" ^ e)
 
+let write_highlight_to_ui_buffer ~(buffer : render_buffer_wrapper)
+    ~(points : (int * int) list) =
+  let start = buffer.length in
+  List.iter (fun (x, y) -> failwith "TODO") points
+
 let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
-    ~(r : Rope.rope) ~highlight ~scroll_y_offset ~highlight_buffer =
+    ~(r : Rope.rope) ~(highlight : int option * int option) ~scroll_y_offset
+    ~highlight_buffer =
   match highlight with
-  | Some (highlight_start, highlight_end) ->
+  | Some highlight_start, Some highlight_end ->
       let fold_fn_for_draw_highlight
           (acc : Ui_textarea.rope_traversal_info_ Ui_textarea.traverse_info) c =
         let (Rope_Traversal_Info acc) = acc in
@@ -434,10 +446,7 @@ let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
                    (acc.x + x_advance, next_y);
                  ]
                in
-               List.iter
-                 (fun (x, y) ->
-                   failwith "TODO: write highlight info into ui buffer")
-                 points);
+               write_highlight_to_ui_buffer ~buffer:ui_buffer ~points);
             Rope_Traversal_Info
               { acc with x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
       in
@@ -453,7 +462,7 @@ let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
              })
       in
       ()
-  | None -> ()
+  | _ -> ()
 
 let write_cursor_to_ui_buffer ~(render_buf_container : render_buffer_wrapper) ~x
     ~y ~font_height =
@@ -761,8 +770,7 @@ let _ = Opengl.gl_enable_texture_2d ()
 let _ = Opengl.gl_enable_blending ()
 
 let draw_text_textarea ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
-    ~(rope : Rope.rope) ~text_buffer ~window_width ~window_height
-    ~scroll_y_offset =
+    ~(rope : Rope.rope) ~text_buffer ~scroll_y_offset =
   let fold_fn_for_drawing_text
       (acc : Ui_textarea.rope_traversal_info_ Ui_textarea.traverse_info) c =
     let (Ui_textarea.Rope_Traversal_Info acc) = acc in
@@ -824,15 +832,13 @@ let draw_text_textarea ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
   there are specific details like wrapping that I'd like to handle. Maybe there could be
   an abstraction for that specific wrapping behavior, but let's consider that later.
 *)
-let draw_textarea' ~(font_info : Ui.font_info) ~rope ~(scroll_y_offset : int)
+let draw_textarea ~(font_info : Ui.font_info) ~rope ~(scroll_y_offset : int)
     ~(bbox : Ui.bounding_box) ~highlight ~cursor_pos ~(box : Ui.box) =
-  let window_dims = Sdl.sdl_gl_getdrawablesize () in
-  let window_width, window_height = window_dims in
   match rope with
   | Some r -> (
       let Ui_textarea.{ line_number_placements; _ } =
-        draw_text_textarea ~font_info ~rope:r ~window_width ~window_height ~bbox
-          ~scroll_y_offset ~text_buffer:ui_buffer
+        draw_text_textarea ~font_info ~rope:r ~bbox ~scroll_y_offset
+          ~text_buffer:ui_buffer
       in
       draw_to_gl_buffer_text ();
       match !Ui.focused_element with
@@ -852,26 +858,6 @@ let () =
   Opengl.gl_enable_vertex_attrib_array location_point_vertex;
   Opengl.gl_enable_vertex_attrib_array location_color
 
-let draw_textarea ~(rope : Rope.rope option) ~cursor_pos ~highlight_pos
-    ~scroll_y_offset ~scroll_x_offset ~font_info ~bbox ~box =
-  Opengl.gl_use_program ui_program;
-
-  Opengl.gl_vertex_attrib_pointer_float_type ~location:location_point_vertex
-    ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:0;
-
-  Opengl.gl_vertex_attrib_pointer_float_type ~location:location_color ~size:4
-    ~stride:_EACH_POINT_FLOAT_AMOUNT ~normalized:false ~start_idx:2;
-
-  Opengl.gl_buffer_subdata_big_array ~render_buffer:ui_buffer.buffer
-    ~length:ui_buffer.length;
-
-  Opengl.gl_draw_arrays_with_quads (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
-
-  ui_buffer.length <- 0;
-
-  draw_textarea' ~font_info ~rope ~cursor_pos ~highlight:highlight_pos ~bbox
-    ~scroll_y_offset ~box
-
 let rec draw_box ~(box : Ui.box) =
   if not !validated then validate ~box;
   if not !added_event_handlers then add_event_handlers ~box;
@@ -882,8 +868,8 @@ let rec draw_box ~(box : Ui.box) =
       let Ui.{ left; top; bottom; right } = Ui.get_box_sides ~box in
       let window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
       if
-        left >= 0 && right <= window_width_gl && top >= 0
-        && bottom <= window_height_gl
+        left <= window_width_gl && right >= 0 && top <= window_height_gl
+        && bottom >= 0
       then (
         write_container_values_to_ui_buffer ~box ~buffer:ui_buffer;
         draw_to_gl_buffer ();
@@ -927,17 +913,18 @@ let rec draw_box ~(box : Ui.box) =
                  scroll_x_offset;
                  _;
                }) ->
-            clip_content ~box;
+            (* clip_content ~box; *)
             let font_info, gl_texture_id =
               Ui_text_texture_info.get_or_add_font_size_text_texture
                 ~font_size:
                   (Option.value box.font_size ~default:FreeType.font_size)
             in
             Opengl.gl_bind_texture ~texture_id:gl_texture_id;
-            draw_textarea ~rope:text ~cursor_pos ~highlight_pos ~font_info
+            draw_textarea ~rope:text ~cursor_pos ~highlight:highlight_pos
+              ~font_info
               ~bbox:(Option.value box.bbox ~default:Ui.default_bbox)
-              ~scroll_y_offset ~scroll_x_offset ~box;
-            Opengl.gl_disable_scissor ()
+              ~scroll_y_offset ~box
+            (* Opengl.gl_disable_scissor () *)
         | None -> ())
   | None -> ());
   if box.clip_content then Opengl.gl_disable_scissor ()
