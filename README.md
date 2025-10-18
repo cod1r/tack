@@ -33,6 +33,9 @@ and contains text
     text highlighting should update along with the users caret/cursor when
         they are dragging...
 
+    rewrite and organize code that handles text wrapping and rope traversal so
+    it's easier to debug in the future...
+
 vim motions?
 
 basic features:

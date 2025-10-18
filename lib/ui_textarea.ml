@@ -4,36 +4,32 @@ open Opengl
 
 let _LINE_NUMBER_RIGHT_PADDING = 20
 
-type rope_traversal_info_ = {
-  x : int;
-  y : int;
-  rope_pos : int;
-  line_num : int;
-  line_number_placements : (int * int) list;
-}
+type rope_traversal_info = { x : int; y : int; rope_pos : int }
 
 type closest_information = {
   closest_col : int option;
-  x : int;
-  lower_y : int;
   upper_y : int;
   closest_vertical_range : (int * int) option;
   closest_rope : int option;
-  rope_pos : int;
 }
 
 type _ traverse_info =
   | Rope_Traversal_Info :
-      rope_traversal_info_
-      -> rope_traversal_info_ traverse_info
+      rope_traversal_info
+      -> rope_traversal_info traverse_info
   | Num_Lines : int -> int traverse_info
-  | Finding_Cursor : closest_information -> closest_information traverse_info
+  | Finding_Cursor :
+      (rope_traversal_info * closest_information)
+      -> (rope_traversal_info * closest_information) traverse_info
 
-let rec traverse_rope : type p.
-    _ -> (p traverse_info -> char -> p traverse_info) -> p traverse_info -> p =
- fun (rope : Rope.rope)
-     (handle_result : p traverse_info -> char -> p traverse_info)
-     (result : p traverse_info) ->
+let rec traverse_rope : type a.
+    rope:Rope.rope ->
+    handle_result:(a traverse_info -> char -> a traverse_info) ->
+    result:a traverse_info ->
+    a =
+ fun ~(rope : Rope.rope)
+     ~(handle_result : a traverse_info -> char -> a traverse_info)
+     ~(result : a traverse_info) ->
   match rope with
   | Leaf l -> (
       match result with
@@ -66,13 +62,14 @@ let rec traverse_rope : type p.
           done;
           !acc)
   | Node { left; right; _ } ->
-      let left_result = traverse_rope left handle_result result in
+      let left_result = traverse_rope ~rope:left ~handle_result ~result in
       let right_result =
-        traverse_rope right handle_result
-          (match result with
-          | Rope_Traversal_Info _ -> Rope_Traversal_Info left_result
-          | Finding_Cursor _ -> Finding_Cursor left_result
-          | Num_Lines _ -> Num_Lines left_result)
+        traverse_rope ~rope:right ~handle_result
+          ~result:
+            (match result with
+            | Rope_Traversal_Info _ -> Rope_Traversal_Info left_result
+            | Finding_Cursor _ -> Finding_Cursor left_result
+            | Num_Lines _ -> Num_Lines left_result)
       in
       right_result
 
@@ -83,40 +80,44 @@ let num_lines (rope : Rope.rope) =
       Num_Lines (l + 1)
     else acc
   in
-  let accumulation = traverse_rope rope fold_fn (Num_Lines 0) in
+  let accumulation =
+    traverse_rope ~rope ~handle_result:fold_fn ~result:(Num_Lines 0)
+  in
   accumulation
 
-let get_pair_col_and_rope_pos ~closest_info ~x =
+let get_pair_col_and_rope_pos ~rope_traversal_info ~closest_info ~x =
   match closest_info.closest_vertical_range with
   | Some (s, e) ->
-      if closest_info.lower_y = s && closest_info.upper_y = e then
+      if rope_traversal_info.y = s && closest_info.upper_y = e then
         match closest_info.closest_col with
         | Some closest_col ->
-            if abs (closest_col - x) < abs (closest_info.x - x) then
+            if abs (closest_col - x) < abs (rope_traversal_info.x - x) then
               (closest_info.closest_col, closest_info.closest_rope)
-            else (Some closest_info.x, Some closest_info.rope_pos)
-        | None -> (Some closest_info.x, Some closest_info.rope_pos)
+            else (Some rope_traversal_info.x, Some rope_traversal_info.rope_pos)
+        | None -> (Some rope_traversal_info.x, Some rope_traversal_info.rope_pos)
       else (closest_info.closest_col, closest_info.closest_rope)
   | None -> (None, None)
 
 let find_closest_vertical_range ~(bbox : Ui.bounding_box)
     ~(font_info : Ui.font_info) ~rope ~y ~scroll_y_offset =
-  let fold_fn_for_vertical_range
-      (closest_info : closest_information traverse_info) c =
-    let (Finding_Cursor closest_info) = closest_info in
+  let fold_fn_for_vertical_range closest_info c =
+    let (Finding_Cursor (rope_traversal_info, closest_info)) = closest_info in
     match c with
     | '\n' ->
         Finding_Cursor
-          {
-            closest_info with
-            lower_y = closest_info.lower_y + font_info.font_height;
-            upper_y = closest_info.upper_y + font_info.font_height;
-            x = bbox.x;
-            closest_vertical_range =
-              (if y >= closest_info.lower_y && y <= closest_info.upper_y then
-                 Some (closest_info.lower_y, closest_info.upper_y)
-               else closest_info.closest_vertical_range);
-          }
+          ( {
+              rope_traversal_info with
+              x = bbox.x;
+              y = rope_traversal_info.y + font_info.font_height;
+            },
+            {
+              closest_info with
+              upper_y = closest_info.upper_y + font_info.font_height;
+              closest_vertical_range =
+                (if y >= rope_traversal_info.y && y <= closest_info.upper_y then
+                   Some (rope_traversal_info.y, closest_info.upper_y)
+                 else closest_info.closest_vertical_range);
+            } )
     | _ ->
         let _, gi =
           Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
@@ -124,101 +125,101 @@ let find_closest_vertical_range ~(bbox : Ui.bounding_box)
         in
         let x_advance = gi.x_advance in
         let new_x, new_y =
-          if closest_info.x + x_advance > bbox.x + bbox.width then
-            (bbox.x, closest_info.lower_y + font_info.font_height)
-          else (closest_info.x + x_advance, closest_info.lower_y)
+          if rope_traversal_info.x + x_advance > bbox.x + bbox.width then
+            (bbox.x, rope_traversal_info.y + font_info.font_height)
+          else (rope_traversal_info.x + x_advance, rope_traversal_info.y)
         in
         Finding_Cursor
-          {
-            closest_info with
-            x = new_x;
-            lower_y = new_y;
-            upper_y = new_y + font_info.font_height;
-            closest_vertical_range =
-              (if y >= closest_info.lower_y && y <= closest_info.upper_y then
-                 Some (closest_info.lower_y, closest_info.upper_y)
-               else closest_info.closest_vertical_range);
-          }
+          ( { rope_traversal_info with x = new_x; y = new_y },
+            {
+              closest_info with
+              upper_y = new_y + font_info.font_height;
+              closest_vertical_range =
+                (if y >= rope_traversal_info.y && y <= closest_info.upper_y then
+                   Some (rope_traversal_info.y, closest_info.upper_y)
+                 else closest_info.closest_vertical_range);
+            } )
   in
   let lower_y = bbox.y + (scroll_y_offset * font_info.font_height) in
   let upper_y = lower_y + font_info.font_height in
-  let { closest_vertical_range; _ } : closest_information =
-    traverse_rope rope fold_fn_for_vertical_range
-      (Finding_Cursor
-         {
-           lower_y;
-           upper_y;
-           closest_col = None;
-           x = bbox.x;
-           closest_rope = None;
-           rope_pos = 0;
-           closest_vertical_range = None;
-         })
+  let (_, { closest_vertical_range; _ }) :
+      rope_traversal_info * closest_information =
+    traverse_rope ~rope ~handle_result:fold_fn_for_vertical_range
+      ~result:
+        (Finding_Cursor
+           ( { x = bbox.x; y = lower_y; rope_pos = 0 },
+             {
+               upper_y;
+               closest_col = None;
+               closest_rope = None;
+               closest_vertical_range = None;
+             } ))
   in
   closest_vertical_range
 
 let find_closest_horizontal_pos ~(bbox : Ui.bounding_box)
     ~(font_info : Ui.font_info) ~rope ~x ~scroll_y_offset
     ~closest_vertical_range =
-  let fold_fn_for_close_x (closest_info : closest_information traverse_info) c =
-    let (Finding_Cursor closest_info) = closest_info in
+  let fold_fn_for_close_x closest_info c =
+    let (Finding_Cursor (rope_traversal_info, closest_info)) = closest_info in
     match c with
     | '\n' ->
         let closest_col, closest_rope =
-          get_pair_col_and_rope_pos ~closest_info ~x
+          get_pair_col_and_rope_pos ~rope_traversal_info ~closest_info ~x
         in
         Finding_Cursor
-          {
-            closest_info with
-            lower_y = closest_info.lower_y + font_info.font_height;
-            upper_y = closest_info.upper_y + font_info.font_height;
-            x = bbox.x;
-            rope_pos = closest_info.rope_pos + 1;
-            closest_col;
-            closest_rope;
-          }
+          ( {
+              x = bbox.x;
+              y = rope_traversal_info.y + font_info.font_height;
+              rope_pos = rope_traversal_info.rope_pos + 1;
+            },
+            {
+              closest_info with
+              upper_y = closest_info.upper_y + font_info.font_height;
+              closest_col;
+              closest_rope;
+            } )
     | _ ->
         let _, gi =
           Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
           |> Option.get
         in
         let x_advance = gi.x_advance in
-        let wraps = closest_info.x + x_advance > bbox.x + bbox.width in
+        let wraps = rope_traversal_info.x + x_advance > bbox.x + bbox.width in
         let new_x, new_y =
           if wraps then
-            (bbox.x + x_advance, closest_info.lower_y + font_info.font_height)
-          else (closest_info.x + x_advance, closest_info.lower_y)
+            (bbox.x + x_advance, rope_traversal_info.y + font_info.font_height)
+          else (rope_traversal_info.x + x_advance, rope_traversal_info.y)
         in
         let closest_col, closest_rope =
-          get_pair_col_and_rope_pos ~closest_info ~x
+          get_pair_col_and_rope_pos ~rope_traversal_info ~closest_info ~x
         in
         Finding_Cursor
-          {
-            closest_info with
-            x = new_x;
-            lower_y = new_y;
-            upper_y = new_y + font_info.font_height;
-            closest_col;
-            closest_rope;
-            rope_pos = closest_info.rope_pos + 1;
-          }
+          ( { x = new_x; y = new_y; rope_pos = rope_traversal_info.rope_pos + 1 },
+            {
+              closest_info with
+              upper_y = new_y + font_info.font_height;
+              closest_col;
+              closest_rope;
+            } )
   in
   let lower_y = bbox.y + (scroll_y_offset * font_info.font_height) in
   let upper_y = lower_y + font_info.font_height in
-  let closest_info : closest_information =
-    traverse_rope rope fold_fn_for_close_x
-      (Finding_Cursor
-         {
-           closest_rope = None;
-           closest_col = None;
-           x = bbox.x;
-           lower_y;
-           upper_y;
-           rope_pos = 0;
-           closest_vertical_range;
-         })
+  let rope_traversal_info, closest_info =
+    traverse_rope ~rope ~handle_result:fold_fn_for_close_x
+      ~result:
+        (Finding_Cursor
+           ( { x = bbox.x; y = lower_y; rope_pos = 0 },
+             {
+               closest_rope = None;
+               closest_col = None;
+               upper_y;
+               closest_vertical_range;
+             } ))
   in
-  let _, closest_rope = get_pair_col_and_rope_pos ~closest_info ~x in
+  let _, closest_rope =
+    get_pair_col_and_rope_pos ~rope_traversal_info ~closest_info ~x
+  in
   closest_rope
 
 (*
@@ -263,26 +264,23 @@ let calc_new_xy ~(bbox : Ui.bounding_box) ~(char : char)
 
 let find_coords_for_cursor_pos ~(font_info : Ui.font_info)
     ~(bbox : Ui.bounding_box) ~rope ~cursor_pos ~scroll_y_offset =
-  let fold_fn_for_finding_coords (acc : rope_traversal_info_ traverse_info) c =
+  let fold_fn_for_finding_coords acc c =
     let (Rope_Traversal_Info acc) = acc in
     if acc.rope_pos != cursor_pos then
       let new_x, new_y =
         calc_new_xy ~bbox ~font_info ~x:acc.x ~y:acc.y ~char:c
       in
-      Rope_Traversal_Info
-        { acc with x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
+      Rope_Traversal_Info { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
     else Rope_Traversal_Info acc
   in
-  traverse_rope rope fold_fn_for_finding_coords
-    (Rope_Traversal_Info
-       {
-         x = bbox.x;
-         y = bbox.y + (scroll_y_offset * font_info.font_height);
-         (* these three aren't used here but are needed for the type *)
-         rope_pos = 0;
-         line_num = 0;
-         line_number_placements = [];
-       })
+  traverse_rope ~rope ~handle_result:fold_fn_for_finding_coords
+    ~result:
+      (Rope_Traversal_Info
+         {
+           x = bbox.x;
+           y = bbox.y + (scroll_y_offset * font_info.font_height);
+           rope_pos = 0;
+         })
 
 let find_closest_rope_pos_for_moving_cursor_in_vertical_range
     ~(font_info : Ui.font_info) ~cursor_x ~lower_y ~rope ~scroll_y_offset =

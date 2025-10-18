@@ -433,14 +433,12 @@ let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
   let entire_points_of_highlight_quads = ref [] in
   match highlight with
   | Some highlight_start, Some highlight_end ->
-      let fold_fn_for_draw_highlight
-          (acc : Ui_textarea.rope_traversal_info_ Ui_textarea.traverse_info) c =
-        let (Rope_Traversal_Info acc) = acc in
+      let fold_fn_for_draw_highlight acc c =
+        let (Ui_textarea.Rope_Traversal_Info acc) = acc in
         match c with
         | '\n' ->
             Ui_textarea.Rope_Traversal_Info
               {
-                acc with
                 x = bbox.x;
                 y = acc.y + font_info.font_height;
                 rope_pos = acc.rope_pos + 1;
@@ -476,18 +474,14 @@ let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
                entire_points_of_highlight_quads :=
                  List.append points !entire_points_of_highlight_quads);
             Rope_Traversal_Info
-              { acc with x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
+              { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
       in
       let _ =
-        Ui_textarea.traverse_rope r fold_fn_for_draw_highlight
-          (Ui_textarea.Rope_Traversal_Info
-             {
-               x = bbox.x;
-               y = bbox.y;
-               rope_pos = 0;
-               line_number_placements = [];
-               line_num = 0;
-             })
+        Ui_textarea.traverse_rope ~rope:r
+          ~handle_result:fold_fn_for_draw_highlight
+          ~result:
+            (Ui_textarea.Rope_Traversal_Info
+               { x = bbox.x; y = bbox.y; rope_pos = 0 })
       in
       write_highlight_to_ui_buffer ~buffer:ui_buffer
         ~points:!entire_points_of_highlight_quads
@@ -518,9 +512,8 @@ let draw_cursor ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
     ~(r : Rope.rope) ~cursor_pos ~scroll_y_offset =
   match cursor_pos with
   | Some cursor_pos ->
-      let fold_fn_draw_cursor
-          (acc : Ui_textarea.rope_traversal_info_ Ui_textarea.traverse_info) c =
-        let (Rope_Traversal_Info acc) = acc in
+      let fold_fn_draw_cursor acc c =
+        let (Ui_textarea.Rope_Traversal_Info acc) = acc in
         let y_pos = acc.y in
         if
           acc.rope_pos = cursor_pos && y_pos >= bbox.y
@@ -534,7 +527,6 @@ let draw_cursor ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
         | '\n' ->
             Ui_textarea.Rope_Traversal_Info
               {
-                acc with
                 x = bbox.x;
                 y = acc.y + font_info.font_height;
                 rope_pos = acc.rope_pos + 1;
@@ -550,22 +542,20 @@ let draw_cursor ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
             let wraps = acc.x + x_advance > bbox.x + bbox.width in
             Rope_Traversal_Info
               {
-                acc with
                 x = (if wraps then bbox.x + x_advance else acc.x + x_advance);
                 y = (if wraps then acc.y + font_info.font_height else acc.y);
                 rope_pos = acc.rope_pos + 1;
               }
       in
       let res =
-        Ui_textarea.traverse_rope r fold_fn_draw_cursor
-          (Ui_textarea.Rope_Traversal_Info
-             {
-               line_number_placements = [];
-               x = bbox.x;
-               y = bbox.y + (scroll_y_offset * font_info.font_height);
-               rope_pos = 0;
-               line_num = 0;
-             })
+        Ui_textarea.traverse_rope ~rope:r ~handle_result:fold_fn_draw_cursor
+          ~result:
+            (Ui_textarea.Rope_Traversal_Info
+               {
+                 x = bbox.x;
+                 y = bbox.y + (scroll_y_offset * font_info.font_height);
+                 rope_pos = 0;
+               })
       in
       if res.rope_pos = cursor_pos then
         write_cursor_to_ui_buffer ~render_buf_container:ui_buffer ~x:res.x
@@ -797,8 +787,7 @@ let _ = Opengl.gl_enable_blending ()
 
 let draw_text_textarea ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
     ~(rope : Rope.rope) ~text_buffer ~scroll_y_offset =
-  let fold_fn_for_drawing_text
-      (acc : Ui_textarea.rope_traversal_info_ Ui_textarea.traverse_info) c =
+  let fold_fn_for_drawing_text acc c =
     let (Ui_textarea.Rope_Traversal_Info acc) = acc in
     if c = '\n' then
       Ui_textarea.Rope_Traversal_Info
@@ -806,10 +795,6 @@ let draw_text_textarea ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
           x = bbox.x;
           y = acc.y + font_info.font_height;
           rope_pos = acc.rope_pos + 1;
-          line_num = acc.line_num + 1;
-          line_number_placements =
-            (acc.line_num + 1, acc.y + font_info.font_height)
-            :: acc.line_number_placements;
         }
     else
       let gi = ref None in
@@ -842,17 +827,15 @@ let draw_text_textarea ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
           ~x:(if wraps then bbox.x else acc.x)
           ~y:y_pos_start ~glyph_info:gi ~glyph:c ~font_info;
       Ui_textarea.Rope_Traversal_Info
-        { acc with rope_pos = acc.rope_pos + 1; x = new_x; y = new_y }
+        { rope_pos = acc.rope_pos + 1; x = new_x; y = new_y }
   in
-  Ui_textarea.traverse_rope rope fold_fn_for_drawing_text
-    (Ui_textarea.Rope_Traversal_Info
-       {
-         line_number_placements = [ (1, font_info.font_height) ];
-         rope_pos = 0;
-         x = bbox.x;
-         y = bbox.y + font_info.font_height;
-         line_num = 1;
-       })
+  let _ =
+    Ui_textarea.traverse_rope ~rope ~handle_result:fold_fn_for_drawing_text
+      ~result:
+        (Ui_textarea.Rope_Traversal_Info
+           { rope_pos = 0; x = bbox.x; y = bbox.y + font_info.font_height })
+  in
+  ()
 
 (* At first, it seems like there could be a write_rope_to_text_buffer function, BUT
   there are specific details like wrapping that I'd like to handle. Maybe there could be
@@ -862,10 +845,8 @@ let draw_textarea ~(font_info : Ui.font_info) ~rope ~(scroll_y_offset : int)
     ~(bbox : Ui.bounding_box) ~highlight ~cursor_pos ~(box : Ui.box) =
   match rope with
   | Some r -> (
-      let Ui_textarea.{ line_number_placements; _ } =
-        draw_text_textarea ~font_info ~rope:r ~bbox ~scroll_y_offset
-          ~text_buffer:ui_buffer
-      in
+      draw_text_textarea ~font_info ~rope:r ~bbox ~scroll_y_offset
+        ~text_buffer:ui_buffer;
       draw_to_gl_buffer_text ();
       match !Ui.focused_element with
       | Some b when b == box ->
