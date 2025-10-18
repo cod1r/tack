@@ -10,12 +10,12 @@ type render_buffer_wrapper = {
 }
 
 let get_tex_coords ~(font_info : Ui.font_info) ~(glyph : char)
-    ~(glyph_info : FreeType.glyph_info_) =
+    ~(glyph_info : Freetype.glyph_info_) =
   let _, starting_x =
     Array.fold_left
       (fun (found, acc) (c, gi) ->
         if c = glyph || found then (true, acc)
-        else (false, acc + gi.FreeType.width))
+        else (false, acc + gi.Freetype.width))
       (false, 0) font_info.glyph_info_with_char
   in
   let starting_x, ending_x = (starting_x, starting_x + glyph_info.width) in
@@ -255,7 +255,7 @@ let () =
     ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
 
 let write_text_to_ui_buffer ~(render_buf_container : render_buffer_wrapper)
-    ~(glyph_info : Freetype.FreeType.glyph_info_) ~x ~y ~(glyph : char)
+    ~(glyph_info : Freetype.glyph_info_) ~x ~y ~(glyph : char)
     ~(font_info : Ui.font_info) =
   let points : floatarray =
     [|
@@ -570,7 +570,7 @@ let draw_cursor ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
 let draw_text ~(s : string) ~(box : Ui.box) =
   let font_info, gl_texture_id =
     Ui_text_texture_info.get_or_add_font_size_text_texture
-      ~font_size:(Option.value box.font_size ~default:FreeType.font_size)
+      ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
   in
   Opengl.gl_bind_texture ~texture_id:gl_texture_id;
   let start_y = get_vertical_text_start ~box ~font_info in
@@ -623,7 +623,7 @@ let rec clamp_min_width_height ~(box : Ui.box) =
             let font_info, _ =
               Ui_text_texture_info.get_or_add_font_size_text_texture
                 ~font_size:
-                  (Option.value box.font_size ~default:FreeType.font_size)
+                  (Option.value box.font_size ~default:Freetype.font_size)
             in
             let string_width =
               String.fold_left
@@ -634,7 +634,7 @@ let rec clamp_min_width_height ~(box : Ui.box) =
                       font_info.glyph_info_with_char
                   in
                   match op with
-                  | Some (_, g) -> acc + g.FreeType.x_advance
+                  | Some (_, g) -> acc + g.Freetype.x_advance
                   | None -> acc)
                 0 s
             in
@@ -937,7 +937,7 @@ let rec draw_box ~(box : Ui.box) =
             let font_info, gl_texture_id =
               Ui_text_texture_info.get_or_add_font_size_text_texture
                 ~font_size:
-                  (Option.value box.font_size ~default:FreeType.font_size)
+                  (Option.value box.font_size ~default:Freetype.font_size)
             in
             Opengl.gl_bind_texture ~texture_id:gl_texture_id;
             draw_textarea ~rope:text ~cursor_pos ~highlight:highlight_pos

@@ -14,7 +14,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
               let font_info, _ =
                 Ui_text_texture_info.get_or_add_font_size_text_texture
                   ~font_size:
-                    (Option.value b.font_size ~default:FreeType.font_size)
+                    (Option.value b.font_size ~default:Freetype.font_size)
               in
               let new_text_area_information =
                 Ui_textarea.handle_kbd_evt
@@ -29,7 +29,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                   let font_info, _ =
                     Ui_text_texture_info.get_or_add_font_size_text_texture
                       ~font_size:
-                        (Option.value b.font_size ~default:FreeType.font_size)
+                        (Option.value b.font_size ~default:Freetype.font_size)
                   in
                   match info.text with
                   | Some r -> (
@@ -46,6 +46,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                                  {
                                    info with
                                    holding_mousedown = true;
+                                   cursor_pos = Some rope_pos;
                                    highlight_pos = (Some rope_pos, None);
                                  })
                       | Mouseup when info.holding_mousedown = true ->
@@ -56,6 +57,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                                  {
                                    info with
                                    holding_mousedown = false;
+                                   cursor_pos = Some rope_pos;
                                    highlight_pos = (start, Some rope_pos);
                                  })
                       | _ -> ())

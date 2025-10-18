@@ -18,7 +18,7 @@ type closest_information = {
   lower_y : int;
   upper_y : int;
   closest_vertical_range : (int * int) option;
-  closest_rope : int;
+  closest_rope : int option;
   rope_pos : int;
 }
 
@@ -92,12 +92,16 @@ let get_pair_col_and_rope_pos ~closest_info ~x =
       if closest_info.lower_y = s && closest_info.upper_y = e then
         match closest_info.closest_col with
         | Some closest_col ->
+            Printf.printf "%d %d %d %d %d" x closest_col closest_info.x
+              (abs (closest_col - x))
+              (abs (closest_info.x - x));
+            print_newline ();
             if abs (closest_col - x) < abs (closest_info.x - x) then
               (closest_info.closest_col, closest_info.closest_rope)
-            else (Some closest_info.x, closest_info.rope_pos)
-        | None -> (Some closest_info.x, closest_info.rope_pos)
+            else (Some closest_info.x, Some closest_info.rope_pos)
+        | None -> (Some closest_info.x, Some closest_info.rope_pos)
       else (closest_info.closest_col, closest_info.closest_rope)
-  | None -> (None, -1)
+  | None -> (None, None)
 
 let find_closest_vertical_range ~(bbox : Ui.bounding_box)
     ~(font_info : Ui.font_info) ~rope ~y ~scroll_y_offset =
@@ -150,7 +154,7 @@ let find_closest_vertical_range ~(bbox : Ui.bounding_box)
            upper_y;
            closest_col = None;
            x = bbox.x;
-           closest_rope = 0;
+           closest_rope = None;
            rope_pos = 0;
            closest_vertical_range = None;
          })
@@ -183,13 +187,14 @@ let find_closest_horizontal_pos ~(bbox : Ui.bounding_box)
           |> Option.get
         in
         let x_advance = gi.x_advance in
+        let wraps = closest_info.x + x_advance > bbox.x + bbox.width in
+        let new_x, new_y =
+          if wraps then
+            (bbox.x + x_advance, closest_info.lower_y + font_info.font_height)
+          else (closest_info.x + x_advance, closest_info.lower_y)
+        in
         let closest_col, closest_rope =
           get_pair_col_and_rope_pos ~closest_info ~x
-        in
-        let new_x, new_y =
-          if closest_info.x + x_advance > bbox.x + bbox.width then
-            (bbox.x, closest_info.lower_y + font_info.font_height)
-          else (closest_info.x + x_advance, closest_info.lower_y)
         in
         Finding_Cursor
           {
@@ -204,11 +209,11 @@ let find_closest_horizontal_pos ~(bbox : Ui.bounding_box)
   in
   let lower_y = bbox.y + (scroll_y_offset * font_info.font_height) in
   let upper_y = lower_y + font_info.font_height in
-  let { closest_rope; _ } : closest_information =
+  let closest_info : closest_information =
     traverse_rope rope fold_fn_for_close_x
       (Finding_Cursor
          {
-           closest_rope = -1;
+           closest_rope = None;
            closest_col = None;
            x = bbox.x;
            lower_y;
@@ -217,6 +222,7 @@ let find_closest_horizontal_pos ~(bbox : Ui.bounding_box)
            closest_vertical_range;
          })
   in
+  let _, closest_rope = get_pair_col_and_rope_pos ~closest_info ~x in
   closest_rope
 
 (*
@@ -231,11 +237,11 @@ let find_closest_horizontal_pos ~(bbox : Ui.bounding_box)
    *)
 let find_closest_rope_pos_for_cursor_on_coords ~(bbox : Ui.bounding_box)
     ~(font_info : Ui.font_info) ~x ~y ~rope ~scroll_y_offset =
-  let window_width, _ = Sdl.sdl_gl_getdrawablesize () in
-  let window_width_without_high_dpi, _ = Sdl.sdl_get_window_size Sdl.w in
+  let width_ratio, height_ratio =
+    Ui.get_logical_to_opengl_window_dims_ratio ()
+  in
   (* ratio is needed because the x,y coords given from MouseEvent is based on window without high dpi so scaling needs to happen *)
-  let ratio = window_width / window_width_without_high_dpi in
-  let x = x * ratio and y = y * ratio in
+  let x = x * width_ratio and y = y * height_ratio in
   let closest_vertical_range =
     find_closest_vertical_range ~bbox ~font_info ~rope ~scroll_y_offset ~y
   in
@@ -243,7 +249,7 @@ let find_closest_rope_pos_for_cursor_on_coords ~(bbox : Ui.bounding_box)
     find_closest_horizontal_pos ~bbox ~font_info ~rope ~scroll_y_offset
       ~closest_vertical_range ~x
   in
-  if closest_rope = -1 then Rope.length rope else closest_rope
+  if closest_rope = None then Rope.length rope else closest_rope |> Option.get
 
 let calc_new_xy ~(bbox : Ui.bounding_box) ~(char : char)
     ~(font_info : Ui.font_info) ~x ~y =
@@ -323,7 +329,7 @@ let handle_kbd_evt ~(font_info : Ui.font_info) ~char_code ~bbox ~kbd_evt_type
                 ((if char_code = 1073741906 then ( - ) else ( + ))
                    y font_info.font_height)
           in
-          { text_area_information with cursor_pos = Some cursor_pos' }
+          { text_area_information with cursor_pos = cursor_pos' }
       | 1073741903 (* right arrow key *) when kbd_evt_type = Keydown ->
           let plus_1 =
             min (Rope.length r)
@@ -340,18 +346,28 @@ let handle_kbd_evt ~(font_info : Ui.font_info) ~char_code ~bbox ~kbd_evt_type
                   Option.value text_area_information.cursor_pos
                     ~default:(Rope.length r)
                 in
-                let new_rope =
-                  Some
-                    (match text_area_information.highlight_pos with
-                    | Some start, Some end' ->
-                        Rope.delete r ~start ~len:(end' - start)
-                    | _ -> Rope.delete r ~start:(max 0 (cursor_pos - 1)) ~len:1)
-                in
-                {
-                  text_area_information with
-                  text = new_rope;
-                  cursor_pos = Some (cursor_pos - 1);
-                }
+                match text_area_information.highlight_pos with
+                | Some start, Some end' when end' - start > 0 ->
+                    let new_rope =
+                      Some (Rope.delete r ~start ~len:(end' - start))
+                    in
+                    {
+                      text_area_information with
+                      text = new_rope;
+                      cursor_pos = Some start;
+                      highlight_pos = (None, None);
+                    }
+                | _ ->
+                    let new_rope =
+                      Some
+                        (Rope.delete r ~start:(max 0 (cursor_pos - 1)) ~len:1)
+                    in
+                    {
+                      text_area_information with
+                      text = new_rope;
+                      cursor_pos = Some (cursor_pos - 1);
+                      highlight_pos = (None, None);
+                    }
               else text_area_information
           | 'c'
             when kbd_evt_type = Keydown && text_area_information.holding_ctrl ->

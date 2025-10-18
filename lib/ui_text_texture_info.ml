@@ -20,7 +20,7 @@ let get_or_add_font_size_text_texture ~(font_size : int) =
   | None ->
       let gl_buffer_glyph_texture_atlas = Opengl.gl_gen_texture () in
       let font_info =
-        Ui.get_new_font_info_with_font_size ~font_size ~face:FreeType.face
+        Ui.get_new_font_info_with_font_size ~font_size ~face:Freetype.face
       in
       text_textures_with_different_font_sizes :=
         { gl_texture_id = gl_buffer_glyph_texture_atlas; font_size; font_info }

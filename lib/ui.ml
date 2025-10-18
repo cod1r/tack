@@ -1,6 +1,3 @@
-open Freetype
-open Sdl
-
 type bounding_box = {
   mutable width : int;
   mutable height : int;
@@ -83,7 +80,7 @@ let default_box =
 type text_texture_atlas_info = { width : int; height : int; bytes : bytes }
 
 type font_info = {
-  glyph_info_with_char : (char * FreeType.glyph_info_) Array.t;
+  glyph_info_with_char : (char * Freetype.glyph_info_) Array.t;
   font_size : int;
   font_texture_atlas : text_texture_atlas_info;
   font_height : int;
@@ -127,13 +124,13 @@ let clone_box ~(box : box) =
   clone_box' box
 
 let get_text_texture_atlas_info
-    ~(glyph_info_with_char : (char * FreeType.glyph_info_) Array.t) =
-  let face = FreeType.face in
-  let descender = FreeType.get_descender face in
-  let ascender = FreeType.get_ascender face in
+    ~(glyph_info_with_char : (char * Freetype.glyph_info_) Array.t) =
+  let face = Freetype.face in
+  let descender = Freetype.get_descender face in
+  let ascender = Freetype.get_ascender face in
   let widths_summed =
     Array.fold_left
-      (fun acc (_, gi) -> acc + gi.FreeType.width)
+      (fun acc (_, gi) -> acc + gi.Freetype.width)
       0 glyph_info_with_char
   in
   let global_font_height = ascender - descender in
@@ -166,24 +163,26 @@ let get_text_texture_atlas_info
     bytes = bytes_texture_atlas;
   }
 
+let should_wrap () = failwith "TODO"
+
 let get_logical_to_opengl_window_dims_ratio () =
   let window_width, window_height = Sdl.sdl_get_window_size Sdl.w
   and window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
   (window_width_gl / window_width, window_height_gl / window_height)
 
 let get_new_font_info_with_font_size ~(font_size : int)
-    ~(face : FreeType.ft_face) =
+    ~(face : Freetype.ft_face) =
   let _, height_ratio = get_logical_to_opengl_window_dims_ratio () in
   (* scaling font_size appropriately based on ratio between the opengl window in pixels and the sdl window's pixels *)
   let font_size = font_size * height_ratio in
   let glyph_info_with_char =
     Array.init
       (126 - 32 + 1)
-      (fun i -> FreeType.get_ascii_char_glyph_info_ face (i + 32) font_size)
+      (fun i -> Freetype.get_ascii_char_glyph_info_ face (i + 32) font_size)
   in
-  let font_height = FreeType.get_font_height face in
-  let descender = FreeType.get_descender face in
-  let ascender = FreeType.get_ascender face in
+  let font_height = Freetype.get_font_height face in
+  let descender = Freetype.get_descender face in
+  let ascender = Freetype.get_ascender face in
   let text_texture_atlas_info =
     get_text_texture_atlas_info ~glyph_info_with_char
   in

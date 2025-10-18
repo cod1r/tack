@@ -1,13 +1,11 @@
-open Tack.Sdl
-open Tack.Rope
-open Tack.Ui_textarea
+open Tack
 
 let () = Sdl.sdl_gl_setswapinterval 0
 let last_add = ref (Sdl.sdl_getticks ())
 
 let box'' =
   {
-    Tack.Ui.default_box with
+    Ui.default_box with
     name = Some "SECOND";
     bbox = Some { x = 0; y = 0; height = 500; width = 500 };
     background_color = (0.5, 0.5, 0.5, 1.0);
@@ -17,18 +15,18 @@ let box'' =
           match e with
           | Sdl.MouseButtonEvt { mouse_evt_type; x; y; _ } ->
               if mouse_evt_type = Mousedown then
-                let Tack.Ui.{ top; left; bottom; right } =
-                  Tack.Ui.get_box_sides ~box:(Option.get b)
+                let Ui.{ top; left; bottom; right } =
+                  Ui.get_box_sides ~box:(Option.get b)
                 in
                 let x, y = (x * 2, y * 2) in
                 if x >= left && x <= right && y >= top && y <= bottom then
-                  Tack.Ui.set_focused_element ~box:(Option.get b)
+                  Ui.set_focused_element ~box:(Option.get b)
           | _ -> ());
     content =
       Some
         (Textarea
            {
-             text = Some (Tack.Rope.of_string "HI" |> Tack.Rope.rebalance);
+             text = Some (Rope.of_string "HI" |> Rope.rebalance);
              cursor_pos = None;
              highlight_pos = (None, None);
              holding_mousedown = false;
@@ -40,9 +38,9 @@ let box'' =
 
 let box' =
   {
-    Tack.Ui.default_box with
+    Ui.default_box with
     name = Some "FIRST";
-    bbox = Some { x = 0; y = 0; height = 1000; width = 1000 };
+    bbox = Some { x = 0; y = 0; height = 300; width = 300 };
     background_color = (0.8, 0.8, 0.8, 1.0);
     font_size = Some 14;
     on_event =
@@ -55,13 +53,13 @@ let box' =
                 | Some b -> (
                     match b.bbox with
                     | Some _ ->
-                        let Tack.Ui.{ top; left; bottom; right } =
-                          Tack.Ui.get_box_sides ~box:b
+                        let Ui.{ top; left; bottom; right } =
+                          Ui.get_box_sides ~box:b
                         in
                         let x, y = (x * 2, y * 2) in
                         if x >= left && x <= right && y >= top && y <= bottom
                         then (
-                          Tack.Ui.set_focused_element ~box:b;
+                          Ui.set_focused_element ~box:b;
                           b.background_color <-
                             ( Random.float 1.,
                               Random.float 1.,
@@ -74,7 +72,7 @@ let box' =
       Some
         (Textarea
            {
-             text = Some (Tack.Rope.of_string "HI" |> Tack.Rope.rebalance);
+             text = Some (Rope.of_string "HI" |> Rope.rebalance);
              cursor_pos = None;
              highlight_pos = (None, None);
              holding_mousedown = false;
@@ -86,7 +84,7 @@ let box' =
 
 let smol_box =
   {
-    Tack.Ui.default_box with
+    Ui.default_box with
     bbox = Some { x = 0; y = 0; width = 200; height = 200 };
     on_event =
       Some
@@ -95,8 +93,8 @@ let smol_box =
           | Sdl.MouseMotionEvt { x; y; _ } ->
               let box = Option.get b in
               let x, y = (x * 2, y * 2) in
-              let Tack.Ui.{ top; bottom; left; right } =
-                Tack.Ui.get_box_sides ~box
+              let Ui.{ top; bottom; left; right } =
+                Ui.get_box_sides ~box
               in
               if x >= left && x <= right && y >= top && y <= bottom then
                 box.background_color <-
@@ -106,7 +104,7 @@ let smol_box =
 
 let box =
   {
-    Tack.Ui.default_box with
+    Ui.default_box with
     bbox = Some { x = 0; y = 0; width = 1000; height = 1000 };
     content = Some (Boxes [ box'; box''; smol_box ]);
     flow = Some Horizontal;
@@ -118,11 +116,11 @@ let rec loop () =
     match evt with
     | Some Quit -> false
     | None ->
-        Tack.Ui_rendering.draw ~box:box';
+        Ui_rendering.draw ~box:box';
         true
     | Some e ->
-        Tack.Ui_events.emit_event ~e;
-        Tack.Ui_rendering.draw ~box:box';
+        Ui_events.emit_event ~e;
+        Ui_rendering.draw ~box:box';
         true
   in
   if continue then loop () else ()

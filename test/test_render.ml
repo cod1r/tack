@@ -1,7 +1,5 @@
 open OUnit2
-open Tack.Freetype
-open Tack.Sdl
-open Tack.Ui_textarea
+open Tack
 
 let timing_test_opengl_works _ =
   let w =
