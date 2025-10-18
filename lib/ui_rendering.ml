@@ -454,18 +454,23 @@ let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
             in
             let x_advance = glyph_info_found.x_advance in
             let next_y = acc.y + font_info.font_height in
+            let wraps = acc.x + x_advance > bbox.x + bbox.width in
             let new_x, new_y =
-              if acc.x + x_advance > bbox.x + bbox.width then (bbox.x, next_y)
+              if wraps then (bbox.x + x_advance, next_y)
               else (acc.x + x_advance, acc.y)
             in
             (if acc.rope_pos >= highlight_start && acc.rope_pos < highlight_end
              then
                let points =
                  [
-                   (acc.x, next_y);
-                   (acc.x, acc.y);
-                   (acc.x + x_advance, acc.y);
-                   (acc.x + x_advance, next_y);
+                   ( (if wraps then bbox.x else acc.x),
+                     next_y + if wraps then font_info.font_height else 0 );
+                   ( (if wraps then bbox.x else acc.x),
+                     acc.y + if wraps then font_info.font_height else 0 );
+                   ( (if wraps then bbox.x else acc.x) + x_advance,
+                     acc.y + if wraps then font_info.font_height else 0 );
+                   ( (if wraps then bbox.x else acc.x) + x_advance,
+                     next_y + if wraps then font_info.font_height else 0 );
                  ]
                in
                entire_points_of_highlight_quads :=

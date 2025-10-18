@@ -93,9 +93,7 @@ let smol_box =
           | Sdl.MouseMotionEvt { x; y; _ } ->
               let box = Option.get b in
               let x, y = (x * 2, y * 2) in
-              let Ui.{ top; bottom; left; right } =
-                Ui.get_box_sides ~box
-              in
+              let Ui.{ top; bottom; left; right } = Ui.get_box_sides ~box in
               if x >= left && x <= right && y >= top && y <= bottom then
                 box.background_color <-
                   (Random.float 1., Random.float 1., Random.float 1., 1.)

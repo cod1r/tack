@@ -92,10 +92,6 @@ let get_pair_col_and_rope_pos ~closest_info ~x =
       if closest_info.lower_y = s && closest_info.upper_y = e then
         match closest_info.closest_col with
         | Some closest_col ->
-            Printf.printf "%d %d %d %d %d" x closest_col closest_info.x
-              (abs (closest_col - x))
-              (abs (closest_info.x - x));
-            print_newline ();
             if abs (closest_col - x) < abs (closest_info.x - x) then
               (closest_info.closest_col, closest_info.closest_rope)
             else (Some closest_info.x, Some closest_info.rope_pos)
