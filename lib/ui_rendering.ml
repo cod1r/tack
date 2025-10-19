@@ -447,7 +447,7 @@ let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
             let gi = Ui.get_glyph_info_from_glyph ~glyph:c ~font_info in
             let x_advance = gi.x_advance in
             let next_y = acc.y + font_info.font_height in
-            let (~new_x, ~new_y, ~wraps) = Ui.get_text_wrap_info ~bbox ~glyph_info:gi
+            let (~new_x, ~new_y, ~wraps) = Ui.get_text_wrap_info ~bbox ~glyph:c
             ~x:acc.x ~y:acc.y ~font_info
             in
             (if acc.rope_pos >= highlight_start && acc.rope_pos < highlight_end
@@ -525,8 +525,7 @@ let draw_cursor ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
                 rope_pos = acc.rope_pos + 1;
               }
         | _ ->
-            let gi = Ui.get_glyph_info_from_glyph ~glyph:c ~font_info in
-            let ~new_x, ~new_y,.. = Ui.get_text_wrap_info ~bbox ~glyph_info:gi ~x:acc.x ~y:acc.y ~font_info in
+            let ~new_x, ~new_y,.. = Ui.get_text_wrap_info ~bbox ~glyph:c ~x:acc.x ~y:acc.y ~font_info in
             Rope_Traversal_Info
               {
                 x = (new_x);

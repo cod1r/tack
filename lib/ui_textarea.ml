@@ -190,14 +190,7 @@ let find_closest_horizontal_pos
           ; closest_rope
           } )
     | _ ->
-      let gi = Ui.get_glyph_info_from_glyph ~glyph:c ~font_info in
-      let x_advance = gi.x_advance in
-      let wraps = rope_traversal_info.x + x_advance > bbox.x + bbox.width in
-      let new_x, new_y =
-        if wraps
-        then bbox.x + x_advance, rope_traversal_info.y + font_info.font_height
-        else rope_traversal_info.x + x_advance, rope_traversal_info.y
-      in
+      let ~new_x,~new_y,.. = Ui.get_text_wrap_info ~bbox ~glyph:c ~font_info ~x:rope_traversal_info.x ~y:rope_traversal_info.y in
       let closest_col, closest_rope =
         get_pair_col_and_rope_pos ~rope_traversal_info ~closest_info ~x
       in
@@ -262,21 +255,6 @@ let find_closest_rope_pos_for_cursor_on_coords
   if closest_rope = None then Rope.length rope else closest_rope |> Option.get
 ;;
 
-let calc_new_xy ~(bbox : Ui.bounding_box) ~(char : char) ~(font_info : Ui.font_info) ~x ~y
-  =
-  match char with
-  | '\n' -> bbox.x, y + font_info.font_height
-  | _ ->
-    let _, gi =
-      Array.find_opt (fun (c', _) -> c' = char) font_info.glyph_info_with_char
-      |> Option.get
-    in
-    let x_advance = gi.x_advance in
-    if x + x_advance > bbox.x + bbox.width
-    then bbox.x, y + font_info.font_height
-    else x + x_advance, y
-;;
-
 let find_coords_for_cursor_pos
       ~(font_info : Ui.font_info)
       ~(bbox : Ui.bounding_box)
@@ -288,7 +266,7 @@ let find_coords_for_cursor_pos
     let (Rope_Traversal_Info acc) = acc in
     if acc.rope_pos != cursor_pos
     then (
-      let new_x, new_y = calc_new_xy ~bbox ~font_info ~x:acc.x ~y:acc.y ~char:c in
+      let ~new_x, ~new_y,.. = Ui.get_text_wrap_info ~bbox ~font_info ~x:acc.x ~y:acc.y ~glyph:c in
       Rope_Traversal_Info { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 })
     else Rope_Traversal_Info acc
   in
