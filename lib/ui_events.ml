@@ -15,16 +15,40 @@ let pass_evt_to_focused ~(e : Sdl.event) =
             Ui_text_texture_info.get_or_add_font_size_text_texture
               ~font_size:(Option.value b.font_size ~default:Freetype.font_size)
           in
-          let new_text_area_information =
-            Ui_textarea.handle_kbd_evt
-              ~bbox:(Option.value b.bbox ~default:Ui.default_bbox)
-              ~font_info
-              ~char_code
-              ~keysym
-              ~kbd_evt_type
-              ~text_area_information:info
-          in
-          b.content <- Some (Textarea new_text_area_information)
+          (match b.bbox with
+           | Some bbox ->
+             let new_text_area_information =
+               Ui_textarea.handle_kbd_evt
+                 ~bbox:(Option.value b.bbox ~default:Ui.default_bbox)
+                 ~font_info
+                 ~char_code
+                 ~keysym
+                 ~kbd_evt_type
+                 ~text_area_information:info
+             in
+             b.content <- Some (Textarea new_text_area_information)
+           | None -> ())
+        | Sdl.MouseMotionEvt { x; y; _ } ->
+          (match info.text with
+           | Some r ->
+             (match b.bbox with
+              | Some bbox ->
+                let font_info, _ =
+                  Ui_text_texture_info.get_or_add_font_size_text_texture
+                    ~font_size:(Option.value b.font_size ~default:Freetype.font_size)
+                in
+                let new_info =
+                  Ui_textarea.handle_mouse_motion_evt
+                    ~x
+                    ~y
+                    ~bbox
+                    ~font_info
+                    ~rope:r
+                    ~text_area_information:info
+                in
+                b.content <- Some (Textarea new_info)
+              | None -> ())
+           | None -> ())
         | Sdl.MouseButtonEvt { mouse_evt_type; x; y; _ } ->
           (match b.bbox with
            | Some bbox ->
@@ -49,20 +73,13 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                    <- Some
                         (Textarea
                            { info with
-                             holding_mousedown = true
+                             holding_mousedown_rope_pos = Some rope_pos
                            ; cursor_pos = Some rope_pos
                            ; highlight_pos = Some rope_pos, None
                            })
-                 | Mouseup when info.holding_mousedown = true ->
-                   let start = fst info.highlight_pos in
+                 | Mouseup when info.holding_mousedown_rope_pos |> Option.is_some ->
                    b.content
-                   <- Some
-                        (Textarea
-                           { info with
-                             holding_mousedown = false
-                           ; cursor_pos = Some rope_pos
-                           ; highlight_pos = start, Some rope_pos
-                           })
+                   <- Some (Textarea { info with holding_mousedown_rope_pos = None })
                  | _ -> ())
               | None -> ())
            | None -> ())

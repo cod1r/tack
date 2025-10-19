@@ -39,7 +39,7 @@ and text_area_information = {
   cursor_pos : int option;
   highlight_pos : int option * int option;
   holding_ctrl : bool;
-  holding_mousedown : bool;
+  holding_mousedown_rope_pos : int option;
   scroll_x_offset : int;
   scroll_y_offset : int;
 }
