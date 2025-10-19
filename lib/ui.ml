@@ -88,6 +88,21 @@ type font_info = {
   descender : int;
 }
 
+let get_glyph_info_from_glyph ~glyph ~font_info =
+  let opt =
+    Array.find_opt (fun (c', _) -> c' = glyph) font_info.glyph_info_with_char
+  in
+  try
+    let _, gi = Option.get opt in
+    gi
+  with Invalid_argument e -> failwith (__FUNCTION__ ^ "; " ^ e)
+
+let get_text_wrap_info ~bbox ~(glyph_info: Freetype.glyph_info_) ~x ~y ~font_info =
+  if x + glyph_info.x_advance > bbox.x + bbox.width then
+    ~new_x:(bbox.x + glyph_info.x_advance), ~new_y:(y + font_info.font_height), ~wraps:true
+  else
+    ~new_x:(x + glyph_info.x_advance), ~new_y:(y), ~wraps:false
+
 let clone_box ~(box : box) =
   let visited = ref [] in
   let rec clone_box' box =
@@ -162,8 +177,6 @@ let get_text_texture_atlas_info
     height = global_font_height;
     bytes = bytes_texture_atlas;
   }
-
-let should_wrap () = failwith "TODO"
 
 let get_logical_to_opengl_window_dims_ratio () =
   let window_width, window_height = Sdl.sdl_get_window_size Sdl.w

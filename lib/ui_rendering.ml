@@ -444,18 +444,11 @@ let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Ui.font_info)
                 rope_pos = acc.rope_pos + 1;
               }
         | _ ->
-            let _, glyph_info_found =
-              Array.find_opt
-                (fun (c', _) -> c' = c)
-                font_info.glyph_info_with_char
-              |> Option.get
-            in
-            let x_advance = glyph_info_found.x_advance in
+            let gi = Ui.get_glyph_info_from_glyph ~glyph:c ~font_info in
+            let x_advance = gi.x_advance in
             let next_y = acc.y + font_info.font_height in
-            let wraps = acc.x + x_advance > bbox.x + bbox.width in
-            let new_x, new_y =
-              if wraps then (bbox.x + x_advance, next_y)
-              else (acc.x + x_advance, acc.y)
+            let (~new_x, ~new_y, ~wraps) = Ui.get_text_wrap_info ~bbox ~glyph_info:gi
+            ~x:acc.x ~y:acc.y ~font_info
             in
             (if acc.rope_pos >= highlight_start && acc.rope_pos < highlight_end
              then
@@ -532,18 +525,12 @@ let draw_cursor ~(font_info : Ui.font_info) ~(bbox : Ui.bounding_box)
                 rope_pos = acc.rope_pos + 1;
               }
         | _ ->
-            let _, glyph_info =
-              Array.find_opt
-                (fun (c', _) -> c' = c)
-                font_info.glyph_info_with_char
-              |> Option.get
-            in
-            let x_advance = glyph_info.x_advance in
-            let wraps = acc.x + x_advance > bbox.x + bbox.width in
+            let gi = Ui.get_glyph_info_from_glyph ~glyph:c ~font_info in
+            let ~new_x, ~new_y,.. = Ui.get_text_wrap_info ~bbox ~glyph_info:gi ~x:acc.x ~y:acc.y ~font_info in
             Rope_Traversal_Info
               {
-                x = (if wraps then bbox.x + x_advance else acc.x + x_advance);
-                y = (if wraps then acc.y + font_info.font_height else acc.y);
+                x = (new_x);
+                y = (new_y);
                 rope_pos = acc.rope_pos + 1;
               }
       in

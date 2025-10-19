@@ -5,16 +5,20 @@ let timing_test_opengl_works _ =
   let w =
     match Sdl.sdl_create_window "tack" 0 0 800 800 Sdl.sdl_window_opengl with
     | Some ({ width; height; title; _ } as w) ->
-        Printf.printf "Created window: %s %d %d" title width height;
-        print_newline ();
-        w
+      Printf.printf "Created window: %s %d %d" title width height;
+      print_newline ();
+      w
     | None -> failwith "unable to create window"
   in
   let _ =
-    match Sdl.sdl_gl_create_context w with Ok () -> () | Error e -> failwith e
+    match Sdl.sdl_gl_create_context w with
+    | Ok () -> ()
+    | Error e -> failwith e
   in
   let _ =
-    match Sdl.sdl_gl_make_current w with Ok () -> () | Error e -> failwith e
+    match Sdl.sdl_gl_make_current w with
+    | Ok () -> ()
+    | Error e -> failwith e
   in
   let _ = Sdl.sdl_pollevent () in
   for _ = 0 to 100_000 do
@@ -28,10 +32,12 @@ let timing_test_opengl_works _ =
     Tack.Opengl.gl_clear ();
     Sdl.sdl_gl_swapwindow w
   done
+;;
 
 let gl_gen_one_buffer_test _ =
   let buffer = Tack.Opengl.gl_gen_one_buffer () in
   assert_bool "buffer should not equal 0 or be less than 0" (buffer != 0)
+;;
 
 let timing_test_writing_bigarray _ =
   let start = Unix.gettimeofday () in
@@ -42,16 +48,17 @@ let timing_test_writing_bigarray _ =
   let end' = Unix.gettimeofday () -. start in
   assert_bool
     ("Writing "
-    ^ Int.to_string (Bigarray.Array1.dim bigarray)
-    ^ "i times in big array slow")
+     ^ Int.to_string (Bigarray.Array1.dim bigarray)
+     ^ "i times in big array slow")
     (end' < 0.10)
+;;
 
 let tests =
   "render tests"
-  >::: [
-         (*"gl set up" >:: timing_test_opengl_works;*)
+  >::: [ (*"gl set up" >:: timing_test_opengl_works;*)
          (* "gl_gen_one_buffer test" >:: gl_gen_one_buffer_test; *)
-         "writing to bigarray time test" >:: timing_test_writing_bigarray;
+         "writing to bigarray time test" >:: timing_test_writing_bigarray
        ]
+;;
 
 let () = run_test_tt_main tests
