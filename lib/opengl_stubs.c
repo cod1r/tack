@@ -17,7 +17,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
-#include "stubs.h"
 
 void check_error() {
   GLenum err = glGetError();

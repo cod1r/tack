@@ -9,7 +9,6 @@
 #include <hb.h>
 #include <stdio.h>
 #include <string.h>
-#include "stubs.h"
 
 CAMLprim value get_ascender(value face) {
   CAMLparam1(face);
@@ -33,18 +32,6 @@ CAMLprim value get_font_height(value face) {
   // opposed to font units so there isn't any conversion necessary besides just taking away
   // the fractional parts (>> 6).
   CAMLreturn(Val_int((*face_c)->size->metrics.height >> 6));
-}
-
-CAMLprim value get_horiBearingX(value glyph_info) {
-  CAMLparam1(glyph_info);
-  struct GlyphInfo* glyph_info_c = *(struct GlyphInfo**)Data_abstract_val(glyph_info);
-  CAMLreturn(Val_int(glyph_info_c->horiBearingX));
-}
-
-CAMLprim value get_x_advance(value glyph_info) {
-  CAMLparam1(glyph_info);
-  struct GlyphInfo* glyph_info_c = *(struct GlyphInfo**)Data_abstract_val(glyph_info);
-  CAMLreturn(Val_int(glyph_info_c->x_advance));
 }
 
 CAMLprim value freetype_set_char_size(value face, value size);

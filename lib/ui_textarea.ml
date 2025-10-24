@@ -190,7 +190,14 @@ let find_closest_horizontal_pos
           ; closest_rope
           } )
     | _ ->
-      let ~new_x,~new_y,.. = Ui.get_text_wrap_info ~bbox ~glyph:c ~font_info ~x:rope_traversal_info.x ~y:rope_traversal_info.y in
+      let ~new_x, ~new_y, .. =
+        Ui.get_text_wrap_info
+          ~bbox
+          ~glyph:c
+          ~font_info
+          ~x:rope_traversal_info.x
+          ~y:rope_traversal_info.y
+      in
       let closest_col, closest_rope =
         get_pair_col_and_rope_pos ~rope_traversal_info ~closest_info ~x
       in
@@ -266,7 +273,9 @@ let find_coords_for_cursor_pos
     let (Rope_Traversal_Info acc) = acc in
     if acc.rope_pos != cursor_pos
     then (
-      let ~new_x, ~new_y,.. = Ui.get_text_wrap_info ~bbox ~font_info ~x:acc.x ~y:acc.y ~glyph:c in
+      let ~new_x, ~new_y, .. =
+        Ui.get_text_wrap_info ~bbox ~font_info ~x:acc.x ~y:acc.y ~glyph:c
+      in
       Rope_Traversal_Info { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 })
     else Rope_Traversal_Info acc
   in
@@ -424,9 +433,10 @@ let handle_txt_evt ~(text_area_information : Ui.text_area_information) ~text =
     let cursor_pos' =
       Option.value text_area_information.cursor_pos ~default:(Rope.length r)
     in
-    let cursor_pos', new_rope = match text_area_information.highlight_pos with
-    | Some start, Some end' -> start, Rope.delete r ~start ~len:(end' - start)
-    | _ -> cursor_pos', r
+    let cursor_pos', new_rope =
+      match text_area_information.highlight_pos with
+      | Some start, Some end' -> start, Rope.delete r ~start ~len:(end' - start)
+      | _ -> cursor_pos', r
     in
     let new_rope = Rope.insert new_rope cursor_pos' text in
     { text_area_information with
@@ -438,21 +448,35 @@ let handle_txt_evt ~(text_area_information : Ui.text_area_information) ~text =
   | None -> text_area_information
 ;;
 
-let handle_mouse_motion_evt ~(text_area_information : Ui.text_area_information) ~x ~y ~bbox ~font_info ~rope = (
+let handle_mouse_motion_evt
+      ~(text_area_information : Ui.text_area_information)
+      ~x
+      ~y
+      ~bbox
+      ~font_info
+      ~rope
+  =
   match text_area_information.holding_mousedown_rope_pos with
-  | Some mousedown_rope_pos -> (
-    let cursor_pos' = find_closest_rope_pos_for_cursor_on_coords ~bbox ~font_info ~x ~y ~rope ~scroll_y_offset:text_area_information.scroll_y_offset
-  in (
+  | Some mousedown_rope_pos ->
+    let cursor_pos' =
+      find_closest_rope_pos_for_cursor_on_coords
+        ~bbox
+        ~font_info
+        ~x
+        ~y
+        ~rope
+        ~scroll_y_offset:text_area_information.scroll_y_offset
+    in
     { text_area_information with
-      highlight_pos = (match text_area_information.highlight_pos with
-      | Some _, Some _ ->
-          (if cursor_pos' <= mousedown_rope_pos then Some cursor_pos', Some mousedown_rope_pos
-          else Some mousedown_rope_pos, Some cursor_pos')
-      | Some start, None ->
-          Some start, Some cursor_pos'
-      | _ -> Some cursor_pos', None)
-    ; cursor_pos = Some cursor_pos'}
-  )
-  )
-      | None ->text_area_information
-)
+      highlight_pos =
+        (match text_area_information.highlight_pos with
+         | Some _, Some _ ->
+           if cursor_pos' <= mousedown_rope_pos
+           then Some cursor_pos', Some mousedown_rope_pos
+           else Some mousedown_rope_pos, Some cursor_pos'
+         | Some start, None -> Some start, Some cursor_pos'
+         | _ -> Some cursor_pos', None)
+    ; cursor_pos = Some cursor_pos'
+    }
+  | None -> text_area_information
+;;

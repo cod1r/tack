@@ -6,7 +6,15 @@ let last_add = ref (Sdl.sdl_getticks ())
 let box'' =
   { Ui.default_box with
     name = Some "SECOND"
-  ; bbox = Some { x = 0; y = 0; height = 500; width = 500 }
+  ; bbox =
+      Some
+        { x = 0
+        ; y = 0
+        ; height = 500
+        ; width = 500
+        ; inner_width = None
+        ; inner_height = None
+        }
   ; background_color = 0.5, 0.5, 0.5, 1.0
   ; on_event =
       Some
@@ -39,7 +47,15 @@ let box'' =
 let box' =
   { Ui.default_box with
     name = Some "FIRST"
-  ; bbox = Some { x = 0; y = 0; height = 300; width = 300 }
+  ; bbox =
+      Some
+        { x = 0
+        ; y = 0
+        ; height = 300
+        ; width = 300
+        ; inner_width = None
+        ; inner_height = None
+        }
   ; background_color = 0.8, 0.8, 0.8, 1.0
   ; font_size = Some 14
   ; on_event =
@@ -79,7 +95,15 @@ let box' =
 
 let smol_box =
   { Ui.default_box with
-    bbox = Some { x = 0; y = 0; width = 200; height = 200 }
+    bbox =
+      Some
+        { x = 0
+        ; y = 0
+        ; width = 200
+        ; height = 200
+        ; inner_width = None
+        ; inner_height = None
+        }
   ; on_event =
       Some
         (fun ~b ~e ->
@@ -98,7 +122,15 @@ let smol_box =
 
 let box =
   { Ui.default_box with
-    bbox = Some { x = 0; y = 0; width = 1000; height = 1000 }
+    bbox =
+      Some
+        { x = 0
+        ; y = 0
+        ; width = 1000
+        ; height = 1000
+        ; inner_width = None
+        ; inner_height = None
+        }
   ; content = Some (Boxes [ box'; box''; smol_box ])
   ; flow = Some Horizontal
   }
