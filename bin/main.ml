@@ -8,8 +8,24 @@ let scroll_bar =
     height_constraint = Some Max
   ; bbox =
       Some
-        { x = 0; y = 0; width = 10; height = 0; inner_width = None; inner_height = None }
-  ; background_color = 0., 0., 0., 1.
+        { x = 0; y = 0; width = 15; height = 0; inner_width = None; inner_height = None }
+  ; background_color = 0.2, 0.2, 0.2, 0.5
+  ; content =
+      Some
+        (Box
+           { Ui.default_box with
+             bbox =
+               Some
+                 { x = 0
+                 ; y = 0
+                 ; width = 8
+                 ; height = 50
+                 ; inner_width = None
+                 ; inner_height = None
+                 }
+           ; background_color = 0., 0., 0., 1.
+           })
+  ; horizontal_align = Some Center
   }
 ;;
 
@@ -21,11 +37,12 @@ let box =
         { x = 0
         ; y = 0
         ; width = 100
-        ; height = 100
+        ; height = 200
         ; inner_width = None
         ; inner_height = None
         }
   ; content = Some (Box scroll_bar)
+  ; background_color = 0.5, 0.5, 0.5, 1.
   }
 ;;
 
