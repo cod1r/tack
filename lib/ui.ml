@@ -19,7 +19,10 @@ type box_sides =
   }
 
 type positioning =
-  | Relative
+  | Relative of
+      { x : int
+      ; y : int
+      }
   | Absolute
 
 type horizontal_alignment =
@@ -32,6 +35,10 @@ type vertical_alignment =
   | Center
   | Bottom
 
+type size_constraint =
+  | Min
+  | Max
+
 type box =
   { mutable name : string option
   ; mutable content : box_content option
@@ -42,8 +49,8 @@ type box =
   ; mutable flow : direction option
   ; mutable take_remaining_space : direction option
   ; mutable font_size : int option
-  ; mutable width_min_content : bool
-  ; mutable height_min_content : bool
+  ; mutable width_constraint : size_constraint option
+  ; mutable height_constraint : size_constraint option
   ; mutable clip_content : bool
   ; mutable position_type : positioning
   ; mutable allow_horizontal_scroll : bool
@@ -88,10 +95,10 @@ let default_box =
   ; border = false
   ; take_remaining_space = None
   ; font_size = None
-  ; width_min_content = false
-  ; height_min_content = false
+  ; width_constraint = None
+  ; height_constraint = None
   ; clip_content = false
-  ; position_type = Relative
+  ; position_type = Relative { x = 0; y = 0 }
   ; allow_horizontal_scroll = false
   ; allow_vertical_scroll = false
   ; horizontal_align = None
@@ -158,8 +165,8 @@ let clone_box ~(box : box) =
     ; flow = box.flow
     ; take_remaining_space = box.take_remaining_space
     ; font_size = box.font_size
-    ; width_min_content = box.width_min_content
-    ; height_min_content = box.height_min_content
+    ; width_constraint = box.width_constraint
+    ; height_constraint = box.height_constraint
     ; clip_content = box.clip_content
     ; position_type = box.position_type
     ; allow_vertical_scroll = box.allow_vertical_scroll

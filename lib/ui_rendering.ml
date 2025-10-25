@@ -642,60 +642,184 @@ let draw_text ~(s : string) ~(box : Ui.box) =
   draw_to_gl_buffer_text ()
 ;;
 
+let get_available_size_for_maxed_constrained_inner_boxes
+      ~(fixed_sized_boxes : Ui.box list)
+      ~(parent_bbox : Ui.bounding_box)
+      ~(measurement : [< `Width | `Height ])
+      ~number_of_constrained
+  =
+  let summed_fixed, parent_measurement =
+    match measurement with
+    | `Width ->
+      ( List.fold_left
+          (fun acc b -> (Option.value b.Ui.bbox ~default:Ui.default_bbox).width + acc)
+          0
+          fixed_sized_boxes
+      , parent_bbox.width )
+    | `Height ->
+      ( List.fold_left
+          (fun acc b -> (Option.value b.Ui.bbox ~default:Ui.default_bbox).height + acc)
+          0
+          fixed_sized_boxes
+      , parent_bbox.height )
+  in
+  let left_over = max 0 (parent_measurement - summed_fixed) in
+  let available_for_evenly_spreading = parent_measurement - left_over in
+  available_for_evenly_spreading / number_of_constrained
+;;
+
+let handle_maximizing_of_inner_content_size ~(parent_box : Ui.box) =
+  let parent_bbox = Option.value parent_box.bbox ~default:Ui.default_bbox in
+  match parent_box.content with
+  | Some (Box b) ->
+    (match b.width_constraint with
+     | Some Max ->
+       let b_bbox = Option.value b.bbox ~default:Ui.default_bbox in
+       b.bbox <- Some { b_bbox with width = parent_bbox.width }
+     | Some Min | None -> ());
+    (match b.height_constraint with
+     | Some Max ->
+       let b_bbox = Option.value b.bbox ~default:Ui.default_bbox in
+       b.bbox <- Some { b_bbox with height = parent_bbox.height }
+     | Some Min | None -> ())
+  | Some (Boxes list) ->
+    let fixed_sized_boxes =
+      List.filter
+        (fun b ->
+           Option.is_none b.Ui.width_constraint && Option.is_none b.Ui.height_constraint)
+        list
+    in
+    let constrained_boxes =
+      List.filter
+        (fun b ->
+           Option.is_some b.Ui.width_constraint || Option.is_some b.Ui.height_constraint)
+        list
+    in
+    (match parent_box.flow with
+     | Some Horizontal ->
+       let width_for_each_constrained_box =
+         get_available_size_for_maxed_constrained_inner_boxes
+           ~fixed_sized_boxes
+           ~parent_bbox
+           ~measurement:`Width
+           ~number_of_constrained:(List.length constrained_boxes)
+       in
+       List.iter
+         (fun b ->
+            let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
+            b.bbox <- Some { bbox with width = width_for_each_constrained_box })
+         constrained_boxes
+     | Some Vertical ->
+       let height_for_each_constrained_box =
+         get_available_size_for_maxed_constrained_inner_boxes
+           ~fixed_sized_boxes
+           ~parent_bbox
+           ~measurement:`Height
+           ~number_of_constrained:(List.length constrained_boxes)
+       in
+       List.iter
+         (fun b ->
+            let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
+            b.bbox <- Some { bbox with height = height_for_each_constrained_box })
+         constrained_boxes
+     | None ->
+       let height_for_each_constrained_box =
+         get_available_size_for_maxed_constrained_inner_boxes
+           ~fixed_sized_boxes
+           ~parent_bbox
+           ~measurement:`Height
+           ~number_of_constrained:(List.length constrained_boxes)
+       in
+       let width_for_each_constrained_box =
+         get_available_size_for_maxed_constrained_inner_boxes
+           ~fixed_sized_boxes
+           ~parent_bbox
+           ~measurement:`Width
+           ~number_of_constrained:(List.length constrained_boxes)
+       in
+       List.iter
+         (fun b ->
+            let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
+            b.bbox <- Some { bbox with height = height_for_each_constrained_box })
+         constrained_boxes;
+       List.iter
+         (fun b ->
+            let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
+            b.bbox <- Some { bbox with width = width_for_each_constrained_box })
+         constrained_boxes)
+  | Some (Text _) -> ()
+  | Some (Textarea _) -> ()
+  | None -> ()
+;;
+
+let rec clamp_width_or_height_to_content_size
+          ~(box : Ui.box)
+          ~(measurement : [< `Width | `Height ])
+  =
+  match box.bbox with
+  | Some bbox ->
+    (match box.content with
+     | Some (Box b) ->
+       constrain_width_height ~box:b;
+       let inner_bbox = Option.value b.bbox ~default:Ui.default_bbox in
+       (match measurement with
+        | `Width -> bbox.width <- inner_bbox.width
+        | `Height -> bbox.height <- inner_bbox.height)
+     | Some (Boxes list) ->
+       List.iter (fun b -> constrain_width_height ~box:b) list;
+       let summed_heights =
+         List.fold_left
+           (fun acc b -> acc + (Option.value b.Ui.bbox ~default:Ui.default_bbox).height)
+           0
+           list
+       in
+       let summed_widths =
+         List.fold_left
+           (fun acc b -> acc + (Option.value b.Ui.bbox ~default:Ui.default_bbox).width)
+           0
+           list
+       in
+       (match measurement with
+        | `Width -> bbox.width <- summed_widths
+        | `Height -> bbox.height <- summed_heights)
+     | Some (Text s) ->
+       let font_info, _ =
+         Ui_text_texture_info.get_or_add_font_size_text_texture
+           ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
+       in
+       let string_width =
+         String.fold_left
+           (fun acc c ->
+              let op =
+                Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
+              in
+              match op with
+              | Some (_, g) -> acc + g.Freetype.x_advance
+              | None -> acc)
+           0
+           s
+       in
+       (* TODO: need to handle height when text_wrap is true *)
+       (match measurement with
+        | `Width -> bbox.width <- string_width
+        | `Height -> ())
+     | Some (Textarea _) -> failwith "// TODO"
+     | None -> ())
+  | None -> ()
+
 (* I'm not sure how to handle cases where the contents are positioned outside of
    the container. Originally I thought that having elements/boxes being absolutely
    positioned would be fine but that leaves problems like child contents being outside of
    the parent container which poses the question of, what should the min width/height be?
    Perhaps, restricting this functionality when child elements are only positioned relatively *)
-let rec clamp_min_width_height ~(box : Ui.box) =
-  if box.height_min_content || box.width_min_content
-  then (
-    match box.bbox with
-    | Some bbox ->
-      (match box.content with
-       | Some (Box b) ->
-         clamp_min_width_height ~box:b;
-         let inner_bbox = Option.value b.bbox ~default:Ui.default_bbox in
-         if box.height_min_content then bbox.height <- inner_bbox.height;
-         if box.width_min_content then bbox.width <- inner_bbox.width
-       | Some (Boxes list) ->
-         List.iter (fun b -> clamp_min_width_height ~box:b) list;
-         let summed_heights =
-           List.fold_left
-             (fun acc b -> acc + (Option.value b.Ui.bbox ~default:Ui.default_bbox).height)
-             0
-             list
-         in
-         let summed_widths =
-           List.fold_left
-             (fun acc b -> acc + (Option.value b.Ui.bbox ~default:Ui.default_bbox).width)
-             0
-             list
-         in
-         if box.height_min_content then bbox.height <- summed_heights;
-         if box.width_min_content then bbox.width <- summed_widths
-       | Some (Text s) ->
-         let font_info, _ =
-           Ui_text_texture_info.get_or_add_font_size_text_texture
-             ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
-         in
-         let string_width =
-           String.fold_left
-             (fun acc c ->
-                let op =
-                  Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
-                in
-                match op with
-                | Some (_, g) -> acc + g.Freetype.x_advance
-                | None -> acc)
-             0
-             s
-         in
-         (* TODO: need to handle height_min_content when text_wrap is true *)
-         if box.width_min_content then bbox.width <- string_width
-       | Some (Textarea _) -> failwith "// TODO"
-       | None -> ())
-    | None -> ())
+and constrain_width_height ~(box : Ui.box) =
+  (match box.width_constraint with
+   | Some Min -> clamp_width_or_height_to_content_size ~box ~measurement:`Width
+   | Some Max | None -> ());
+  (match box.height_constraint with
+   | Some Min -> clamp_width_or_height_to_content_size ~box ~measurement:`Height
+   | Some Max | None -> ());
+  handle_maximizing_of_inner_content_size ~parent_box:box
 ;;
 
 let clip_content ~(box : Ui.box) =
@@ -801,32 +925,27 @@ let align_inner_box_vertically ~(box : Ui.box) ~(inner_box : Ui.box) =
       | Some h -> h
       | _ -> bbox.height
     in
+    let relative_y =
+      match inner_box.position_type with
+      | Relative { y; _ } -> y
+      | _ -> 0
+    in
     (match box.vertical_align with
      | Some Top ->
-       let y_pos =
-         bbox.y + if inner_box.position_type = Relative then inner_box_bbox.y else 0
-       in
+       let y_pos = bbox.y + relative_y in
        inner_box.bbox <- Some { inner_box_bbox with y = y_pos }
      | Some Center ->
        let y_pos =
-         bbox.y
-         + (box_used_height / 2)
-         - (inner_box_bbox.height / 2)
-         + if inner_box.position_type = Relative then inner_box_bbox.y else 0
+         bbox.y + (box_used_height / 2) - (inner_box_bbox.height / 2) + relative_y
        in
        inner_box.bbox <- Some { inner_box_bbox with y = y_pos }
      | Some Bottom ->
-       let y_pos =
-         bbox.y
-         + box_used_height
-         - inner_box_bbox.height
-         + if inner_box.position_type = Relative then inner_box_bbox.y else 0
-       in
+       let y_pos = bbox.y + box_used_height - inner_box_bbox.height + relative_y in
        inner_box.bbox <- Some { inner_box_bbox with y = y_pos }
      | None ->
        (match inner_box.position_type with
-        | Relative ->
-          inner_box.bbox <- Some { inner_box_bbox with y = bbox.y + inner_box_bbox.y }
+        | Relative { y; _ } ->
+          inner_box.bbox <- Some { inner_box_bbox with y = bbox.y + y }
         | Absolute -> inner_box.bbox <- Some { inner_box_bbox with y = inner_box_bbox.y }))
   | None -> ()
 ;;
@@ -840,32 +959,27 @@ let align_inner_box_horizontally ~(box : Ui.box) ~(inner_box : Ui.box) =
       | Some w -> w
       | _ -> bbox.width
     in
+    let relative_x =
+      match inner_box.position_type with
+      | Relative { x; _ } -> x
+      | _ -> 0
+    in
     (match box.horizontal_align with
      | Some Left ->
-       let x_pos =
-         bbox.x + if inner_box.position_type = Relative then inner_box_bbox.x else 0
-       in
+       let x_pos = bbox.x + relative_x in
        inner_box.bbox <- Some { inner_box_bbox with x = x_pos }
      | Some Center ->
        let x_pos =
-         bbox.x
-         + (box_used_width / 2)
-         - (inner_box_bbox.width / 2)
-         + if inner_box.position_type = Relative then inner_box_bbox.x else 0
+         bbox.x + (box_used_width / 2) - (inner_box_bbox.width / 2) + relative_x
        in
        inner_box.bbox <- Some { inner_box_bbox with x = x_pos }
      | Some Right ->
-       let x_pos =
-         bbox.x
-         + box_used_width
-         - inner_box_bbox.width
-         + if inner_box.position_type = Relative then inner_box_bbox.x else 0
-       in
+       let x_pos = bbox.x + box_used_width - inner_box_bbox.width + relative_x in
        inner_box.bbox <- Some { inner_box_bbox with x = x_pos }
      | None ->
        (match inner_box.position_type with
-        | Relative ->
-          inner_box.bbox <- Some { inner_box_bbox with x = bbox.x + inner_box_bbox.x }
+        | Relative { x; _ } ->
+          inner_box.bbox <- Some { inner_box_bbox with x = bbox.x + x }
         | Absolute -> inner_box.bbox <- Some { inner_box_bbox with x = inner_box_bbox.x }))
   | None -> ()
 ;;
@@ -966,13 +1080,13 @@ let rec draw_box ~(box : Ui.box) =
   if not !validated then validate ~box;
   if not !added_event_handlers then add_event_handlers ~box;
   if box.clip_content then clip_content ~box;
-  clamp_min_width_height ~box;
   (match box.bbox with
    | Some _ ->
      let Ui.{ left; top; bottom; right } = Ui.get_box_sides ~box in
      let window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
      if left <= window_width_gl && right >= 0 && top <= window_height_gl && bottom >= 0
      then (
+       constrain_width_height ~box;
        write_container_values_to_ui_buffer ~box ~buffer:ui_buffer;
        draw_to_gl_buffer ();
        match box.content with
