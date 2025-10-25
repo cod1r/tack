@@ -27,10 +27,7 @@ and contains text
         - ellipse formula (x^2/a^2 + y^2/b^2 = 1)
         - each corner of the box is curved using an ellipse
 
-    scrollbar rendering...
     scrolling...
-
-    think about size constraints when it comes to maximizing depending on the layout of the parent and other contents...
 
 vim motions?
 

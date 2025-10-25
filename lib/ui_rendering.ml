@@ -885,10 +885,7 @@ let handle_list_of_boxes_initial_position
     List.fold_left
       (fun (acc_w, acc_h) b ->
          let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
-         let bbox_used_width, bbox_used_height =
-           match bbox.inner_width, bbox.inner_height with
-           | Some w, Some h -> w, h
-           | _ -> bbox.width, bbox.height
+         let bbox_used_width, bbox_used_height = bbox.width, bbox.height
          in
          match d with
          | Horizontal -> acc_w + bbox.width, bbox.height
@@ -896,10 +893,7 @@ let handle_list_of_boxes_initial_position
       (0, 0)
       list
   in
-  let box_bbox_used_width, box_bbox_used_height =
-    match box_bbox.inner_width, box_bbox.inner_height with
-    | Some w, Some h -> w, h
-    | _ -> box_bbox.width, box_bbox.height
+  let box_bbox_used_width, box_bbox_used_height = box_bbox.width, box_bbox.height
   in
   let x_pos =
     match box.horizontal_align with
@@ -920,10 +914,7 @@ let align_inner_box_vertically ~(box : Ui.box) ~(inner_box : Ui.box) =
   match box.bbox with
   | Some bbox ->
     let inner_box_bbox = Option.value inner_box.bbox ~default:Ui.default_bbox in
-    let box_used_height =
-      match bbox.inner_height with
-      | Some h -> h
-      | _ -> bbox.height
+    let box_used_height = bbox.height
     in
     let relative_y =
       match inner_box.position_type with
@@ -954,10 +945,7 @@ let align_inner_box_horizontally ~(box : Ui.box) ~(inner_box : Ui.box) =
   match box.bbox with
   | Some bbox ->
     let inner_box_bbox = Option.value inner_box.bbox ~default:Ui.default_bbox in
-    let box_used_width =
-      match bbox.inner_width with
-      | Some w -> w
-      | _ -> bbox.width
+    let box_used_width = bbox.width
     in
     let relative_x =
       match inner_box.position_type with
@@ -1104,10 +1092,7 @@ let rec draw_box ~(box : Ui.box) =
                  | Some bbbox ->
                    bbbox.x <- fst !boxes_pos;
                    bbbox.y <- snd !boxes_pos;
-                   let bbbox_used_width, bbbox_used_height =
-                     match bbbox.inner_width, bbbox.inner_height with
-                     | Some w, Some h -> w, h
-                     | _ -> bbbox.width, bbbox.height
+                   let bbbox_used_width, bbbox_used_height = bbbox.width, bbbox.height
                    in
                    boxes_pos
                    := let x, y = !boxes_pos in

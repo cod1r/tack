@@ -1,7 +1,5 @@
 type bounding_box =
   { mutable width : int
-  ; mutable inner_width : int option
-  ; mutable inner_height : int option
   ; mutable height : int
   ; mutable x : int
   ; mutable y : int
@@ -83,7 +81,7 @@ let set_focused_element ~(box : box) = focused_element := Some box
 let unfocus_element () = focused_element := None
 
 let default_bbox : bounding_box =
-  { width = 0; height = 0; x = 0; y = 0; inner_width = None; inner_height = None }
+  { width = 0; height = 0; x = 0; y = 0;  }
 ;;
 
 let default_box =
