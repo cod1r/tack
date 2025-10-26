@@ -692,7 +692,7 @@ let handle_maximizing_of_inner_content_size ~(parent_box : Ui.box) =
       List.filter (fun b -> Option.is_some b.Ui.width_constraint) list
     in
     let constrained_height_boxes =
-      List.filter (fun b -> Option.is_some b.Ui.width_constraint) list
+      List.filter (fun b -> Option.is_some b.Ui.height_constraint) list
     in
     (match parent_box.flow with
      | Some Horizontal ->

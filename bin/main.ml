@@ -7,7 +7,7 @@ let scroll_bar =
   { Ui.default_box with
     height_constraint = Some Max
   ; bbox = Some { x = 0; y = 0; width = 15; height = 0 }
-  ; background_color = 0.2, 0.2, 0.2, 0.5
+  ; background_color = 0., 1., 1., 1.
   ; content =
       Some
         (Box
@@ -24,7 +24,7 @@ let textarea : Ui.box =
     content = Some (Textarea Ui.default_text_area_information)
   ; width_constraint = Some Max
   ; height_constraint = Some Max
-  ; background_color = 0., 0.5, 0., 1.
+  ; background_color = 0., 0.5, 0., 0.8
   }
 ;;
 
@@ -32,7 +32,6 @@ let box =
   { Ui.default_box with
     bbox = Some { x = 0; y = 0; width = 100; height = 200 }
   ; content = Some (Boxes [ textarea; scroll_bar ])
-  ; background_color = 0.5, 0.5, 0.5, 1.
   ; flow = Some Horizontal
   }
 ;;
