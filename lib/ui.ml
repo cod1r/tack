@@ -79,9 +79,17 @@ and box_content =
 let focused_element : box option ref = ref None
 let set_focused_element ~(box : box) = focused_element := Some box
 let unfocus_element () = focused_element := None
+let default_bbox : bounding_box = { width = 0; height = 0; x = 0; y = 0 }
 
-let default_bbox : bounding_box =
-  { width = 0; height = 0; x = 0; y = 0;  }
+let default_text_area_information =
+  { text = None
+  ; cursor_pos = None
+  ; highlight_pos = None, None
+  ; holding_ctrl = false
+  ; holding_mousedown_rope_pos = None
+  ; scroll_x_offset = 0
+  ; scroll_y_offset = 0
+  }
 ;;
 
 let default_box =

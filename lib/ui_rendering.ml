@@ -664,8 +664,7 @@ let get_available_size_for_maxed_constrained_inner_boxes
       , parent_bbox.height )
   in
   let left_over = max 0 (parent_measurement - summed_fixed) in
-  let available_for_evenly_spreading = parent_measurement - left_over in
-  available_for_evenly_spreading / number_of_constrained
+  left_over / number_of_constrained
 ;;
 
 let handle_maximizing_of_inner_content_size ~(parent_box : Ui.box) =
@@ -683,70 +682,56 @@ let handle_maximizing_of_inner_content_size ~(parent_box : Ui.box) =
        b.bbox <- Some { b_bbox with height = parent_bbox.height }
      | Some Min | None -> ())
   | Some (Boxes list) ->
-    let fixed_sized_boxes =
-      List.filter
-        (fun b ->
-           Option.is_none b.Ui.width_constraint && Option.is_none b.Ui.height_constraint)
-        list
+    let fixed_width_boxes =
+      List.filter (fun b -> Option.is_none b.Ui.width_constraint) list
     in
-    let constrained_boxes =
-      List.filter
-        (fun b ->
-           Option.is_some b.Ui.width_constraint || Option.is_some b.Ui.height_constraint)
-        list
+    let fixed_height_boxes =
+      List.filter (fun b -> Option.is_none b.Ui.height_constraint) list
+    in
+    let constrained_width_boxes =
+      List.filter (fun b -> Option.is_some b.Ui.width_constraint) list
+    in
+    let constrained_height_boxes =
+      List.filter (fun b -> Option.is_some b.Ui.width_constraint) list
     in
     (match parent_box.flow with
      | Some Horizontal ->
        let width_for_each_constrained_box =
          get_available_size_for_maxed_constrained_inner_boxes
-           ~fixed_sized_boxes
+           ~fixed_sized_boxes:fixed_width_boxes
            ~parent_bbox
            ~measurement:`Width
-           ~number_of_constrained:(List.length constrained_boxes)
+           ~number_of_constrained:(List.length constrained_width_boxes)
        in
        List.iter
          (fun b ->
             let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
             b.bbox <- Some { bbox with width = width_for_each_constrained_box })
-         constrained_boxes
+         constrained_width_boxes;
+       List.iter
+         (fun b ->
+            let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
+            b.bbox <- Some { bbox with height = parent_bbox.height })
+         constrained_height_boxes
      | Some Vertical ->
        let height_for_each_constrained_box =
          get_available_size_for_maxed_constrained_inner_boxes
-           ~fixed_sized_boxes
+           ~fixed_sized_boxes:fixed_height_boxes
            ~parent_bbox
            ~measurement:`Height
-           ~number_of_constrained:(List.length constrained_boxes)
+           ~number_of_constrained:(List.length constrained_height_boxes)
        in
        List.iter
          (fun b ->
             let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
             b.bbox <- Some { bbox with height = height_for_each_constrained_box })
-         constrained_boxes
-     | None ->
-       let height_for_each_constrained_box =
-         get_available_size_for_maxed_constrained_inner_boxes
-           ~fixed_sized_boxes
-           ~parent_bbox
-           ~measurement:`Height
-           ~number_of_constrained:(List.length constrained_boxes)
-       in
-       let width_for_each_constrained_box =
-         get_available_size_for_maxed_constrained_inner_boxes
-           ~fixed_sized_boxes
-           ~parent_bbox
-           ~measurement:`Width
-           ~number_of_constrained:(List.length constrained_boxes)
-       in
+         constrained_height_boxes;
        List.iter
          (fun b ->
             let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
-            b.bbox <- Some { bbox with height = height_for_each_constrained_box })
-         constrained_boxes;
-       List.iter
-         (fun b ->
-            let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
-            b.bbox <- Some { bbox with width = width_for_each_constrained_box })
-         constrained_boxes)
+            b.bbox <- Some { bbox with width = parent_bbox.width })
+         constrained_width_boxes
+     | None -> ())
   | Some (Text _) -> ()
   | Some (Textarea _) -> ()
   | None -> ()
@@ -885,16 +870,14 @@ let handle_list_of_boxes_initial_position
     List.fold_left
       (fun (acc_w, acc_h) b ->
          let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
-         let bbox_used_width, bbox_used_height = bbox.width, bbox.height
-         in
+         let bbox_used_width, bbox_used_height = bbox.width, bbox.height in
          match d with
          | Horizontal -> acc_w + bbox.width, bbox.height
          | Vertical -> bbox.width, acc_h + bbox.height)
       (0, 0)
       list
   in
-  let box_bbox_used_width, box_bbox_used_height = box_bbox.width, box_bbox.height
-  in
+  let box_bbox_used_width, box_bbox_used_height = box_bbox.width, box_bbox.height in
   let x_pos =
     match box.horizontal_align with
     | Some Left | None -> box_bbox.x
@@ -914,8 +897,7 @@ let align_inner_box_vertically ~(box : Ui.box) ~(inner_box : Ui.box) =
   match box.bbox with
   | Some bbox ->
     let inner_box_bbox = Option.value inner_box.bbox ~default:Ui.default_bbox in
-    let box_used_height = bbox.height
-    in
+    let box_used_height = bbox.height in
     let relative_y =
       match inner_box.position_type with
       | Relative { y; _ } -> y
@@ -945,8 +927,7 @@ let align_inner_box_horizontally ~(box : Ui.box) ~(inner_box : Ui.box) =
   match box.bbox with
   | Some bbox ->
     let inner_box_bbox = Option.value inner_box.bbox ~default:Ui.default_bbox in
-    let box_used_width = bbox.width
-    in
+    let box_used_width = bbox.width in
     let relative_x =
       match inner_box.position_type with
       | Relative { x; _ } -> x
@@ -986,13 +967,7 @@ let draw_text_textarea
       Ui_textarea.Rope_Traversal_Info
         { x = bbox.x; y = acc.y + font_info.font_height; rope_pos = acc.rope_pos + 1 }
     else (
-      let gi = ref None in
-      let len = Array.length font_info.glyph_info_with_char in
-      for glyph_info_index = 0 to len - 1 do
-        let c', gi' = font_info.glyph_info_with_char.(glyph_info_index) in
-        if c' = c then gi := Some gi'
-      done;
-      let gi = Option.get !gi in
+      let gi = Ui.get_glyph_info_from_glyph ~glyph:c ~font_info in
       let x_advance = gi.x_advance in
       let ~new_x, ~new_y, ~wraps =
         Ui.get_text_wrap_info ~bbox ~glyph:c ~x:acc.x ~y:acc.y ~font_info
@@ -1092,8 +1067,7 @@ let rec draw_box ~(box : Ui.box) =
                  | Some bbbox ->
                    bbbox.x <- fst !boxes_pos;
                    bbbox.y <- snd !boxes_pos;
-                   let bbbox_used_width, bbbox_used_height = bbbox.width, bbbox.height
-                   in
+                   let bbbox_used_width, bbbox_used_height = bbbox.width, bbbox.height in
                    boxes_pos
                    := let x, y = !boxes_pos in
                       (match d with

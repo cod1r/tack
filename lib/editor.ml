@@ -32,6 +32,6 @@ let default_editor : editor =
   { ropes = []
   ; holding_ctrl = false
   ; current_rope_idx = None
-  ; bounds = { width; height; x = 0; y = 0;  }
+  ; bounds = { width; height; x = 0; y = 0 }
   }
 ;;
