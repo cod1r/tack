@@ -616,7 +616,7 @@ let draw_cursor
 ;;
 
 let draw_text ~(s : string) ~(box : Ui.box) =
-  let font_info, gl_texture_id =
+  let ~font_info, ~gl_texture_id =
     Ui_text_texture_info.get_or_add_font_size_text_texture
       ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
   in
@@ -696,44 +696,49 @@ let handle_maximizing_of_inner_content_size ~(parent_box : Ui.box) =
     in
     (match parent_box.flow with
      | Some Horizontal ->
-       let width_for_each_constrained_box =
-         get_available_size_for_maxed_constrained_inner_boxes
-           ~fixed_sized_boxes:fixed_width_boxes
-           ~parent_bbox
-           ~measurement:`Width
-           ~number_of_constrained:(List.length constrained_width_boxes)
-       in
-       List.iter
-         (fun b ->
-            let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
-            b.bbox <- Some { bbox with width = width_for_each_constrained_box })
-         constrained_width_boxes;
+       if List.length constrained_width_boxes > 0
+       then (
+         let width_for_each_constrained_box =
+           get_available_size_for_maxed_constrained_inner_boxes
+             ~fixed_sized_boxes:fixed_width_boxes
+             ~parent_bbox
+             ~measurement:`Width
+             ~number_of_constrained:(List.length constrained_width_boxes)
+         in
+         List.iter
+           (fun b ->
+              let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
+              b.bbox <- Some { bbox with width = width_for_each_constrained_box })
+           constrained_width_boxes);
        List.iter
          (fun b ->
             let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
             b.bbox <- Some { bbox with height = parent_bbox.height })
          constrained_height_boxes
      | Some Vertical ->
-       let height_for_each_constrained_box =
-         get_available_size_for_maxed_constrained_inner_boxes
-           ~fixed_sized_boxes:fixed_height_boxes
-           ~parent_bbox
-           ~measurement:`Height
-           ~number_of_constrained:(List.length constrained_height_boxes)
-       in
-       List.iter
-         (fun b ->
-            let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
-            b.bbox <- Some { bbox with height = height_for_each_constrained_box })
-         constrained_height_boxes;
+       if List.length constrained_height_boxes > 0
+       then (
+         let height_for_each_constrained_box =
+           get_available_size_for_maxed_constrained_inner_boxes
+             ~fixed_sized_boxes:fixed_height_boxes
+             ~parent_bbox
+             ~measurement:`Height
+             ~number_of_constrained:(List.length constrained_height_boxes)
+         in
+         List.iter
+           (fun b ->
+              let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
+              b.bbox <- Some { bbox with height = height_for_each_constrained_box })
+           constrained_height_boxes);
        List.iter
          (fun b ->
             let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
             b.bbox <- Some { bbox with width = parent_bbox.width })
          constrained_width_boxes
-     | None -> ())
+     | _ -> ())
   | Some (Text _) -> ()
   | Some (Textarea _) -> ()
+  | Some (ScrollContainer _) -> ()
   | None -> ()
 ;;
 
@@ -741,55 +746,88 @@ let rec clamp_width_or_height_to_content_size
           ~(box : Ui.box)
           ~(measurement : [< `Width | `Height ])
   =
-  match box.bbox with
-  | Some bbox ->
-    (match box.content with
-     | Some (Box b) ->
-       constrain_width_height ~box:b;
-       let inner_bbox = Option.value b.bbox ~default:Ui.default_bbox in
-       (match measurement with
-        | `Width -> bbox.width <- inner_bbox.width
-        | `Height -> bbox.height <- inner_bbox.height)
-     | Some (Boxes list) ->
-       List.iter (fun b -> constrain_width_height ~box:b) list;
-       let summed_heights =
+  let bbox = Option.value box.bbox ~default:Ui.default_bbox in
+  match box.content with
+  | Some (Box b) ->
+    constrain_width_height ~box:b;
+    let inner_bbox = Option.value b.bbox ~default:Ui.default_bbox in
+    (match measurement with
+     | `Width -> box.bbox <- Some { bbox with width = inner_bbox.width }
+     | `Height -> box.bbox <- Some { bbox with height = inner_bbox.height })
+  | Some (Boxes list) ->
+    List.iter (fun b -> constrain_width_height ~box:b) list;
+    (match box.flow with
+     | Some Vertical ->
+       let summed_size =
          List.fold_left
            (fun acc b -> acc + (Option.value b.Ui.bbox ~default:Ui.default_bbox).height)
            0
            list
        in
-       let summed_widths =
+       let max_width =
+         List.fold_left
+           (fun acc b -> max acc (Option.value b.Ui.bbox ~default:Ui.default_bbox).width)
+           0
+           list
+       in
+       (match measurement with
+        | `Width -> box.bbox <- Some { bbox with width = max_width }
+        | `Height -> box.bbox <- Some { bbox with height = summed_size })
+     | Some Horizontal ->
+       let summed_size =
          List.fold_left
            (fun acc b -> acc + (Option.value b.Ui.bbox ~default:Ui.default_bbox).width)
            0
            list
        in
-       (match measurement with
-        | `Width -> bbox.width <- summed_widths
-        | `Height -> bbox.height <- summed_heights)
-     | Some (Text s) ->
-       let font_info, _ =
-         Ui_text_texture_info.get_or_add_font_size_text_texture
-           ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
-       in
-       let string_width =
-         String.fold_left
-           (fun acc c ->
-              let op =
-                Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
-              in
-              match op with
-              | Some (_, g) -> acc + g.Freetype.x_advance
-              | None -> acc)
+       let max_height =
+         List.fold_left
+           (fun acc b -> max acc (Option.value b.Ui.bbox ~default:Ui.default_bbox).height)
            0
-           s
+           list
        in
-       (* TODO: need to handle height when text_wrap is true *)
        (match measurement with
-        | `Width -> bbox.width <- string_width
-        | `Height -> ())
-     | Some (Textarea _) -> failwith "// TODO"
+        | `Width -> box.bbox <- Some { bbox with width = summed_size }
+        | `Height -> box.bbox <- Some { bbox with height = max_height })
      | None -> ())
+  | Some (Text s) ->
+    let ~font_info, .. =
+      Ui_text_texture_info.get_or_add_font_size_text_texture
+        ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
+    in
+    let string_width =
+      String.fold_left
+        (fun acc c ->
+           let op =
+             Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
+           in
+           match op with
+           | Some (_, g) -> acc + g.Freetype.x_advance
+           | None -> acc)
+        0
+        s
+    in
+    (* TODO: need to handle height when text_wrap is true *)
+    (match measurement with
+     | `Width -> box.bbox <- Some { bbox with width = string_width }
+     | `Height -> ())
+  | Some (Textarea _) -> failwith "// TODO"
+  | Some (ScrollContainer (~content, ~scroll, ..)) ->
+    (match measurement with
+     | `Width ->
+       let { width = content_width; _ } : Ui.bounding_box =
+         Option.value content.bbox ~default:Ui.default_bbox
+       and { width = scroll_width; _ } : Ui.bounding_box =
+         Option.value scroll.bbox ~default:Ui.default_bbox
+       in
+       box.bbox <- Some { bbox with width = content_width + scroll_width }
+     | `Height ->
+       let { height = content_height; _ } : Ui.bounding_box =
+         Option.value content.bbox ~default:Ui.default_bbox
+       and { height = scroll_height; _ } : Ui.bounding_box =
+         Option.value scroll.bbox ~default:Ui.default_bbox
+       in
+       box.bbox <- Some { bbox with height = content_height + scroll_height })
   | None -> ()
 
 (* I'm not sure how to handle cases where the contents are positioned outside of
@@ -838,6 +876,7 @@ let validate ~(box : Ui.box) =
         List.iter (fun b -> validate' b visited) list
       | Some (Ui.Text _) -> ()
       | Some (Ui.Textarea _) -> ()
+      | Some (Ui.ScrollContainer (~content, ..)) -> validate' content (box :: visited)
       | None -> ())
   in
   validated := true;
@@ -854,6 +893,7 @@ let add_event_handlers ~(box : Ui.box) =
     match box.content with
     | Some (Ui.Box b) -> add_event_handlers' b
     | Some (Ui.Boxes list) -> List.iter (fun b -> add_event_handlers' b) list
+    | Some (Ui.ScrollContainer (~content, ..)) -> add_event_handlers' content
     | Some (Ui.Text _) | Some (Ui.Textarea _) | None -> ()
   in
   added_event_handlers := true;
@@ -1043,13 +1083,13 @@ let rec draw_box ~(box : Ui.box) =
   if not !validated then validate ~box;
   if not !added_event_handlers then add_event_handlers ~box;
   if box.clip_content then clip_content ~box;
+  constrain_width_height ~box;
   (match box.bbox with
    | Some _ ->
      let Ui.{ left; top; bottom; right } = Ui.get_box_sides ~box in
      let window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
      if left <= window_width_gl && right >= 0 && top <= window_height_gl && bottom >= 0
      then (
-       constrain_width_height ~box;
        write_container_values_to_ui_buffer ~box ~buffer:ui_buffer;
        draw_to_gl_buffer ();
        match box.content with
@@ -1082,7 +1122,7 @@ let rec draw_box ~(box : Ui.box) =
            (Textarea
               { text; cursor_pos; highlight_pos; scroll_y_offset; scroll_x_offset; _ }) ->
          clip_content ~box;
-         let font_info, gl_texture_id =
+         let ~font_info, ~gl_texture_id =
            Ui_text_texture_info.get_or_add_font_size_text_texture
              ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
          in
@@ -1095,6 +1135,7 @@ let rec draw_box ~(box : Ui.box) =
            ~scroll_y_offset
            ~box;
          Opengl.gl_disable_scissor ()
+       | Some (ScrollContainer (~content, ~scroll, ~container)) -> draw_box ~box:container
        | None -> ())
    | None -> ());
   if box.clip_content then Opengl.gl_disable_scissor ()

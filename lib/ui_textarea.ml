@@ -445,7 +445,7 @@ let handle_txt_evt ~(text_area_information : Ui.text_area_information) ~text =
     ; holding_mousedown_rope_pos = None
     ; cursor_pos = Some (cursor_pos' + String.length text)
     }
-  | None -> text_area_information
+  | None -> { text_area_information with text = Some (text |> Rope.of_string) }
 ;;
 
 let handle_mouse_motion_evt
@@ -456,6 +456,7 @@ let handle_mouse_motion_evt
       ~font_info
       ~rope
   =
+  let rope = Option.value rope ~default:(Rope.of_string "") in
   match text_area_information.holding_mousedown_rope_pos with
   | Some mousedown_rope_pos ->
     let cursor_pos' =

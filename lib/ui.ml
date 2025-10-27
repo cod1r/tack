@@ -45,7 +45,6 @@ type box =
   ; mutable background_color : float * float * float * float
   ; mutable border : bool
   ; mutable flow : direction option
-  ; mutable take_remaining_space : direction option
   ; mutable font_size : int option
   ; mutable width_constraint : size_constraint option
   ; mutable height_constraint : size_constraint option
@@ -75,11 +74,27 @@ and box_content =
   | Boxes of box list
   | Text of string
   | Textarea of text_area_information
+  | ScrollContainer of (content:box * scroll:box * container:box)
 
 let focused_element : box option ref = ref None
 let set_focused_element ~(box : box) = focused_element := Some box
 let unfocus_element () = focused_element := None
 let default_bbox : bounding_box = { width = 0; height = 0; x = 0; y = 0 }
+
+let get_box_sides ~(box : box) : box_sides =
+  match box.bbox with
+  | Some bbox ->
+    let right = bbox.x + bbox.width
+    and bottom = bbox.y + bbox.height in
+    { left = bbox.x; top = bbox.y; right; bottom }
+  | None -> failwith "calling get_box_sides requires a bbox property of Some"
+;;
+
+let get_logical_to_opengl_window_dims_ratio () =
+  let window_width, window_height = Sdl.sdl_get_window_size Sdl.w
+  and window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
+  window_width_gl / window_width, window_height_gl / window_height
+;;
 
 let default_text_area_information =
   { text = None
@@ -92,6 +107,30 @@ let default_text_area_information =
   }
 ;;
 
+let default_textarea_event_handler =
+  fun ~b ~e ->
+  match b with
+  | Some b ->
+    (match b.content with
+     | Some (Textarea info) ->
+       (match e with
+        | Sdl.MouseButtonEvt { x; y; _ } ->
+          (match b.bbox with
+           | Some _ ->
+             let { left; right; top; bottom } = get_box_sides ~box:b in
+             let width_ratio, height_ratio = get_logical_to_opengl_window_dims_ratio () in
+             if
+               x * width_ratio >= left
+               && x * width_ratio <= right
+               && y * height_ratio <= bottom
+               && y * height_ratio >= top
+             then set_focused_element ~box:b
+           | None -> ())
+        | _ -> ())
+     | _ -> ())
+  | _ -> ()
+;;
+
 let default_box =
   { name = None
   ; content = None
@@ -99,7 +138,6 @@ let default_box =
   ; text_wrap = false
   ; background_color = 1., 1., 1., 1.
   ; border = false
-  ; take_remaining_space = None
   ; font_size = None
   ; width_constraint = None
   ; height_constraint = None
@@ -151,6 +189,42 @@ let get_text_wrap_info ~bbox ~glyph ~x ~y ~font_info =
     else ~new_x:(x + glyph_info.x_advance), ~new_y:y, ~wraps:false)
 ;;
 
+let create_textarea_box () =
+  { default_box with
+    content = Some (Textarea default_text_area_information)
+  ; on_event = Some default_textarea_event_handler
+  }
+;;
+
+let create_scrollbar () =
+  { default_box with
+    height_constraint = Some Max
+  ; bbox = Some { x = 0; y = 0; width = 15; height = 0 }
+  ; background_color = 0., 1., 1., 1.
+  ; content =
+      Some
+        (Box
+           { default_box with
+             bbox = Some { x = 0; y = 0; width = 8; height = 50 }
+           ; background_color = 0., 0., 0., 1.
+           })
+  ; horizontal_align = Some Center
+  }
+;;
+
+let create_scrollcontainer ~content =
+  let scroll_bar = create_scrollbar () in
+  ScrollContainer
+    ( ~content
+    , ~scroll:scroll_bar
+    , ~container:{ default_box with
+                   width_constraint = Some Min
+                 ; height_constraint = Some Min
+                 ; content = Some (Boxes [ content; scroll_bar ])
+                 ; flow = Some Horizontal
+                 } )
+;;
+
 let clone_box ~(box : box) =
   let visited = ref [] in
   let rec clone_box' box =
@@ -162,14 +236,13 @@ let clone_box ~(box : box) =
         (match box.content with
          | Some (Box b) -> Some (Box (clone_box' b))
          | Some (Boxes list) -> Some (Boxes (List.map (fun b -> clone_box' b) list))
-         | Some (Text _) | None -> box.content
-         | Some (Textarea _) -> None)
+         | Some (Text _) | Some (Textarea _) | Some (ScrollContainer _) | None ->
+           box.content)
     ; bbox = box.bbox
     ; text_wrap = box.text_wrap
     ; background_color = box.background_color
     ; border = box.border
     ; flow = box.flow
-    ; take_remaining_space = box.take_remaining_space
     ; font_size = box.font_size
     ; width_constraint = box.width_constraint
     ; height_constraint = box.height_constraint
@@ -225,12 +298,6 @@ let get_text_texture_atlas_info
   }
 ;;
 
-let get_logical_to_opengl_window_dims_ratio () =
-  let window_width, window_height = Sdl.sdl_get_window_size Sdl.w
-  and window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
-  window_width_gl / window_width, window_height_gl / window_height
-;;
-
 let get_new_font_info_with_font_size ~(font_size : int) ~(face : Freetype.ft_face) =
   let _, height_ratio = get_logical_to_opengl_window_dims_ratio () in
   (* scaling font_size appropriately based on ratio between the opengl window in pixels and the sdl window's pixels *)
@@ -251,13 +318,4 @@ let get_new_font_info_with_font_size ~(font_size : int) ~(face : Freetype.ft_fac
   ; ascender
   ; descender
   }
-;;
-
-let get_box_sides ~(box : box) : box_sides =
-  match box.bbox with
-  | Some bbox ->
-    let right = bbox.x + bbox.width
-    and bottom = bbox.y + bbox.height in
-    { left = bbox.x; top = bbox.y; right; bottom }
-  | None -> failwith "calling get_box_sides requires a bbox property of Some"
 ;;

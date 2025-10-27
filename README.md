@@ -29,6 +29,8 @@ and contains text
 
     scrolling...
 
+    need to separate rendering of the box structure and the application of ui rules such as width, height calculation...
+
 vim motions?
 
 basic features:

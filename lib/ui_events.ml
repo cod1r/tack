@@ -11,7 +11,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
        (match e with
         | Sdl.KeyboardEvt { kbd_evt_type; keysym; _ } ->
           let char_code = Char.code keysym in
-          let font_info, _ =
+          let ~font_info, .. =
             Ui_text_texture_info.get_or_add_font_size_text_texture
               ~font_size:(Option.value b.font_size ~default:Freetype.font_size)
           in
@@ -29,30 +29,27 @@ let pass_evt_to_focused ~(e : Sdl.event) =
              b.content <- Some (Textarea new_text_area_information)
            | None -> ())
         | Sdl.MouseMotionEvt { x; y; _ } ->
-          (match info.text with
-           | Some r ->
-             (match b.bbox with
-              | Some bbox ->
-                let font_info, _ =
-                  Ui_text_texture_info.get_or_add_font_size_text_texture
-                    ~font_size:(Option.value b.font_size ~default:Freetype.font_size)
-                in
-                let new_info =
-                  Ui_textarea.handle_mouse_motion_evt
-                    ~x
-                    ~y
-                    ~bbox
-                    ~font_info
-                    ~rope:r
-                    ~text_area_information:info
-                in
-                b.content <- Some (Textarea new_info)
-              | None -> ())
+          (match b.bbox with
+           | Some bbox ->
+             let ~font_info, .. =
+               Ui_text_texture_info.get_or_add_font_size_text_texture
+                 ~font_size:(Option.value b.font_size ~default:Freetype.font_size)
+             in
+             let new_info =
+               Ui_textarea.handle_mouse_motion_evt
+                 ~x
+                 ~y
+                 ~bbox
+                 ~font_info
+                 ~rope:info.text
+                 ~text_area_information:info
+             in
+             b.content <- Some (Textarea new_info)
            | None -> ())
         | Sdl.MouseButtonEvt { mouse_evt_type; x; y; _ } ->
           (match b.bbox with
            | Some bbox ->
-             let font_info, _ =
+             let ~font_info, .. =
                Ui_text_texture_info.get_or_add_font_size_text_texture
                  ~font_size:(Option.value b.font_size ~default:Freetype.font_size)
              in

@@ -3,36 +3,20 @@ open Tack
 let () = Sdl.sdl_gl_setswapinterval 0
 let last_add = ref (Sdl.sdl_getticks ())
 
-let scroll_bar =
-  { Ui.default_box with
-    height_constraint = Some Max
-  ; bbox = Some { x = 0; y = 0; width = 15; height = 0 }
-  ; background_color = 0., 1., 1., 1.
-  ; content =
-      Some
-        (Box
-           { Ui.default_box with
-             bbox = Some { x = 0; y = 0; width = 8; height = 50 }
-           ; background_color = 0., 0., 0., 1.
-           })
-  ; horizontal_align = Some Center
-  }
-;;
-
 let textarea : Ui.box =
-  { Ui.default_box with
-    content = Some (Textarea Ui.default_text_area_information)
-  ; width_constraint = Some Max
-  ; height_constraint = Some Max
+  let textarea_box = Ui.create_textarea_box () in
+  { textarea_box with
+    bbox = Some { x = 0; y = 0; width = 500; height = 500 }
   ; background_color = 0., 0.5, 0., 0.8
   }
 ;;
 
+let scroll_container = Ui.create_scrollcontainer ~content:textarea
+
 let box =
   { Ui.default_box with
-    bbox = Some { x = 0; y = 0; width = 100; height = 200 }
-  ; content = Some (Boxes [ textarea; scroll_bar ])
-  ; flow = Some Horizontal
+    bbox = Some { x = 0; y = 0; width = 500; height = 500 }
+  ; content = Some scroll_container
   }
 ;;
 
