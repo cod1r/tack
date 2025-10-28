@@ -55,8 +55,8 @@ type box =
   ; mutable horizontal_align : horizontal_alignment option
   ; mutable vertical_align : vertical_alignment option
   ; on_event : event_handler_t option
-  ; scroll_x_offset : int
-  ; scroll_y_offset : int
+  ; mutable scroll_x_offset : int
+  ; mutable scroll_y_offset : int
   }
 
 and event_handler_t = b:box option -> e:Sdl.event -> unit
@@ -255,16 +255,16 @@ let create_scrollbar ~content =
                             diff_from_initial_mousedown_to_top_of_bar := y - bbox.y);
                           if !original_mousedown_pos_was_within
                           then
-                            if
-                              y - !diff_from_initial_mousedown_to_top_of_bar + bbox.height
-                              <= bottom
-                              && y - !diff_from_initial_mousedown_to_top_of_bar >= top
-                            then
-                              b.bbox
-                              <- Some
-                                   { bbox with
-                                     y = y - !diff_from_initial_mousedown_to_top_of_bar
-                                   }
+                            b.bbox
+                            <- Some
+                                 { bbox with
+                                   y =
+                                     max
+                                       top
+                                       (min
+                                          (bottom - bbox.height)
+                                          (y - !diff_from_initial_mousedown_to_top_of_bar))
+                                 }
                         | `False -> original_mousedown_pos_was_within := false)
                      | None -> ())
                   | _ -> ())
@@ -304,8 +304,10 @@ let clone_box ~(box : box) =
         (match box.content with
          | Some (Box b) -> Some (Box (clone_box' b))
          | Some (Boxes list) -> Some (Boxes (List.map (fun b -> clone_box' b) list))
-         | Some (Text _) | Some (Textarea _) | Some (ScrollContainer _) | None ->
-           box.content)
+         | Some (ScrollContainer { container; content; scroll }) ->
+           let content = clone_box' content in
+           Some (create_scrollcontainer ~content)
+         | Some (Text _) | Some (Textarea _) | None -> box.content)
     ; bbox = box.bbox
     ; text_wrap = box.text_wrap
     ; background_color = box.background_color

@@ -28,6 +28,7 @@ and contains text
         - each corner of the box is curved using an ellipse
 
     scrolling...
+			- need to calculate how wide or tall the content of a box is in order to know if something is overflowing
 
     need to separate rendering of the box structure and the application of ui rules such as width, height calculation...
 
