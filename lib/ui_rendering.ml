@@ -247,6 +247,14 @@ let sampler_text_location =
   | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
 ;;
 
+let () =
+  Opengl.gl_enable_vertex_attrib_array vertex_text_location;
+  Opengl.gl_enable_vertex_attrib_array color_text_location;
+  Opengl.gl_enable_vertex_attrib_array tex_coord_text_location;
+  Opengl.gl_enable_vertex_attrib_array location_point_vertex;
+  Opengl.gl_enable_vertex_attrib_array location_color
+;;
+
 let width_ratio, height_ratio = Ui.get_logical_to_opengl_window_dims_ratio ()
 
 let transform_xy_coords_to_opengl_viewport_coords ~(x : float) ~(y : float) =
@@ -812,7 +820,7 @@ let rec clamp_width_or_height_to_content_size
      | `Width -> box.bbox <- Some { bbox with width = string_width }
      | `Height -> ())
   | Some (Textarea _) -> failwith "// TODO"
-  | Some (ScrollContainer (~content, ~scroll, ..)) ->
+  | Some (ScrollContainer { content; scroll; _ }) ->
     (match measurement with
      | `Width ->
        let { width = content_width; _ } : Ui.bounding_box =
@@ -876,7 +884,7 @@ let validate ~(box : Ui.box) =
         List.iter (fun b -> validate' b visited) list
       | Some (Ui.Text _) -> ()
       | Some (Ui.Textarea _) -> ()
-      | Some (Ui.ScrollContainer (~content, ..)) -> validate' content (box :: visited)
+      | Some (Ui.ScrollContainer { content; _ }) -> validate' content (box :: visited)
       | None -> ())
   in
   validated := true;
@@ -893,7 +901,7 @@ let add_event_handlers ~(box : Ui.box) =
     match box.content with
     | Some (Ui.Box b) -> add_event_handlers' b
     | Some (Ui.Boxes list) -> List.iter (fun b -> add_event_handlers' b) list
-    | Some (Ui.ScrollContainer (~content, ..)) -> add_event_handlers' content
+    | Some (Ui.ScrollContainer { container; _ }) -> add_event_handlers' container
     | Some (Ui.Text _) | Some (Ui.Textarea _) | None -> ()
   in
   added_event_handlers := true;
@@ -955,11 +963,7 @@ let align_inner_box_vertically ~(box : Ui.box) ~(inner_box : Ui.box) =
      | Some Bottom ->
        let y_pos = bbox.y + box_used_height - inner_box_bbox.height + relative_y in
        inner_box.bbox <- Some { inner_box_bbox with y = y_pos }
-     | None ->
-       (match inner_box.position_type with
-        | Relative { y; _ } ->
-          inner_box.bbox <- Some { inner_box_bbox with y = bbox.y + y }
-        | Absolute -> inner_box.bbox <- Some { inner_box_bbox with y = inner_box_bbox.y }))
+     | None -> ())
   | None -> ()
 ;;
 
@@ -1071,14 +1075,6 @@ let draw_textarea
   | None -> ()
 ;;
 
-let () =
-  Opengl.gl_enable_vertex_attrib_array vertex_text_location;
-  Opengl.gl_enable_vertex_attrib_array color_text_location;
-  Opengl.gl_enable_vertex_attrib_array tex_coord_text_location;
-  Opengl.gl_enable_vertex_attrib_array location_point_vertex;
-  Opengl.gl_enable_vertex_attrib_array location_color
-;;
-
 let rec draw_box ~(box : Ui.box) =
   if not !validated then validate ~box;
   if not !added_event_handlers then add_event_handlers ~box;
@@ -1118,9 +1114,7 @@ let rec draw_box ~(box : Ui.box) =
             List.iter (fun b -> draw_box ~box:b) list
           | None -> List.iter (fun b -> draw_box ~box:b) list)
        | Some (Text s) -> draw_text ~s ~box
-       | Some
-           (Textarea
-              { text; cursor_pos; highlight_pos; scroll_y_offset; scroll_x_offset; _ }) ->
+       | Some (Textarea { text; cursor_pos; highlight_pos; _ }) ->
          clip_content ~box;
          let ~font_info, ~gl_texture_id =
            Ui_text_texture_info.get_or_add_font_size_text_texture
@@ -1132,10 +1126,10 @@ let rec draw_box ~(box : Ui.box) =
            ~cursor_pos
            ~highlight:highlight_pos
            ~font_info
-           ~scroll_y_offset
+           ~scroll_y_offset:box.scroll_y_offset
            ~box;
          Opengl.gl_disable_scissor ()
-       | Some (ScrollContainer (~content, ~scroll, ~container)) -> draw_box ~box:container
+       | Some (ScrollContainer { content; scroll; container }) -> draw_box ~box:container
        | None -> ())
    | None -> ());
   if box.clip_content then Opengl.gl_disable_scissor ()

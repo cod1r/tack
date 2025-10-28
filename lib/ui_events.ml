@@ -25,6 +25,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                  ~keysym
                  ~kbd_evt_type
                  ~text_area_information:info
+                 ~scroll_y_offset:b.scroll_y_offset
              in
              b.content <- Some (Textarea new_text_area_information)
            | None -> ())
@@ -43,6 +44,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                  ~font_info
                  ~rope:info.text
                  ~text_area_information:info
+                 ~scroll_y_offset:b.scroll_y_offset
              in
              b.content <- Some (Textarea new_info)
            | None -> ())
@@ -62,7 +64,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                     ~x
                     ~y
                     ~rope:r
-                    ~scroll_y_offset:info.scroll_y_offset
+                    ~scroll_y_offset:b.scroll_y_offset
                 in
                 (match mouse_evt_type with
                  | Mousedown ->
@@ -90,8 +92,24 @@ let pass_evt_to_focused ~(e : Sdl.event) =
   | None -> ()
 ;;
 
+let check_for_holding ~(e : Sdl.event) =
+  match e with
+  | Sdl.KeyboardEvt { keysym; kbd_evt_type; _ } ->
+    if Char.code keysym = 1073742048
+    then (
+      match kbd_evt_type with
+      | Keydown -> Ui.holding_ctrl := true
+      | Keyup -> Ui.holding_ctrl := false)
+  | Sdl.MouseButtonEvt { mouse_evt_type; x; y; _ } ->
+    (match mouse_evt_type with
+     | Mousedown -> Ui.holding_mousedown := `True (~original_x:x, ~original_y:y)
+     | Mouseup -> Ui.holding_mousedown := `False)
+  | _ -> ()
+;;
+
 let emit_event ~(e : Sdl.event) =
   pass_evt_to_focused ~e;
+  check_for_holding ~e;
   List.iter (fun (box, event_handler) -> event_handler ~b:box ~e) !event_handlers
 ;;
 

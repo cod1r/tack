@@ -55,6 +55,8 @@ type box =
   ; mutable horizontal_align : horizontal_alignment option
   ; mutable vertical_align : vertical_alignment option
   ; on_event : event_handler_t option
+  ; scroll_x_offset : int
+  ; scroll_y_offset : int
   }
 
 and event_handler_t = b:box option -> e:Sdl.event -> unit
@@ -63,10 +65,7 @@ and text_area_information =
   { text : Rope.rope option
   ; cursor_pos : int option
   ; highlight_pos : int option * int option
-  ; holding_ctrl : bool
   ; holding_mousedown_rope_pos : int option
-  ; scroll_x_offset : int
-  ; scroll_y_offset : int
   }
 
 and box_content =
@@ -74,12 +73,22 @@ and box_content =
   | Boxes of box list
   | Text of string
   | Textarea of text_area_information
-  | ScrollContainer of (content:box * scroll:box * container:box)
+  | ScrollContainer of
+      { content : box
+      ; scroll : box
+      ; container : box
+      }
 
 let focused_element : box option ref = ref None
 let set_focused_element ~(box : box) = focused_element := Some box
 let unfocus_element () = focused_element := None
 let default_bbox : bounding_box = { width = 0; height = 0; x = 0; y = 0 }
+
+let holding_mousedown : [ `True of original_x:int * original_y:int | `False ] ref =
+  ref `False
+;;
+
+let holding_ctrl = ref false
 
 let get_box_sides ~(box : box) : box_sides =
   match box.bbox with
@@ -100,11 +109,20 @@ let default_text_area_information =
   { text = None
   ; cursor_pos = None
   ; highlight_pos = None, None
-  ; holding_ctrl = false
   ; holding_mousedown_rope_pos = None
-  ; scroll_x_offset = 0
-  ; scroll_y_offset = 0
   }
+;;
+
+let is_within_box ~x ~y ~box ~from_sdl_evt =
+  let x, y =
+    if from_sdl_evt
+    then (
+      let width_ratio, height_ratio = get_logical_to_opengl_window_dims_ratio () in
+      x * width_ratio, y * height_ratio)
+    else x, y
+  in
+  let { left; right; top; bottom } = get_box_sides ~box in
+  x >= left && x <= right && y <= bottom && y >= top
 ;;
 
 let default_textarea_event_handler =
@@ -117,13 +135,7 @@ let default_textarea_event_handler =
         | Sdl.MouseButtonEvt { x; y; _ } ->
           (match b.bbox with
            | Some _ ->
-             let { left; right; top; bottom } = get_box_sides ~box:b in
-             let width_ratio, height_ratio = get_logical_to_opengl_window_dims_ratio () in
-             if
-               x * width_ratio >= left
-               && x * width_ratio <= right
-               && y * height_ratio <= bottom
-               && y * height_ratio >= top
+             if is_within_box ~x ~y ~from_sdl_evt:true ~box:b
              then set_focused_element ~box:b
            | None -> ())
         | _ -> ())
@@ -149,6 +161,8 @@ let default_box =
   ; vertical_align = None
   ; flow = None
   ; on_event = None
+  ; scroll_x_offset = 0
+  ; scroll_y_offset = 0
   }
 ;;
 
@@ -196,33 +210,87 @@ let create_textarea_box () =
   }
 ;;
 
-let create_scrollbar () =
-  { default_box with
-    height_constraint = Some Max
-  ; bbox = Some { x = 0; y = 0; width = 15; height = 0 }
-  ; background_color = 0., 1., 1., 1.
-  ; content =
-      Some
-        (Box
-           { default_box with
-             bbox = Some { x = 0; y = 0; width = 8; height = 50 }
-           ; background_color = 0., 0., 0., 1.
-           })
-  ; horizontal_align = Some Center
-  }
+let create_scrollbar ~content =
+  let original_mousedown_pos_was_within = ref false in
+  let diff_from_initial_mousedown_to_top_of_bar = ref 0 in
+  let parent =
+    { default_box with
+      height_constraint = Some Max
+    ; bbox = Some { x = 0; y = 0; width = 15; height = 0 }
+    ; background_color = 0.8, 0.8, 0.8, 1.
+    ; content = None
+    ; horizontal_align = Some Center
+    }
+  in
+  parent.content
+  <- Some
+       (Box
+          { default_box with
+            bbox = Some { x = 0; y = 0; width = 8; height = 50 }
+          ; background_color = 0., 0., 0., 1.
+          ; on_event =
+              Some
+                (fun ~b ~e ->
+                  match e with
+                  | Sdl.MouseMotionEvt { x; y; _ } ->
+                    (match b with
+                     | Some b ->
+                       (match !holding_mousedown with
+                        | `True (~original_x, ~original_y) ->
+                          let { left; right; top; bottom } = get_box_sides ~box:parent in
+                          let bbox = Option.get b.bbox in
+                          let _, height_ratio =
+                            get_logical_to_opengl_window_dims_ratio ()
+                          in
+                          let y = y * height_ratio in
+                          if
+                            is_within_box
+                              ~box:b
+                              ~x:original_x
+                              ~y:original_y
+                              ~from_sdl_evt:true
+                            && not !original_mousedown_pos_was_within
+                          then (
+                            original_mousedown_pos_was_within := true;
+                            diff_from_initial_mousedown_to_top_of_bar := y - bbox.y);
+                          if !original_mousedown_pos_was_within
+                          then
+                            if
+                              y - !diff_from_initial_mousedown_to_top_of_bar + bbox.height
+                              <= bottom
+                              && y - !diff_from_initial_mousedown_to_top_of_bar >= top
+                            then
+                              b.bbox
+                              <- Some
+                                   { bbox with
+                                     y = y - !diff_from_initial_mousedown_to_top_of_bar
+                                   }
+                        | `False -> original_mousedown_pos_was_within := false)
+                     | None -> ())
+                  | _ -> ())
+          });
+  parent
 ;;
 
 let create_scrollcontainer ~content =
-  let scroll_bar = create_scrollbar () in
+  let scroll_bar = create_scrollbar ~content in
   ScrollContainer
-    ( ~content
-    , ~scroll:scroll_bar
-    , ~container:{ default_box with
-                   width_constraint = Some Min
-                 ; height_constraint = Some Min
-                 ; content = Some (Boxes [ content; scroll_bar ])
-                 ; flow = Some Horizontal
-                 } )
+    { content
+    ; scroll = scroll_bar
+    ; container =
+        { default_box with
+          width_constraint = Some Min
+        ; height_constraint = Some Min
+        ; content = Some (Boxes [ content; scroll_bar ])
+        ; flow = Some Horizontal
+        ; on_event =
+            Some
+              (fun ~b ~e ->
+                match e with
+                | Sdl.MouseWheelEvt { x; y; _ } -> ()
+                | _ -> ())
+        }
+    }
 ;;
 
 let clone_box ~(box : box) =
@@ -253,6 +321,8 @@ let clone_box ~(box : box) =
     ; horizontal_align = box.horizontal_align
     ; vertical_align = box.vertical_align
     ; on_event = box.on_event
+    ; scroll_y_offset = box.scroll_y_offset
+    ; scroll_x_offset = box.scroll_x_offset
     }
   in
   clone_box' box

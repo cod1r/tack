@@ -146,7 +146,12 @@ let find_closest_vertical_range
                else closest_info.closest_vertical_range)
           } )
   in
-  let lower_y = bbox.y + (scroll_y_offset * font_info.font_height) in
+  let with_scroll_y_offset = bbox.y + scroll_y_offset in
+  let diff_from_start = abs (with_scroll_y_offset - bbox.y) in
+  let diff_from_bottom = abs (with_scroll_y_offset - (bbox.y + font_info.font_height)) in
+  let lower_y =
+    if diff_from_start <= diff_from_bottom then bbox.y else bbox.y + font_info.font_height
+  in
   let upper_y = lower_y + font_info.font_height in
   let (_, { closest_vertical_range; _ }) : rope_traversal_info * closest_information =
     traverse_rope
@@ -209,7 +214,12 @@ let find_closest_horizontal_pos
           ; closest_rope
           } )
   in
-  let lower_y = bbox.y + (scroll_y_offset * font_info.font_height) in
+  let with_scroll_y_offset = bbox.y + scroll_y_offset in
+  let diff_from_start = abs (with_scroll_y_offset - bbox.y) in
+  let diff_from_bottom = abs (with_scroll_y_offset - (bbox.y + font_info.font_height)) in
+  let lower_y =
+    if diff_from_start <= diff_from_bottom then bbox.y else bbox.y + font_info.font_height
+  in
   let upper_y = lower_y + font_info.font_height in
   let rope_traversal_info, closest_info =
     traverse_rope
@@ -283,11 +293,7 @@ let find_coords_for_cursor_pos
     ~rope
     ~handle_result:fold_fn_for_finding_coords
     ~result:
-      (Rope_Traversal_Info
-         { x = bbox.x
-         ; y = bbox.y + (scroll_y_offset * font_info.font_height)
-         ; rope_pos = 0
-         })
+      (Rope_Traversal_Info { x = bbox.x; y = bbox.y + scroll_y_offset; rope_pos = 0 })
 ;;
 
 let find_closest_rope_pos_for_moving_cursor_in_vertical_range
@@ -315,6 +321,7 @@ let handle_kbd_evt
       ~kbd_evt_type
       ~keysym
       ~(text_area_information : Ui.text_area_information)
+      ~scroll_y_offset
   : Ui.text_area_information
   =
   match text_area_information.text with
@@ -322,9 +329,7 @@ let handle_kbd_evt
     (match char_code with
      | 1073742048 ->
        (* this is the integer encoding for ctrl in SDL *)
-       (match kbd_evt_type with
-        | Sdl.Keydown -> { text_area_information with holding_ctrl = true }
-        | Keyup -> { text_area_information with holding_ctrl = false })
+       text_area_information
      | 1073741904 (* left arrow key *) when kbd_evt_type = Keydown ->
        let minus_1 =
          max 0 (pred (Option.value text_area_information.cursor_pos ~default:0))
@@ -338,14 +343,14 @@ let handle_kbd_evt
            ~font_info
            ~rope:r
            ~cursor_pos:(Option.value text_area_information.cursor_pos ~default:0)
-           ~scroll_y_offset:text_area_information.scroll_y_offset
+           ~scroll_y_offset
        in
        let cursor_pos' =
          find_closest_rope_pos_for_moving_cursor_in_vertical_range
            ~rope:r
            ~bbox
            ~font_info
-           ~scroll_y_offset:text_area_information.scroll_y_offset
+           ~scroll_y_offset
            ~cursor_x:x
            ~lower_y:
              ((if char_code = 1073741906 then ( - ) else ( + )) y font_info.font_height)
@@ -386,7 +391,7 @@ let handle_kbd_evt
               ; highlight_pos = None, None
               })
           else text_area_information
-        | 'c' when kbd_evt_type = Keydown && text_area_information.holding_ctrl ->
+        | 'c' when kbd_evt_type = Keydown && !Ui.holding_ctrl ->
           (match text_area_information.highlight_pos with
            | Some start, Some end' ->
              Rope.substring r ~start ~len:(end' - start)
@@ -394,7 +399,7 @@ let handle_kbd_evt
              |> Sdl.set_clipboard_text
            | _ -> ());
           text_area_information
-        | 'v' when kbd_evt_type = Keydown && text_area_information.holding_ctrl ->
+        | 'v' when kbd_evt_type = Keydown && !Ui.holding_ctrl ->
           let clipboard_contents = Sdl.get_clipboard_text () in
           let new_rope =
             Rope.insert
@@ -439,12 +444,12 @@ let handle_txt_evt ~(text_area_information : Ui.text_area_information) ~text =
       | _ -> cursor_pos', r
     in
     let new_rope = Rope.insert new_rope cursor_pos' text in
-    { text_area_information with
-      text = Some new_rope
-    ; highlight_pos = None, None
-    ; holding_mousedown_rope_pos = None
-    ; cursor_pos = Some (cursor_pos' + String.length text)
-    }
+    Ui.
+      { text = Some new_rope
+      ; highlight_pos = None, None
+      ; holding_mousedown_rope_pos = None
+      ; cursor_pos = Some (cursor_pos' + String.length text)
+      }
   | None -> { text_area_information with text = Some (text |> Rope.of_string) }
 ;;
 
@@ -455,6 +460,7 @@ let handle_mouse_motion_evt
       ~bbox
       ~font_info
       ~rope
+      ~scroll_y_offset
   =
   let rope = Option.value rope ~default:(Rope.of_string "") in
   match text_area_information.holding_mousedown_rope_pos with
@@ -466,7 +472,7 @@ let handle_mouse_motion_evt
         ~x
         ~y
         ~rope
-        ~scroll_y_offset:text_area_information.scroll_y_offset
+        ~scroll_y_offset
     in
     { text_area_information with
       highlight_pos =
