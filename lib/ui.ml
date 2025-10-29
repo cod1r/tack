@@ -147,7 +147,7 @@ let default_box =
   { name = None
   ; content = None
   ; bbox = None
-  ; text_wrap = false
+  ; text_wrap = true
   ; background_color = 1., 1., 1., 1.
   ; border = false
   ; font_size = None
@@ -195,6 +195,7 @@ let get_text_wrap_info ~bbox ~glyph ~x ~y ~font_info =
   then ~new_x:bbox.x, ~new_y:(y + font_info.font_height), ~wraps:true
   else (
     let glyph_info = get_glyph_info_from_glyph ~glyph ~font_info in
+    (* TODO: i need to actually check here if text_wrap is true or not *)
     if x + glyph_info.x_advance > bbox.x + bbox.width
     then
       ( ~new_x:(bbox.x + glyph_info.x_advance)

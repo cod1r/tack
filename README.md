@@ -29,8 +29,13 @@ and contains text
 
     scrolling...
 			- need to calculate how wide or tall the content of a box is in order to know if something is overflowing
+			- need to implement horizontal scrolling
 
     need to separate rendering of the box structure and the application of ui rules such as width, height calculation...
+
+performance ideas:
+	- traversing the rope tree over and over for rendering and calculations is wasteful. there should be some stored info either
+	in the rope nodes or in another tree that saves operations (perhaps a self balancing tree).
 
 vim motions?
 
