@@ -5,20 +5,20 @@ let last_add = ref (Sdl.sdl_getticks ())
 
 let textarea : Ui.box =
   let textarea_box = Ui.create_textarea_box () in
-  { textarea_box with
-    bbox = Some { x = 0; y = 0; width = 500; height = 500 }
-  ; background_color = 0., 0.5, 0., 0.8
+  {
+    textarea_box with
+    bbox = Some { x = 0; y = 0; width = 500; height = 500 };
+    background_color = (0., 0.5, 0., 0.8);
   }
-;;
 
 let scroll_container = Ui.create_scrollcontainer ~content:textarea
 
 let box =
-  { Ui.default_box with
-    bbox = Some { x = 0; y = 0; width = 500; height = 500 }
-  ; content = Some scroll_container
+  {
+    Ui.default_box with
+    bbox = Some { x = 0; y = 0; width = 500; height = 500 };
+    content = Some scroll_container;
   }
-;;
 
 let rec loop () =
   let evt = Sdl.sdl_pollevent () in
@@ -26,14 +26,13 @@ let rec loop () =
     match evt with
     | Some Quit -> false
     | None ->
-      Ui_rendering.draw ~box;
-      true
+        Ui_rendering.draw ~box;
+        true
     | Some e ->
-      Ui_events.emit_event ~e;
-      Ui_rendering.draw ~box;
-      true
+        Ui_events.emit_event ~e;
+        Ui_rendering.draw ~box;
+        true
   in
   if continue then loop () else ()
-;;
 
 let () = loop ()
