@@ -99,12 +99,6 @@ let get_box_sides ~(box : box) : box_sides =
   | None -> failwith "calling get_box_sides requires a bbox property of Some"
 ;;
 
-let get_logical_to_opengl_window_dims_ratio () =
-  let window_width, window_height = Sdl.sdl_get_window_size Sdl.w
-  and window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
-  window_width_gl / window_width, window_height_gl / window_height
-;;
-
 let default_text_area_information =
   { text = None
   ; cursor_pos = None
@@ -117,7 +111,7 @@ let is_within_box ~x ~y ~box ~from_sdl_evt =
   let x, y =
     if from_sdl_evt
     then (
-      let width_ratio, height_ratio = get_logical_to_opengl_window_dims_ratio () in
+      let width_ratio, height_ratio = Sdl.get_logical_to_opengl_window_dims_ratio () in
       x * width_ratio, y * height_ratio)
     else x, y
   in
@@ -166,23 +160,10 @@ let default_box =
   }
 ;;
 
-type text_texture_atlas_info =
-  { width : int
-  ; height : int
-  ; bytes : bytes
-  }
-
-type font_info =
-  { glyph_info_with_char : (char * Freetype.glyph_info_) Array.t
-  ; font_size : int
-  ; font_texture_atlas : text_texture_atlas_info
-  ; font_height : int
-  ; ascender : int
-  ; descender : int
-  }
-
 let get_glyph_info_from_glyph ~glyph ~font_info =
-  let opt = Array.find_opt (fun (c', _) -> c' = glyph) font_info.glyph_info_with_char in
+  let opt =
+    Array.find_opt (fun (c', _) -> c' = glyph) font_info.Freetype.glyph_info_with_char
+  in
   try
     let _, gi = Option.get opt in
     gi
@@ -192,7 +173,7 @@ let get_glyph_info_from_glyph ~glyph ~font_info =
 
 let get_text_wrap_info ~bbox ~glyph ~x ~y ~font_info =
   if glyph = '\n'
-  then ~new_x:bbox.x, ~new_y:(y + font_info.font_height), ~wraps:true
+  then ~new_x:bbox.x, ~new_y:(y + font_info.Freetype.font_height), ~wraps:true
   else (
     let glyph_info = get_glyph_info_from_glyph ~glyph ~font_info in
     (* TODO: i need to actually check here if text_wrap is true or not *)
@@ -204,6 +185,41 @@ let get_text_wrap_info ~bbox ~glyph ~x ~y ~font_info =
     else ~new_x:(x + glyph_info.x_advance), ~new_y:y, ~wraps:false)
 ;;
 
+module TextTextureInfo = struct
+  type texture_info =
+    { gl_texture_id : int
+    ; font_size : int
+    ; font_info : Freetype.font_info
+    }
+
+  let text_textures_with_different_font_sizes : texture_info list ref = ref []
+
+  let get_or_add_font_size_text_texture ~(font_size : int) =
+    let option =
+      List.find_opt
+        (fun { font_size = font_size'; _ } -> font_size' = font_size)
+        !text_textures_with_different_font_sizes
+    in
+    match option with
+    | Some { font_info; gl_texture_id; _ } -> ~font_info, ~gl_texture_id
+    | None ->
+      let gl_buffer_glyph_texture_atlas = Opengl.gl_gen_texture () in
+      let font_info =
+        Freetype.get_new_font_info_with_font_size ~font_size ~face:Freetype.face
+      in
+      text_textures_with_different_font_sizes
+      := { gl_texture_id = gl_buffer_glyph_texture_atlas; font_size; font_info }
+         :: !text_textures_with_different_font_sizes;
+      Opengl.gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
+      Opengl.set_gl_tex_parameters_ui_text ();
+      Opengl.gl_teximage_2d
+        ~bytes:font_info.font_texture_atlas.bytes
+        ~width:font_info.font_texture_atlas.width
+        ~height:font_info.font_texture_atlas.height;
+      ~font_info, ~gl_texture_id:gl_buffer_glyph_texture_atlas
+  ;;
+end
+
 let create_textarea_box () =
   { default_box with
     content = Some (Textarea default_text_area_information)
@@ -211,9 +227,158 @@ let create_textarea_box () =
   }
 ;;
 
-let create_scrollbar ~content =
+let get_text_bounding_box ~(box : box) =
+  let rope =
+    match box.content with
+    | Some (Text s) -> Rope.of_string s
+    | Some (Textarea { text; _ }) ->
+      (try Option.get text with
+       | Invalid_argument e -> failwith (__FUNCTION__ ^ "; " ^ e))
+    | _ -> failwith __FUNCTION__
+  in
+  let bbox = Option.value box.bbox ~default:default_bbox in
+  let min_x, min_y, max_x, max_y =
+    ref Int.max_int, ref Int.max_int, ref Int.min_int, ref Int.min_int
+  in
+  let ~font_info, .. =
+    TextTextureInfo.get_or_add_font_size_text_texture ~font_size:Freetype.font_size
+  in
+  let Rope.{ x; y; _ } =
+    Rope.traverse_rope
+      ~rope
+      ~handle_result:(fun (acc : Rope.rope_traversal_info Rope.traverse_info) c ->
+        let (Rope_Traversal_Info acc) = acc in
+        match c with
+        | '\n' ->
+          min_y := min !min_y acc.y;
+          max_y := max !max_y acc.y;
+          Rope_Traversal_Info
+            { y = acc.y + font_info.Freetype.font_height
+            ; x = bbox.x
+            ; rope_pos = acc.rope_pos + 1
+            }
+        | _ ->
+          min_x := min !min_x acc.x;
+          max_x := max !max_x acc.x;
+          let gi = get_glyph_info_from_glyph ~glyph:c ~font_info in
+          let ~new_x, ~new_y, .. =
+            get_text_wrap_info ~bbox ~glyph:c ~x:acc.x ~y:acc.y ~font_info
+          in
+          Rope_Traversal_Info { y = new_y; x = new_x; rope_pos = acc.rope_pos + 1 })
+      ~result:(Rope_Traversal_Info { x = bbox.x; y = bbox.y; rope_pos = 0 })
+  in
+  min_x := min !min_x x;
+  max_x := max !max_x x;
+  min_y := min !min_y y;
+  max_y := max !max_y y;
+  ~min_x:!min_x, ~max_x:!max_x, ~min_y:!min_y, ~max_y:!max_y
+;;
+
+let calculate_bounding_box_of_text_content ~(box : box) =
+  let bbox =
+    match Option.get box.bbox with
+    | bbox -> bbox
+    | exception Invalid_argument e -> failwith (__FUNCTION__ ^ "; " ^ e)
+  in
+  match box.content with
+  | Some (Text _) | Some (Textarea _) -> get_text_bounding_box ~box
+  | _ -> failwith "unreachable"
+;;
+
+(* I thought this would be simpler to calculate but sometimes the box's bbox doesn't reflect the potential size that
+its contents could take up, so recursion is necessary *)
+let rec calculate_content_boundaries ~(box : box) =
+  let { left; right; top; bottom } = get_box_sides ~box in
+  match box.content with
+  | Some (Box b) ->
+    let { left = left'; right = right'; top = top'; bottom = bottom' } =
+      calculate_content_boundaries ~box:b
+    in
+    { left = min left left'
+    ; right = max right right'
+    ; top = min top top'
+    ; bottom = max bottom bottom'
+    }
+  | Some (Boxes list) ->
+    let ( min_horizontal_position
+        , max_horizontal_position
+        , min_vertical_position
+        , max_vertical_position )
+      =
+      List.fold_left
+        (fun (min_horizontal, max_horizontal, min_vertical, max_vertical) b ->
+           let { left; right; top; bottom } = get_box_sides ~box:b in
+           ( min min_horizontal left
+           , max max_horizontal right
+           , min min_vertical top
+           , max max_vertical bottom ))
+        (left, right, top, bottom)
+        list
+    in
+    { left = min_horizontal_position
+    ; right = max_horizontal_position
+    ; top = min_vertical_position
+    ; bottom = max_vertical_position
+    }
+  | Some (Text _) | Some (Textarea _) ->
+    let ~min_x, ~max_x, ~min_y, ~max_y = calculate_bounding_box_of_text_content ~box in
+    { left = min left min_x
+    ; right = max right max_x
+    ; top = min top min_y
+    ; bottom = max bottom max_y
+    }
+  | Some (ScrollContainer { container; _ }) -> calculate_content_boundaries ~box:container
+  | None -> { left; right; top; bottom }
+;;
+
+let scrollbar_event_logic ~parent ~content =
+  fun ~b ~e ->
   let original_mousedown_pos_was_within = ref false in
   let diff_from_initial_mousedown_to_top_of_bar = ref 0 in
+  match e with
+  | Sdl.MouseMotionEvt { x; y; _ } ->
+    (match b with
+     | Some b ->
+       (match !holding_mousedown with
+        | `True (~original_x, ~original_y) ->
+          let { left; right; top; bottom } = get_box_sides ~box:parent in
+          let bbox = Option.get b.bbox in
+          let _, height_ratio = Sdl.get_logical_to_opengl_window_dims_ratio () in
+          let y = y * height_ratio in
+          if
+            is_within_box ~box:b ~x:original_x ~y:original_y ~from_sdl_evt:true
+            && not !original_mousedown_pos_was_within
+          then (
+            original_mousedown_pos_was_within := true;
+            diff_from_initial_mousedown_to_top_of_bar := y - bbox.y);
+          if !original_mousedown_pos_was_within
+          then (
+            let { top; bottom; _ } = calculate_content_boundaries ~box:b in
+            content.scroll_y_offset <- content.scroll_y_offset + 1;
+            b.bbox
+            <- Some
+                 { bbox with
+                   y =
+                     max
+                       top
+                       (min
+                          (bottom - bbox.height)
+                          (y - !diff_from_initial_mousedown_to_top_of_bar))
+                 })
+        | `False -> original_mousedown_pos_was_within := false)
+     | None -> ())
+  | _ -> ()
+;;
+
+let create_scrollbar ~parent ~content =
+  { default_box with
+    bbox = Some { x = 0; y = 0; width = 8; height = 0 }
+  ; background_color = 0., 0., 0., 1.
+  ; on_event = Some (scrollbar_event_logic ~parent ~content)
+  }
+;;
+
+let create_scrollbar_container ~content =
   let parent =
     { default_box with
       height_constraint = Some Max
@@ -223,66 +388,21 @@ let create_scrollbar ~content =
     ; horizontal_align = Some Center
     }
   in
-  parent.content
-  <- Some
-       (Box
-          { default_box with
-            bbox = Some { x = 0; y = 0; width = 8; height = 50 }
-          ; background_color = 0., 0., 0., 1.
-          ; on_event =
-              Some
-                (fun ~b ~e ->
-                  match e with
-                  | Sdl.MouseMotionEvt { x; y; _ } ->
-                    (match b with
-                     | Some b ->
-                       (match !holding_mousedown with
-                        | `True (~original_x, ~original_y) ->
-                          let { left; right; top; bottom } = get_box_sides ~box:parent in
-                          let bbox = Option.get b.bbox in
-                          let _, height_ratio =
-                            get_logical_to_opengl_window_dims_ratio ()
-                          in
-                          let y = y * height_ratio in
-                          if
-                            is_within_box
-                              ~box:b
-                              ~x:original_x
-                              ~y:original_y
-                              ~from_sdl_evt:true
-                            && not !original_mousedown_pos_was_within
-                          then (
-                            original_mousedown_pos_was_within := true;
-                            diff_from_initial_mousedown_to_top_of_bar := y - bbox.y);
-                          if !original_mousedown_pos_was_within
-                          then
-                            b.bbox
-                            <- Some
-                                 { bbox with
-                                   y =
-                                     max
-                                       top
-                                       (min
-                                          (bottom - bbox.height)
-                                          (y - !diff_from_initial_mousedown_to_top_of_bar))
-                                 }
-                        | `False -> original_mousedown_pos_was_within := false)
-                     | None -> ())
-                  | _ -> ())
-          });
+  let scrollbar = create_scrollbar ~parent ~content in
+  parent.content <- Some (Box scrollbar);
   parent
 ;;
 
 let create_scrollcontainer ~content =
-  let scroll_bar = create_scrollbar ~content in
+  let scrollbar_container = create_scrollbar_container ~content in
   ScrollContainer
     { content
-    ; scroll = scroll_bar
+    ; scroll = scrollbar_container
     ; container =
         { default_box with
           width_constraint = Some Min
         ; height_constraint = Some Min
-        ; content = Some (Boxes [ content; scroll_bar ])
+        ; content = Some (Boxes [ content; scrollbar_container ])
         ; flow = Some Horizontal
         ; on_event =
             Some
@@ -329,66 +449,4 @@ let clone_box ~(box : box) =
     }
   in
   clone_box' box
-;;
-
-let get_text_texture_atlas_info
-      ~(glyph_info_with_char : (char * Freetype.glyph_info_) Array.t)
-  =
-  let face = Freetype.face in
-  let descender = Freetype.get_descender face in
-  let ascender = Freetype.get_ascender face in
-  let widths_summed =
-    Array.fold_left (fun acc (_, gi) -> acc + gi.Freetype.width) 0 glyph_info_with_char
-  in
-  let global_font_height = ascender - descender in
-  let bytes_texture_atlas = Bytes.create (widths_summed * global_font_height) in
-  (*
-       the font glyph texture atlas is all of the glyphs that is loaded
-       concatenated into a large bytes array
-
-       widths of glyphs summed * font height
-       ex:
-         ABCDEF...
-     *)
-  let current_width = ref 0 in
-  for glyph_info_index = 0 to Array.length glyph_info_with_char - 1 do
-    let _, glyph_info = glyph_info_with_char.(glyph_info_index) in
-    for row = 0 to glyph_info.rows - 1 do
-      let slice = Bytes.sub glyph_info.bytes (row * glyph_info.width) glyph_info.width in
-      Bytes.blit
-        slice
-        0
-        bytes_texture_atlas
-        (!current_width + (widths_summed * row))
-        glyph_info.width
-    done;
-    current_width := !current_width + glyph_info.width
-  done;
-  { (* width and height of text texture *)
-    width = widths_summed
-  ; height = global_font_height
-  ; bytes = bytes_texture_atlas
-  }
-;;
-
-let get_new_font_info_with_font_size ~(font_size : int) ~(face : Freetype.ft_face) =
-  let _, height_ratio = get_logical_to_opengl_window_dims_ratio () in
-  (* scaling font_size appropriately based on ratio between the opengl window in pixels and the sdl window's pixels *)
-  let font_size = font_size * height_ratio in
-  let glyph_info_with_char =
-    Array.init
-      (126 - 32 + 1)
-      (fun i -> Freetype.get_ascii_char_glyph_info_ face (i + 32) font_size)
-  in
-  let font_height = Freetype.get_font_height face in
-  let descender = Freetype.get_descender face in
-  let ascender = Freetype.get_ascender face in
-  let text_texture_atlas_info = get_text_texture_atlas_info ~glyph_info_with_char in
-  { glyph_info_with_char
-  ; font_size
-  ; font_texture_atlas = text_texture_atlas_info
-  ; font_height
-  ; ascender
-  ; descender
-  }
 ;;

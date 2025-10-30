@@ -1,97 +1,14 @@
-open Freetype
 open Sdl
 open Opengl
 
 let _LINE_NUMBER_RIGHT_PADDING = 20
 
-type rope_traversal_info =
-  { x : int
-  ; y : int
-  ; rope_pos : int
-  }
-
-type closest_information =
-  { closest_col : int option
-  ; upper_y : int
-  ; closest_vertical_range : (int * int) option
-  ; closest_rope : int option
-  }
-
-type _ traverse_info =
-  | Rope_Traversal_Info : rope_traversal_info -> rope_traversal_info traverse_info
-  | Num_Lines : int -> int traverse_info
-  | Finding_Cursor :
-      (rope_traversal_info * closest_information)
-      -> (rope_traversal_info * closest_information) traverse_info
-
-let rec traverse_rope
-  : type a.
-    rope:Rope.rope
-    -> handle_result:(a traverse_info -> char -> a traverse_info)
-    -> result:a traverse_info
-    -> a
+let get_pair_col_and_rope_pos
+      ~(rope_traversal_info : Rope.rope_traversal_info)
+      ~closest_info
+      ~x
   =
-  fun ~(rope : Rope.rope)
-    ~(handle_result : a traverse_info -> char -> a traverse_info)
-    ~(result : a traverse_info) ->
-  match rope with
-  | Leaf l ->
-    (match result with
-     | Rope_Traversal_Info r ->
-       let acc = ref r in
-       let len = String.length l in
-       for i = 0 to len - 1 do
-         let (Rope_Traversal_Info temp) =
-           handle_result (Rope_Traversal_Info !acc) l.[i]
-         in
-         acc := temp
-       done;
-       !acc
-     | Finding_Cursor r ->
-       let acc = ref r in
-       let len = String.length l in
-       for i = 0 to len - 1 do
-         let (Finding_Cursor temp) = handle_result (Finding_Cursor !acc) l.[i] in
-         acc := temp
-       done;
-       !acc
-     | Num_Lines r ->
-       let acc = ref r in
-       let len = String.length l in
-       for i = 0 to len - 1 do
-         let (Num_Lines temp) = handle_result (Num_Lines !acc) l.[i] in
-         acc := temp
-       done;
-       !acc)
-  | Node { left; right; _ } ->
-    let left_result = traverse_rope ~rope:left ~handle_result ~result in
-    let right_result =
-      traverse_rope
-        ~rope:right
-        ~handle_result
-        ~result:
-          (match result with
-           | Rope_Traversal_Info _ -> Rope_Traversal_Info left_result
-           | Finding_Cursor _ -> Finding_Cursor left_result
-           | Num_Lines _ -> Num_Lines left_result)
-    in
-    right_result
-;;
-
-let num_lines (rope : Rope.rope) =
-  let fold_fn (acc : int traverse_info) ch =
-    if ch = '\n'
-    then (
-      let (Num_Lines l) = acc in
-      Num_Lines (l + 1))
-    else acc
-  in
-  let accumulation = traverse_rope ~rope ~handle_result:fold_fn ~result:(Num_Lines 0) in
-  accumulation
-;;
-
-let get_pair_col_and_rope_pos ~rope_traversal_info ~closest_info ~x =
-  match closest_info.closest_vertical_range with
+  match closest_info.Rope.closest_vertical_range with
   | Some (s, e) ->
     if rope_traversal_info.y = s && closest_info.upper_y = e
     then (
@@ -107,16 +24,16 @@ let get_pair_col_and_rope_pos ~rope_traversal_info ~closest_info ~x =
 
 let find_closest_vertical_range
       ~(bbox : Ui.bounding_box)
-      ~(font_info : Ui.font_info)
+      ~(font_info : Freetype.font_info)
       ~rope
       ~y
       ~scroll_y_offset
   =
   let fold_fn_for_vertical_range closest_info c =
-    let (Finding_Cursor (rope_traversal_info, closest_info)) = closest_info in
+    let (Rope.Finding_Cursor (rope_traversal_info, closest_info)) = closest_info in
     match c with
     | '\n' ->
-      Finding_Cursor
+      Rope.Finding_Cursor
         ( { rope_traversal_info with
             x = bbox.x
           ; y = rope_traversal_info.y + font_info.font_height
@@ -153,8 +70,10 @@ let find_closest_vertical_range
     if diff_from_start <= diff_from_bottom then bbox.y else bbox.y + font_info.font_height
   in
   let upper_y = lower_y + font_info.font_height in
-  let (_, { closest_vertical_range; _ }) : rope_traversal_info * closest_information =
-    traverse_rope
+  let (_, { closest_vertical_range; _ })
+    : Rope.rope_traversal_info * Rope.closest_information
+    =
+    Rope.traverse_rope
       ~rope
       ~handle_result:fold_fn_for_vertical_range
       ~result:
@@ -171,20 +90,20 @@ let find_closest_vertical_range
 
 let find_closest_horizontal_pos
       ~(bbox : Ui.bounding_box)
-      ~(font_info : Ui.font_info)
+      ~(font_info : Freetype.font_info)
       ~rope
       ~x
       ~scroll_y_offset
       ~closest_vertical_range
   =
   let fold_fn_for_close_x closest_info c =
-    let (Finding_Cursor (rope_traversal_info, closest_info)) = closest_info in
+    let (Rope.Finding_Cursor (rope_traversal_info, closest_info)) = closest_info in
     match c with
     | '\n' ->
       let closest_col, closest_rope =
         get_pair_col_and_rope_pos ~rope_traversal_info ~closest_info ~x
       in
-      Finding_Cursor
+      Rope.Finding_Cursor
         ( { x = bbox.x
           ; y = rope_traversal_info.y + font_info.font_height
           ; rope_pos = rope_traversal_info.rope_pos + 1
@@ -222,7 +141,7 @@ let find_closest_horizontal_pos
   in
   let upper_y = lower_y + font_info.font_height in
   let rope_traversal_info, closest_info =
-    traverse_rope
+    Rope.traverse_rope
       ~rope
       ~handle_result:fold_fn_for_close_x
       ~result:
@@ -247,13 +166,13 @@ let find_closest_horizontal_pos
 *)
 let find_closest_rope_pos_for_cursor_on_coords
       ~(bbox : Ui.bounding_box)
-      ~(font_info : Ui.font_info)
+      ~(font_info : Freetype.font_info)
       ~x
       ~y
       ~rope
       ~scroll_y_offset
   =
-  let width_ratio, height_ratio = Ui.get_logical_to_opengl_window_dims_ratio () in
+  let width_ratio, height_ratio = Sdl.get_logical_to_opengl_window_dims_ratio () in
   (* ratio is needed because the x,y coords given from MouseEvent is based on window without high dpi so scaling needs to happen *)
   let x = x * width_ratio
   and y = y * height_ratio in
@@ -273,23 +192,23 @@ let find_closest_rope_pos_for_cursor_on_coords
 ;;
 
 let find_coords_for_cursor_pos
-      ~(font_info : Ui.font_info)
+      ~(font_info : Freetype.font_info)
       ~(bbox : Ui.bounding_box)
       ~rope
       ~cursor_pos
       ~scroll_y_offset
   =
   let fold_fn_for_finding_coords acc c =
-    let (Rope_Traversal_Info acc) = acc in
+    let (Rope.Rope_Traversal_Info acc) = acc in
     if acc.rope_pos != cursor_pos
     then (
       let ~new_x, ~new_y, .. =
         Ui.get_text_wrap_info ~bbox ~font_info ~x:acc.x ~y:acc.y ~glyph:c
       in
-      Rope_Traversal_Info { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 })
+      Rope.Rope_Traversal_Info { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 })
     else Rope_Traversal_Info acc
   in
-  traverse_rope
+  Rope.traverse_rope
     ~rope
     ~handle_result:fold_fn_for_finding_coords
     ~result:
@@ -297,7 +216,7 @@ let find_coords_for_cursor_pos
 ;;
 
 let find_closest_rope_pos_for_moving_cursor_in_vertical_range
-      ~(font_info : Ui.font_info)
+      ~(font_info : Freetype.font_info)
       ~cursor_x
       ~lower_y
       ~rope
@@ -315,7 +234,7 @@ let find_closest_rope_pos_for_moving_cursor_in_vertical_range
 ;;
 
 let handle_kbd_evt
-      ~(font_info : Ui.font_info)
+      ~(font_info : Freetype.font_info)
       ~char_code
       ~bbox
       ~kbd_evt_type
@@ -337,7 +256,7 @@ let handle_kbd_evt
        { text_area_information with cursor_pos = Some minus_1 }
      | (1073741906 (* up arrow key *) | 1073741905 (* down arrow key *))
        when kbd_evt_type = Keydown ->
-       let { x; y; _ } =
+       let Rope.{ x; y; _ } =
          find_coords_for_cursor_pos
            ~bbox
            ~font_info

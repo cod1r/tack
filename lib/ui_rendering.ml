@@ -12,13 +12,13 @@ type render_buffer_wrapper =
   }
 
 let get_tex_coords
-      ~(font_info : Ui.font_info)
+      ~(font_info : Freetype.font_info)
       ~(glyph : char)
       ~(glyph_info : Freetype.glyph_info_)
   =
   let _, starting_x =
     Array.fold_left
-      (fun (found, acc) (c, gi) ->
+      (fun (found, acc) ((c, gi) : char * Freetype.glyph_info_) ->
          if c = glyph || found then true, acc else false, acc + gi.Freetype.width)
       (false, 0)
       font_info.glyph_info_with_char
@@ -255,7 +255,7 @@ let () =
   Opengl.gl_enable_vertex_attrib_array location_color
 ;;
 
-let width_ratio, height_ratio = Ui.get_logical_to_opengl_window_dims_ratio ()
+let width_ratio, height_ratio = Sdl.get_logical_to_opengl_window_dims_ratio ()
 
 let transform_xy_coords_to_opengl_viewport_coords ~(x : float) ~(y : float) =
   let width_ratio, height_ratio = Float.of_int width_ratio, Float.of_int height_ratio in
@@ -309,7 +309,7 @@ let write_text_to_ui_buffer
       ~x
       ~y
       ~(glyph : char)
-      ~(font_info : Ui.font_info)
+      ~(font_info : Freetype.font_info)
   =
   let points : floatarray =
     [| Float.of_int (x + glyph_info.horiBearingX)
@@ -431,7 +431,7 @@ let draw_to_gl_buffer () =
   ui_buffer.length <- 0
 ;;
 
-let get_vertical_text_start ~(box : Ui.box) ~(font_info : Ui.font_info) =
+let get_vertical_text_start ~(box : Ui.box) ~(font_info : Freetype.font_info) =
   try
     let bbox = Option.get box.bbox in
     let start_of_vertical =
@@ -447,7 +447,11 @@ let get_vertical_text_start ~(box : Ui.box) ~(font_info : Ui.font_info) =
   | Invalid_argument e -> failwith ("alignment requires a bbox;" ^ e)
 ;;
 
-let get_horizontal_text_start ~(box : Ui.box) ~(font_info : Ui.font_info) ~(s : string) =
+let get_horizontal_text_start
+      ~(box : Ui.box)
+      ~(font_info : Freetype.font_info)
+      ~(s : string)
+  =
   let width_of_string =
     String.fold_left
       (fun acc c ->
@@ -494,7 +498,7 @@ let write_highlight_to_ui_buffer
 
 let draw_highlight
       ~(bbox : Ui.bounding_box)
-      ~(font_info : Ui.font_info)
+      ~(font_info : Freetype.font_info)
       ~(r : Rope.rope)
       ~(highlight : int option * int option)
       ~scroll_y_offset
@@ -503,10 +507,10 @@ let draw_highlight
   match highlight with
   | Some highlight_start, Some highlight_end ->
     let fold_fn_for_draw_highlight acc c =
-      let (Ui_textarea.Rope_Traversal_Info acc) = acc in
+      let (Rope.Rope_Traversal_Info acc) = acc in
       match c with
       | '\n' ->
-        Ui_textarea.Rope_Traversal_Info
+        Rope.Rope_Traversal_Info
           { x = bbox.x; y = acc.y + font_info.font_height; rope_pos = acc.rope_pos + 1 }
       | _ ->
         let gi = Ui.get_glyph_info_from_glyph ~glyph:c ~font_info in
@@ -533,11 +537,10 @@ let draw_highlight
         Rope_Traversal_Info { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
     in
     ignore
-      (Ui_textarea.traverse_rope
+      (Rope.traverse_rope
          ~rope:r
          ~handle_result:fold_fn_for_draw_highlight
-         ~result:
-           (Ui_textarea.Rope_Traversal_Info { x = bbox.x; y = bbox.y; rope_pos = 0 }));
+         ~result:(Rope.Rope_Traversal_Info { x = bbox.x; y = bbox.y; rope_pos = 0 }));
     write_highlight_to_ui_buffer
       ~buffer:ui_buffer
       ~points:!entire_points_of_highlight_quads
@@ -569,7 +572,7 @@ let write_cursor_to_ui_buffer
 ;;
 
 let draw_cursor
-      ~(font_info : Ui.font_info)
+      ~(font_info : Freetype.font_info)
       ~(bbox : Ui.bounding_box)
       ~(r : Rope.rope)
       ~cursor_pos
@@ -578,7 +581,7 @@ let draw_cursor
   match cursor_pos with
   | Some cursor_pos ->
     let fold_fn_draw_cursor acc c =
-      let (Ui_textarea.Rope_Traversal_Info acc) = acc in
+      let (Rope.Rope_Traversal_Info acc) = acc in
       let y_pos = acc.y in
       if
         acc.rope_pos = cursor_pos
@@ -594,7 +597,7 @@ let draw_cursor
           ~font_height:font_info.font_height;
       match c with
       | '\n' ->
-        Ui_textarea.Rope_Traversal_Info
+        Rope.Rope_Traversal_Info
           { x = bbox.x; y = acc.y + font_info.font_height; rope_pos = acc.rope_pos + 1 }
       | _ ->
         let ~new_x, ~new_y, .. =
@@ -603,15 +606,12 @@ let draw_cursor
         Rope_Traversal_Info { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
     in
     let res =
-      Ui_textarea.traverse_rope
+      Rope.traverse_rope
         ~rope:r
         ~handle_result:fold_fn_draw_cursor
         ~result:
-          (Ui_textarea.Rope_Traversal_Info
-             { x = bbox.x
-             ; y = bbox.y + (scroll_y_offset * font_info.font_height)
-             ; rope_pos = 0
-             })
+          (Rope.Rope_Traversal_Info
+             { x = bbox.x; y = bbox.y + scroll_y_offset; rope_pos = 0 })
     in
     if res.rope_pos = cursor_pos
     then
@@ -625,7 +625,7 @@ let draw_cursor
 
 let draw_text ~(s : string) ~(box : Ui.box) =
   let ~font_info, ~gl_texture_id =
-    Ui_text_texture_info.get_or_add_font_size_text_texture
+    Ui.TextTextureInfo.get_or_add_font_size_text_texture
       ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
   in
   Opengl.gl_bind_texture ~texture_id:gl_texture_id;
@@ -800,7 +800,7 @@ let rec clamp_width_or_height_to_content_size
      | None -> ())
   | Some (Text s) ->
     let ~font_info, .. =
-      Ui_text_texture_info.get_or_add_font_size_text_texture
+      Ui.TextTextureInfo.get_or_add_font_size_text_texture
         ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
     in
     let string_width =
@@ -998,17 +998,17 @@ let align_inner_box_horizontally ~(box : Ui.box) ~(inner_box : Ui.box) =
 ;;
 
 let draw_text_textarea
-      ~(font_info : Ui.font_info)
+      ~(font_info : Freetype.font_info)
       ~(bbox : Ui.bounding_box)
       ~(rope : Rope.rope)
       ~text_buffer
       ~scroll_y_offset
   =
   let fold_fn_for_drawing_text acc c =
-    let (Ui_textarea.Rope_Traversal_Info acc) = acc in
+    let (Rope.Rope_Traversal_Info acc) = acc in
     if c = '\n'
     then
-      Ui_textarea.Rope_Traversal_Info
+      Rope.Rope_Traversal_Info
         { x = bbox.x; y = acc.y + font_info.font_height; rope_pos = acc.rope_pos + 1 }
     else (
       let gi = Ui.get_glyph_info_from_glyph ~glyph:c ~font_info in
@@ -1019,10 +1019,7 @@ let draw_text_textarea
       (* descender is a negative value *)
       let descender = font_info.descender in
       let y_pos_start =
-        acc.y
-        + (scroll_y_offset * font_info.font_height)
-        + descender
-        + if wraps then font_info.font_height else 0
+        acc.y + scroll_y_offset + descender + if wraps then font_info.font_height else 0
       in
       if
         y_pos_start <= bbox.y + bbox.height
@@ -1036,15 +1033,14 @@ let draw_text_textarea
           ~glyph_info:gi
           ~glyph:c
           ~font_info;
-      Ui_textarea.Rope_Traversal_Info
-        { rope_pos = acc.rope_pos + 1; x = new_x; y = new_y })
+      Rope.Rope_Traversal_Info { rope_pos = acc.rope_pos + 1; x = new_x; y = new_y })
   in
   ignore
-    (Ui_textarea.traverse_rope
+    (Rope.traverse_rope
        ~rope
        ~handle_result:fold_fn_for_drawing_text
        ~result:
-         (Ui_textarea.Rope_Traversal_Info
+         (Rope.Rope_Traversal_Info
             { rope_pos = 0; x = bbox.x; y = bbox.y + font_info.font_height }))
 ;;
 
@@ -1053,7 +1049,7 @@ let draw_text_textarea
   an abstraction for that specific wrapping behavior, but let's consider that later.
 *)
 let draw_textarea
-      ~(font_info : Ui.font_info)
+      ~(font_info : Freetype.font_info)
       ~rope
       ~(scroll_y_offset : int)
       ~highlight
@@ -1117,7 +1113,7 @@ let rec draw_box ~(box : Ui.box) =
        | Some (Textarea { text; cursor_pos; highlight_pos; _ }) ->
          clip_content ~box;
          let ~font_info, ~gl_texture_id =
-           Ui_text_texture_info.get_or_add_font_size_text_texture
+           Ui.TextTextureInfo.get_or_add_font_size_text_texture
              ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
          in
          Opengl.gl_bind_texture ~texture_id:gl_texture_id;

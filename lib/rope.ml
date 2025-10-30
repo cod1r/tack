@@ -1,5 +1,3 @@
-open Freetype
-
 type rope =
   | Leaf of string
   | Node of
@@ -91,4 +89,78 @@ let rebalance r =
       concat left right
   in
   build (flatten r)
+;;
+
+type rope_traversal_info =
+  { x : int
+  ; y : int
+  ; rope_pos : int
+  }
+
+type closest_information =
+  { closest_col : int option
+  ; upper_y : int
+  ; closest_vertical_range : (int * int) option
+  ; closest_rope : int option
+  }
+
+type _ traverse_info =
+  | Rope_Traversal_Info : rope_traversal_info -> rope_traversal_info traverse_info
+  | Num_Lines : int -> int traverse_info
+  | Finding_Cursor :
+      (rope_traversal_info * closest_information)
+      -> (rope_traversal_info * closest_information) traverse_info
+
+let rec traverse_rope
+  : type a.
+    rope:rope
+    -> handle_result:(a traverse_info -> char -> a traverse_info)
+    -> result:a traverse_info
+    -> a
+  =
+  fun ~(rope : rope)
+    ~(handle_result : a traverse_info -> char -> a traverse_info)
+    ~(result : a traverse_info) ->
+  match rope with
+  | Leaf l ->
+    (match result with
+     | Rope_Traversal_Info r ->
+       let acc = ref r in
+       let len = String.length l in
+       for i = 0 to len - 1 do
+         let (Rope_Traversal_Info temp) =
+           handle_result (Rope_Traversal_Info !acc) l.[i]
+         in
+         acc := temp
+       done;
+       !acc
+     | Finding_Cursor r ->
+       let acc = ref r in
+       let len = String.length l in
+       for i = 0 to len - 1 do
+         let (Finding_Cursor temp) = handle_result (Finding_Cursor !acc) l.[i] in
+         acc := temp
+       done;
+       !acc
+     | Num_Lines r ->
+       let acc = ref r in
+       let len = String.length l in
+       for i = 0 to len - 1 do
+         let (Num_Lines temp) = handle_result (Num_Lines !acc) l.[i] in
+         acc := temp
+       done;
+       !acc)
+  | Node { left; right; _ } ->
+    let left_result = traverse_rope ~rope:left ~handle_result ~result in
+    let right_result =
+      traverse_rope
+        ~rope:right
+        ~handle_result
+        ~result:
+          (match result with
+           | Rope_Traversal_Info _ -> Rope_Traversal_Info left_result
+           | Finding_Cursor _ -> Finding_Cursor left_result
+           | Num_Lines _ -> Num_Lines left_result)
+    in
+    right_result
 ;;

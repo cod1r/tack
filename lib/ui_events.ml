@@ -12,7 +12,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
         | Sdl.KeyboardEvt { kbd_evt_type; keysym; _ } ->
           let char_code = Char.code keysym in
           let ~font_info, .. =
-            Ui_text_texture_info.get_or_add_font_size_text_texture
+            Ui.TextTextureInfo.get_or_add_font_size_text_texture
               ~font_size:(Option.value b.font_size ~default:Freetype.font_size)
           in
           (match b.bbox with
@@ -33,7 +33,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
           (match b.bbox with
            | Some bbox ->
              let ~font_info, .. =
-               Ui_text_texture_info.get_or_add_font_size_text_texture
+               Ui.TextTextureInfo.get_or_add_font_size_text_texture
                  ~font_size:(Option.value b.font_size ~default:Freetype.font_size)
              in
              let new_info =
@@ -52,7 +52,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
           (match b.bbox with
            | Some bbox ->
              let ~font_info, .. =
-               Ui_text_texture_info.get_or_add_font_size_text_texture
+               Ui.TextTextureInfo.get_or_add_font_size_text_texture
                  ~font_size:(Option.value b.font_size ~default:Freetype.font_size)
              in
              (match info.text with

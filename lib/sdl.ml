@@ -254,3 +254,9 @@ let actually_init_sdl () =
 
 let w = actually_init_sdl ()
 let () = Opengl.glew_init ()
+
+let get_logical_to_opengl_window_dims_ratio () =
+  let window_width, window_height = sdl_get_window_size w
+  and window_width_gl, window_height_gl = sdl_gl_getdrawablesize () in
+  window_width_gl / window_width, window_height_gl / window_height
+;;
