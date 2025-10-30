@@ -249,18 +249,18 @@ let get_text_bounding_box ~(box : box) =
       ~rope
       ~handle_result:(fun (acc : Rope.rope_traversal_info Rope.traverse_info) c ->
         let (Rope_Traversal_Info acc) = acc in
+        min_x := min !min_x acc.x;
+        max_x := max !max_x acc.x;
+        min_y := min !min_y acc.y;
+        max_y := max !max_y acc.y;
         match c with
         | '\n' ->
-          min_y := min !min_y acc.y;
-          max_y := max !max_y acc.y;
           Rope_Traversal_Info
             { y = acc.y + font_info.Freetype.font_height
             ; x = bbox.x
             ; rope_pos = acc.rope_pos + 1
             }
         | _ ->
-          min_x := min !min_x acc.x;
-          max_x := max !max_x acc.x;
           let gi = get_glyph_info_from_glyph ~glyph:c ~font_info in
           let ~new_x, ~new_y, .. =
             get_text_wrap_info ~bbox ~glyph:c ~x:acc.x ~y:acc.y ~font_info
@@ -268,10 +268,7 @@ let get_text_bounding_box ~(box : box) =
           Rope_Traversal_Info { y = new_y; x = new_x; rope_pos = acc.rope_pos + 1 })
       ~result:(Rope_Traversal_Info { x = bbox.x; y = bbox.y; rope_pos = 0 })
   in
-  min_x := min !min_x x;
-  max_x := max !max_x x;
-  min_y := min !min_y y;
-  max_y := max !max_y y;
+  max_y := !max_y + font_info.font_height;
   ~min_x:!min_x, ~max_x:!max_x, ~min_y:!min_y, ~max_y:!max_y
 ;;
 
