@@ -58,15 +58,7 @@ let find_closest_vertical_range ~(bbox : Ui.bounding_box)
                  else closest_info.closest_vertical_range);
             } )
   in
-  let with_scroll_y_offset = bbox.y + scroll_y_offset in
-  let diff_from_start = abs (with_scroll_y_offset - bbox.y) in
-  let diff_from_bottom =
-    abs (with_scroll_y_offset - (bbox.y + font_info.font_height))
-  in
-  let lower_y =
-    if diff_from_start <= diff_from_bottom then bbox.y
-    else bbox.y + font_info.font_height
-  in
+  let lower_y = bbox.y + scroll_y_offset in
   let upper_y = lower_y + font_info.font_height in
   let (_, { closest_vertical_range; _ }) :
       Rope.rope_traversal_info * Rope.closest_information =
@@ -124,15 +116,7 @@ let find_closest_horizontal_pos ~(bbox : Ui.bounding_box)
               closest_rope;
             } )
   in
-  let with_scroll_y_offset = bbox.y + scroll_y_offset in
-  let diff_from_start = abs (with_scroll_y_offset - bbox.y) in
-  let diff_from_bottom =
-    abs (with_scroll_y_offset - (bbox.y + font_info.font_height))
-  in
-  let lower_y =
-    if diff_from_start <= diff_from_bottom then bbox.y
-    else bbox.y + font_info.font_height
-  in
+  let lower_y = bbox.y + scroll_y_offset in
   let upper_y = lower_y + font_info.font_height in
   let rope_traversal_info, closest_info =
     Rope.traverse_rope ~rope ~handle_result:fold_fn_for_close_x

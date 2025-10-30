@@ -467,7 +467,8 @@ let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Freetype.font_info)
       ignore
         (Rope.traverse_rope ~rope:r ~handle_result:fold_fn_for_draw_highlight
            ~result:
-             (Rope.Rope_Traversal_Info { x = bbox.x; y = bbox.y; rope_pos = 0 }));
+             (Rope.Rope_Traversal_Info
+                { x = bbox.x; y = bbox.y + scroll_y_offset; rope_pos = 0 }));
       write_highlight_to_ui_buffer ~buffer:ui_buffer
         ~points:!entire_points_of_highlight_quads
   | _ -> ()
