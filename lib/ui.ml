@@ -232,8 +232,9 @@ let get_text_bounding_box ~(box : box) =
     match box.content with
     | Some (Text s) -> Rope.of_string s
     | Some (Textarea { text; _ }) ->
-      (try Option.get text with
-       | Invalid_argument e -> failwith (__FUNCTION__ ^ "; " ^ e))
+      (match text with
+       | Some r -> r
+       | None -> Rope.of_string "")
     | _ -> failwith __FUNCTION__
   in
   let bbox = Option.value box.bbox ~default:default_bbox in
@@ -351,18 +352,38 @@ let scrollbar_event_logic ~parent ~content =
             then (
               original_mousedown_pos_was_within := true;
               diff_from_initial_mousedown_to_top_of_bar := y - bbox.y);
+            let { bottom = content_bottom; _ } =
+              calculate_content_boundaries ~box:content
+            in
+            let content_height = content_bottom - top
+            and parent_height = bottom - top in
+            if content_height > parent_height
+            then
+              Option.iter
+                (fun bbox ->
+                   b.bbox
+                   <- Some
+                        { bbox with
+                          height = parent_height * parent_height / content_height
+                        })
+                b.bbox;
             if !original_mousedown_pos_was_within
             then
-              b.bbox
-              <- Some
-                   { bbox with
-                     y =
-                       max
-                         top
-                         (min
-                            (bottom - bbox.height)
-                            (y - !diff_from_initial_mousedown_to_top_of_bar))
-                   }
+              Option.iter
+                (fun bbox ->
+                   content.scroll_y_offset
+                   <- -content_height * (bbox.y - top) / parent_height;
+                   b.bbox
+                   <- Some
+                        { bbox with
+                          y =
+                            max
+                              top
+                              (min
+                                 (bottom - bbox.height)
+                                 (y - !diff_from_initial_mousedown_to_top_of_bar))
+                        })
+                b.bbox
           | `False -> original_mousedown_pos_was_within := false)
        | None -> ())
     | _ -> ()

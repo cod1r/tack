@@ -29,7 +29,8 @@ let pass_evt_to_focused ~(e : Sdl.event) =
              in
              b.content <- Some (Textarea new_text_area_information)
            | None -> ())
-        | Sdl.MouseMotionEvt { x; y; _ } ->
+        | Sdl.MouseMotionEvt { x; y; _ }
+          when Ui.is_within_box ~x ~y ~from_sdl_evt:true ~box:b ->
           (match b.bbox with
            | Some bbox ->
              let ~font_info, .. =
@@ -48,7 +49,8 @@ let pass_evt_to_focused ~(e : Sdl.event) =
              in
              b.content <- Some (Textarea new_info)
            | None -> ())
-        | Sdl.MouseButtonEvt { mouse_evt_type; x; y; _ } ->
+        | Sdl.MouseButtonEvt { mouse_evt_type; x; y; _ }
+          when Ui.is_within_box ~x ~y ~from_sdl_evt:true ~box:b ->
           (match b.bbox with
            | Some bbox ->
              let ~font_info, .. =
