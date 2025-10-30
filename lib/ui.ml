@@ -332,47 +332,45 @@ let rec calculate_content_boundaries ~(box : box) =
 ;;
 
 let scrollbar_event_logic ~parent ~content =
-  fun ~b ~e ->
   let original_mousedown_pos_was_within = ref false in
   let diff_from_initial_mousedown_to_top_of_bar = ref 0 in
-  match e with
-  | Sdl.MouseMotionEvt { x; y; _ } ->
-    (match b with
-     | Some b ->
-       (match !holding_mousedown with
-        | `True (~original_x, ~original_y) ->
-          let { left; right; top; bottom } = get_box_sides ~box:parent in
-          let bbox = Option.get b.bbox in
-          let _, height_ratio = Sdl.get_logical_to_opengl_window_dims_ratio () in
-          let y = y * height_ratio in
-          if
-            is_within_box ~box:b ~x:original_x ~y:original_y ~from_sdl_evt:true
-            && not !original_mousedown_pos_was_within
-          then (
-            original_mousedown_pos_was_within := true;
-            diff_from_initial_mousedown_to_top_of_bar := y - bbox.y);
-          if !original_mousedown_pos_was_within
-          then (
-            let { top; bottom; _ } = calculate_content_boundaries ~box:b in
-            content.scroll_y_offset <- content.scroll_y_offset + 1;
-            b.bbox
-            <- Some
-                 { bbox with
-                   y =
-                     max
-                       top
-                       (min
-                          (bottom - bbox.height)
-                          (y - !diff_from_initial_mousedown_to_top_of_bar))
-                 })
-        | `False -> original_mousedown_pos_was_within := false)
-     | None -> ())
-  | _ -> ()
+  fun ~b ~e ->
+    match e with
+    | Sdl.MouseMotionEvt { x; y; _ } ->
+      (match b with
+       | Some b ->
+         (match !holding_mousedown with
+          | `True (~original_x, ~original_y) ->
+            let { left; right; top; bottom } = get_box_sides ~box:parent in
+            let bbox = Option.get b.bbox in
+            let _, height_ratio = Sdl.get_logical_to_opengl_window_dims_ratio () in
+            let y = y * height_ratio in
+            if
+              is_within_box ~box:b ~x:original_x ~y:original_y ~from_sdl_evt:true
+              && not !original_mousedown_pos_was_within
+            then (
+              original_mousedown_pos_was_within := true;
+              diff_from_initial_mousedown_to_top_of_bar := y - bbox.y);
+            if !original_mousedown_pos_was_within
+            then
+              b.bbox
+              <- Some
+                   { bbox with
+                     y =
+                       max
+                         top
+                         (min
+                            (bottom - bbox.height)
+                            (y - !diff_from_initial_mousedown_to_top_of_bar))
+                   }
+          | `False -> original_mousedown_pos_was_within := false)
+       | None -> ())
+    | _ -> ()
 ;;
 
 let create_scrollbar ~parent ~content =
   { default_box with
-    bbox = Some { x = 0; y = 0; width = 8; height = 0 }
+    bbox = Some { x = 0; y = 0; width = 8; height = 50 }
   ; background_color = 0., 0., 0., 1.
   ; on_event = Some (scrollbar_event_logic ~parent ~content)
   }
