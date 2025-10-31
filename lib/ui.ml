@@ -144,13 +144,12 @@ let get_glyph_info_from_glyph ~glyph ~font_info =
     gi
   with Invalid_argument e -> failwith (__FUNCTION__ ^ "; " ^ e)
 
-let get_text_wrap_info ~bbox ~glyph ~x ~y ~font_info =
+let get_text_wrap_info ~bbox ~glyph ~x ~y ~font_info ~text_wrap =
   if glyph = '\n' then
     (~new_x:bbox.x, ~new_y:(y + font_info.Freetype.font_height), ~wraps:true)
   else
     let glyph_info = get_glyph_info_from_glyph ~glyph ~font_info in
-    (* TODO: i need to actually check here if text_wrap is true or not *)
-    if x + glyph_info.x_advance > bbox.x + bbox.width then
+    if x + glyph_info.x_advance > bbox.x + bbox.width && text_wrap then
       ( ~new_x:(bbox.x + glyph_info.x_advance),
         ~new_y:(y + font_info.font_height),
         ~wraps:true )
@@ -201,17 +200,19 @@ let create_textarea_box () =
     on_event = Some default_textarea_event_handler;
   }
 
+let text_caret_width = 3
+
 let get_text_bounding_box ~(box : box) =
-  let rope =
+  let rope, is_textarea =
     match box.content with
-    | Some (Text s) -> Rope.of_string s
-    | Some (Textarea { text; _ }) -> (
-        match text with Some r -> r | None -> Rope.of_string "")
+    | Some (Text s) -> (Rope.of_string s, false)
+    | Some (Textarea { text; _ }) ->
+        ((match text with Some r -> r | None -> Rope.of_string ""), true)
     | _ -> failwith __FUNCTION__
   in
   let bbox = Option.value box.bbox ~default:default_bbox in
   let min_x, min_y, max_x, max_y =
-    (ref Int.max_int, ref Int.max_int, ref Int.min_int, ref Int.min_int)
+    (ref bbox.x, ref bbox.y, ref Int.min_int, ref Int.min_int)
   in
   let ~font_info, .. =
     TextTextureInfo.get_or_add_font_size_text_texture
@@ -222,10 +223,6 @@ let get_text_bounding_box ~(box : box) =
       ~handle_result:(fun
           (acc : Rope.rope_traversal_info Rope.traverse_info) c ->
         let (Rope_Traversal_Info acc) = acc in
-        min_x := min !min_x acc.x;
-        max_x := max !max_x acc.x;
-        min_y := min !min_y acc.y;
-        max_y := max !max_y acc.y;
         match c with
         | '\n' ->
             Rope_Traversal_Info
@@ -238,7 +235,10 @@ let get_text_bounding_box ~(box : box) =
             let gi = get_glyph_info_from_glyph ~glyph:c ~font_info in
             let ~new_x, ~new_y, .. =
               get_text_wrap_info ~bbox ~glyph:c ~x:acc.x ~y:acc.y ~font_info
+                ~text_wrap:box.text_wrap
             in
+            max_x :=
+              max !max_x (new_x + if is_textarea then text_caret_width else 0);
             Rope_Traversal_Info
               { y = new_y; x = new_x; rope_pos = acc.rope_pos + 1 })
       ~result:(Rope_Traversal_Info { x = bbox.x; y = bbox.y; rope_pos = 0 })
@@ -343,10 +343,72 @@ let handle_horizontal_scroll_on_evt ~x ~content ~scrollbar_box
             bbox with
             x =
               max left
-                (min (right - bbox.height)
+                (min (right - bbox.width)
                    (x - diff_from_initial_mousedown_to_start_of_bar));
           })
     scrollbar_box.bbox
+
+let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
+  match content.bbox with
+  | Some _ -> (
+      let { left; right; top; bottom } = get_box_sides ~box:content in
+      let { bottom = content_bottom; right = content_right; _ } =
+        calculate_content_boundaries ~box:content
+      in
+      match orientation with
+      | Vertical -> (
+          let content_height = content_bottom - top
+          and parent_height = bottom - top in
+          match content_height > parent_height with
+          | true ->
+              Option.iter
+                (fun bbox ->
+                  let new_scrollbar_height =
+                    parent_height * parent_height / content_height
+                  in
+                  let y =
+                    if bbox.y + new_scrollbar_height > bottom then
+                      bottom - new_scrollbar_height
+                    else bbox.y
+                  in
+                  content.scroll_y_offset <-
+                    -content_height * (bbox.y - top) / parent_height;
+                  scroll.bbox <-
+                    Some { bbox with y; height = new_scrollbar_height })
+                scroll.bbox
+          | false ->
+              Option.iter
+                (fun bbox ->
+                  content.scroll_y_offset <- 0;
+                  scroll.bbox <- Some { bbox with height = 0 })
+                scroll.bbox)
+      | Horizontal -> (
+          let content_width = content_right - left
+          and parent_width = right - left in
+          match content_width > parent_width with
+          | true ->
+              Option.iter
+                (fun bbox ->
+                  let new_scrollbar_width =
+                    parent_width * parent_width / content_width
+                  in
+                  let x =
+                    if bbox.x + new_scrollbar_width > right then
+                      right - new_scrollbar_width
+                    else bbox.x
+                  in
+                  content.scroll_x_offset <-
+                    -content_width * (bbox.x - left) / parent_width;
+                  scroll.bbox <-
+                    Some { bbox with x; width = new_scrollbar_width })
+                scroll.bbox
+          | false ->
+              Option.iter
+                (fun bbox ->
+                  content.scroll_x_offset <- 0;
+                  scroll.bbox <- Some { bbox with width = 0 })
+                scroll.bbox))
+  | None -> ()
 
 let get_scrollbar_event_logic ~parent ~content ~orientation =
   let original_mousedown_pos_was_within = ref false in
@@ -456,27 +518,6 @@ let create_scrollcontainer ~content ~orientation =
                 match e with Sdl.MouseWheelEvt { x; y; _ } -> () | _ -> ());
         };
     }
-
-let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
-  match content.bbox with
-  | Some _ ->
-      let { left; right; top; bottom } = get_box_sides ~box:content in
-      let { bottom = content_bottom; _ } =
-        calculate_content_boundaries ~box:content
-      in
-      let content_height = content_bottom - top
-      and parent_height = bottom - top in
-      if content_height > parent_height then
-        Option.iter
-          (fun bbox ->
-            scroll.bbox <-
-              Some
-                {
-                  bbox with
-                  height = parent_height * parent_height / content_height;
-                })
-          scroll.bbox
-  | None -> ()
 
 let clone_box ~(box : box) =
   let visited = ref [] in

@@ -77,7 +77,7 @@ let find_closest_vertical_range ~(bbox : Ui.bounding_box)
 
 let find_closest_horizontal_pos ~(bbox : Ui.bounding_box)
     ~(font_info : Freetype.font_info) ~rope ~x ~scroll_y_offset
-    ~closest_vertical_range =
+    ~closest_vertical_range ~text_wrap =
   let fold_fn_for_close_x closest_info c =
     let (Rope.Finding_Cursor (rope_traversal_info, closest_info)) =
       closest_info
@@ -102,7 +102,7 @@ let find_closest_horizontal_pos ~(bbox : Ui.bounding_box)
     | _ ->
         let ~new_x, ~new_y, .. =
           Ui.get_text_wrap_info ~bbox ~glyph:c ~font_info
-            ~x:rope_traversal_info.x ~y:rope_traversal_info.y
+            ~x:rope_traversal_info.x ~y:rope_traversal_info.y ~text_wrap
         in
         let closest_col, closest_rope =
           get_pair_col_and_rope_pos ~rope_traversal_info ~closest_info ~x
@@ -146,7 +146,7 @@ let find_closest_horizontal_pos ~(bbox : Ui.bounding_box)
           that is within the vertical range and is closest to the x value for the mousedown event.
 *)
 let find_closest_rope_pos_for_cursor_on_coords ~(bbox : Ui.bounding_box)
-    ~(font_info : Freetype.font_info) ~x ~y ~rope ~scroll_y_offset =
+    ~(font_info : Freetype.font_info) ~x ~y ~rope ~scroll_y_offset ~text_wrap =
   let width_ratio, height_ratio =
     Sdl.get_logical_to_opengl_window_dims_ratio ()
   in
@@ -157,17 +157,18 @@ let find_closest_rope_pos_for_cursor_on_coords ~(bbox : Ui.bounding_box)
   in
   let closest_rope =
     find_closest_horizontal_pos ~bbox ~font_info ~rope ~scroll_y_offset
-      ~closest_vertical_range ~x
+      ~closest_vertical_range ~x ~text_wrap
   in
   if closest_rope = None then Rope.length rope else closest_rope |> Option.get
 
 let find_coords_for_cursor_pos ~(font_info : Freetype.font_info)
-    ~(bbox : Ui.bounding_box) ~rope ~cursor_pos ~scroll_y_offset =
+    ~(bbox : Ui.bounding_box) ~rope ~cursor_pos ~scroll_y_offset ~text_wrap =
   let fold_fn_for_finding_coords acc c =
     let (Rope.Rope_Traversal_Info acc) = acc in
     if acc.rope_pos != cursor_pos then
       let ~new_x, ~new_y, .. =
         Ui.get_text_wrap_info ~bbox ~font_info ~x:acc.x ~y:acc.y ~glyph:c
+          ~text_wrap
       in
       Rope.Rope_Traversal_Info
         { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
@@ -189,7 +190,7 @@ let find_closest_rope_pos_for_moving_cursor_in_vertical_range
 
 let handle_kbd_evt ~(font_info : Freetype.font_info) ~char_code ~bbox
     ~kbd_evt_type ~keysym ~(text_area_information : Ui.text_area_information)
-    ~scroll_y_offset : Ui.text_area_information =
+    ~text_wrap ~scroll_y_offset : Ui.text_area_information =
   match text_area_information.text with
   | Some r -> (
       match char_code with
@@ -208,11 +209,11 @@ let handle_kbd_evt ~(font_info : Freetype.font_info) ~char_code ~bbox
             find_coords_for_cursor_pos ~bbox ~font_info ~rope:r
               ~cursor_pos:
                 (Option.value text_area_information.cursor_pos ~default:0)
-              ~scroll_y_offset
+              ~scroll_y_offset ~text_wrap
           in
           let cursor_pos' =
             find_closest_rope_pos_for_moving_cursor_in_vertical_range ~rope:r
-              ~bbox ~font_info ~scroll_y_offset ~cursor_x:x
+              ~text_wrap ~bbox ~font_info ~scroll_y_offset ~cursor_x:x
               ~lower_y:
                 ((if char_code = 1073741906 then ( - ) else ( + ))
                    y font_info.font_height)
@@ -323,13 +324,13 @@ let handle_txt_evt ~(text_area_information : Ui.text_area_information) ~text =
   | None -> { text_area_information with text = Some (text |> Rope.of_string) }
 
 let handle_mouse_motion_evt ~(text_area_information : Ui.text_area_information)
-    ~x ~y ~bbox ~font_info ~rope ~scroll_y_offset =
+    ~x ~y ~bbox ~font_info ~rope ~scroll_y_offset ~text_wrap =
   let rope = Option.value rope ~default:(Rope.of_string "") in
   match text_area_information.holding_mousedown_rope_pos with
   | Some mousedown_rope_pos ->
       let cursor_pos' =
         find_closest_rope_pos_for_cursor_on_coords ~bbox ~font_info ~x ~y ~rope
-          ~scroll_y_offset
+          ~text_wrap ~scroll_y_offset
       in
       {
         text_area_information with

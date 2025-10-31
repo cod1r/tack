@@ -9,10 +9,11 @@ let textarea : Ui.box =
     textarea_box with
     bbox = Some { x = 200; y = 200; width = 500; height = 500 };
     background_color = (0., 0.5, 0., 0.8);
+    text_wrap = false;
   }
 
 let scroll_container =
-  Ui.create_scrollcontainer ~content:textarea ~orientation:Vertical
+  Ui.create_scrollcontainer ~content:textarea ~orientation:Horizontal
 
 let box =
   {
