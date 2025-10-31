@@ -1013,7 +1013,9 @@ let rec draw_box ~(box : Ui.box) =
             draw_textarea ~rope:text ~cursor_pos ~highlight:highlight_pos
               ~font_info ~scroll_y_offset:box.scroll_y_offset ~box;
             Opengl.gl_disable_scissor ()
-        | Some (ScrollContainer { content; scroll; container }) ->
+        | Some (ScrollContainer { content; scroll; container; orientation }) ->
+            Ui.adjust_scrollbar_according_to_content_size ~content ~scroll
+              ~orientation;
             draw_box ~box:container
         | None -> ())
   | None -> ());

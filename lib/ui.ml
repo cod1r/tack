@@ -48,7 +48,12 @@ and box_content =
   | Boxes of box list
   | Text of string
   | Textarea of text_area_information
-  | ScrollContainer of { content : box; scroll : box; container : box }
+  | ScrollContainer of {
+      content : box;
+      scroll : box;
+      container : box;
+      orientation : direction;
+    }
 
 let focused_element : box option ref = ref None
 let set_focused_element ~(box : box) = focused_element := Some box
@@ -300,18 +305,59 @@ let rec calculate_content_boundaries ~(box : box) =
       calculate_content_boundaries ~box:container
   | None -> { left; right; top; bottom }
 
-let scrollbar_event_logic ~parent ~content =
+let handle_vertical_scroll_on_evt ~y ~content ~scrollbar_box
+    ~diff_from_initial_mousedown_to_start_of_bar =
+  let { top; bottom; _ } = get_box_sides ~box:content in
+  let { bottom = content_bottom; right = content_right; _ } =
+    calculate_content_boundaries ~box:content
+  in
+  let content_height = content_bottom - top and parent_height = bottom - top in
+  Option.iter
+    (fun bbox ->
+      content.scroll_y_offset <-
+        -content_height * (bbox.y - top) / parent_height;
+      scrollbar_box.bbox <-
+        Some
+          {
+            bbox with
+            y =
+              max top
+                (min (bottom - bbox.height)
+                   (y - diff_from_initial_mousedown_to_start_of_bar));
+          })
+    scrollbar_box.bbox
+
+let handle_horizontal_scroll_on_evt ~x ~content ~scrollbar_box
+    ~diff_from_initial_mousedown_to_start_of_bar =
+  let { left; right; _ } = get_box_sides ~box:content in
+  let { bottom = content_bottom; right = content_right; _ } =
+    calculate_content_boundaries ~box:content
+  in
+  let content_width = content_right - left and parent_width = right - left in
+  Option.iter
+    (fun bbox ->
+      content.scroll_x_offset <- -content_width * (bbox.x - left) / parent_width;
+      scrollbar_box.bbox <-
+        Some
+          {
+            bbox with
+            x =
+              max left
+                (min (right - bbox.height)
+                   (x - diff_from_initial_mousedown_to_start_of_bar));
+          })
+    scrollbar_box.bbox
+
+let get_scrollbar_event_logic ~parent ~content ~orientation =
   let original_mousedown_pos_was_within = ref false in
-  let diff_from_initial_mousedown_to_top_of_bar = ref 0 in
+  let diff_from_initial_mousedown_to_start_of_bar = ref 0 in
   fun ~b ~e ->
     match e with
     | Sdl.MouseMotionEvt { x; y; _ } -> (
         match b with
         | Some b -> (
             match !holding_mousedown with
-            | `True (~original_x, ~original_y) ->
-                let { left; right; top; bottom } = get_box_sides ~box:parent in
-                let bbox = Option.get b.bbox in
+            | `True (~original_x, ~original_y) -> (
                 let _, height_ratio =
                   Sdl.get_logical_to_opengl_window_dims_ratio ()
                 in
@@ -322,86 +368,115 @@ let scrollbar_event_logic ~parent ~content =
                   && not !original_mousedown_pos_was_within
                 then (
                   original_mousedown_pos_was_within := true;
-                  diff_from_initial_mousedown_to_top_of_bar := y - bbox.y);
-                let { bottom = content_bottom; _ } =
-                  calculate_content_boundaries ~box:content
-                in
-                let content_height = content_bottom - top
-                and parent_height = bottom - top in
-                if content_height > parent_height then
-                  Option.iter
-                    (fun bbox ->
-                      b.bbox <-
-                        Some
-                          {
-                            bbox with
-                            height =
-                              parent_height * parent_height / content_height;
-                          })
-                    b.bbox;
+                  let bbox = Option.value b.bbox ~default:default_bbox in
+                  diff_from_initial_mousedown_to_start_of_bar :=
+                    match orientation with
+                    | Vertical -> y - bbox.y
+                    | Horizontal -> x - bbox.x);
                 if !original_mousedown_pos_was_within then
-                  Option.iter
-                    (fun bbox ->
-                      content.scroll_y_offset <-
-                        -content_height * (bbox.y - top) / parent_height;
-                      b.bbox <-
-                        Some
-                          {
-                            bbox with
-                            y =
-                              max top
-                                (min (bottom - bbox.height)
-                                   (y
-                                   - !diff_from_initial_mousedown_to_top_of_bar
-                                   ));
-                          })
-                    b.bbox
+                  match orientation with
+                  | Vertical ->
+                      handle_vertical_scroll_on_evt ~y ~content ~scrollbar_box:b
+                        ~diff_from_initial_mousedown_to_start_of_bar:
+                          !diff_from_initial_mousedown_to_start_of_bar
+                  | Horizontal ->
+                      handle_horizontal_scroll_on_evt ~x ~content
+                        ~scrollbar_box:b
+                        ~diff_from_initial_mousedown_to_start_of_bar:
+                          !diff_from_initial_mousedown_to_start_of_bar)
             | `False -> original_mousedown_pos_was_within := false)
         | None -> ())
     | _ -> ()
 
-let create_scrollbar ~parent ~content =
+let create_scrollbar ~parent ~content ~orientation =
+  let content_bbox = Option.value content.bbox ~default:default_bbox in
   {
     default_box with
-    bbox = Some { x = 0; y = 0; width = 8; height = 50 };
+    bbox =
+      Some
+        (match orientation with
+        | Vertical -> { content_bbox with width = 8; height = 0 }
+        | Horizontal -> { content_bbox with width = 0; height = 8 });
     background_color = (0., 0., 0., 1.);
-    on_event = Some (scrollbar_event_logic ~parent ~content);
+    on_event = Some (get_scrollbar_event_logic ~parent ~content ~orientation);
   }
 
-let create_scrollbar_container ~content =
+let create_scrollbar_container ~content ~orientation =
+  let content_bbox = Option.value content.bbox ~default:default_bbox in
   let parent =
-    {
-      default_box with
-      height_constraint = Some Max;
-      bbox = Some { x = 0; y = 0; width = 15; height = 0 };
-      background_color = (0.8, 0.8, 0.8, 1.);
-      content = None;
-      horizontal_align = Some Center;
-    }
+    match orientation with
+    | Vertical ->
+        {
+          default_box with
+          height_constraint = Some Max;
+          bbox = Some { content_bbox with width = 15; height = 0 };
+          background_color = (0.8, 0.8, 0.8, 1.);
+          horizontal_align = Some Center;
+          content = None;
+        }
+    | Horizontal ->
+        {
+          default_box with
+          width_constraint = Some Max;
+          bbox = Some { content_bbox with width = 0; height = 15 };
+          background_color = (0.8, 0.8, 0.8, 1.);
+          vertical_align = Some Center;
+          content = None;
+        }
   in
-  let scrollbar = create_scrollbar ~parent ~content in
+  let scrollbar = create_scrollbar ~parent ~content ~orientation in
   parent.content <- Some (Box scrollbar);
-  parent
+  (~scrollbar_container:parent, ~scrollbar)
 
-let create_scrollcontainer ~content =
-  let scrollbar_container = create_scrollbar_container ~content in
+let create_scrollcontainer ~content ~orientation =
+  let ~scrollbar_container, ~scrollbar =
+    create_scrollbar_container ~content ~orientation
+  in
+  let content_bbox = Option.value content.bbox ~default:default_bbox in
   ScrollContainer
     {
       content;
-      scroll = scrollbar_container;
+      scroll = scrollbar;
+      orientation;
       container =
         {
           default_box with
+          bbox = Some { content_bbox with width = 0; height = 0 };
           width_constraint = Some Min;
           height_constraint = Some Min;
           content = Some (Boxes [ content; scrollbar_container ]);
-          flow = Some Horizontal;
+          flow =
+            Some
+              (match orientation with
+              | Vertical -> Horizontal
+              | Horizontal -> Vertical);
           on_event =
             Some
               (fun ~b ~e ->
                 match e with Sdl.MouseWheelEvt { x; y; _ } -> () | _ -> ());
         };
     }
+
+let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
+  match content.bbox with
+  | Some _ ->
+      let { left; right; top; bottom } = get_box_sides ~box:content in
+      let { bottom = content_bottom; _ } =
+        calculate_content_boundaries ~box:content
+      in
+      let content_height = content_bottom - top
+      and parent_height = bottom - top in
+      if content_height > parent_height then
+        Option.iter
+          (fun bbox ->
+            scroll.bbox <-
+              Some
+                {
+                  bbox with
+                  height = parent_height * parent_height / content_height;
+                })
+          scroll.bbox
+  | None -> ()
 
 let clone_box ~(box : box) =
   let visited = ref [] in
@@ -416,9 +491,9 @@ let clone_box ~(box : box) =
         | Some (Box b) -> Some (Box (clone_box' b))
         | Some (Boxes list) ->
             Some (Boxes (List.map (fun b -> clone_box' b) list))
-        | Some (ScrollContainer { container; content; scroll }) ->
+        | Some (ScrollContainer { container; content; scroll; orientation }) ->
             let content = clone_box' content in
-            Some (create_scrollcontainer ~content)
+            Some (create_scrollcontainer ~content ~orientation)
         | Some (Text _) | Some (Textarea _) | None -> box.content);
       bbox = box.bbox;
       text_wrap = box.text_wrap;
