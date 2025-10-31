@@ -371,10 +371,20 @@ let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
                       bottom - new_scrollbar_height
                     else bbox.y
                   in
+                  (* (bottom - new_scrollbar_height - top) / parent_height gives us the percentage
+									that is supposed offscreen and I multiply by the content_height to get how many pixels should be scrolled
+									or assigned to scroll_y_offset. negative because it needs to go in the opposite direction of the scrolling *)
                   content.scroll_y_offset <-
-                    -content_height * (bbox.y - top) / parent_height;
+                    -content_height
+                    * (bottom - new_scrollbar_height - top)
+                    / parent_height;
                   scroll.bbox <-
-                    Some { bbox with y; height = new_scrollbar_height })
+                    Some
+                      {
+                        bbox with
+                        y = bottom - new_scrollbar_height;
+                        height = new_scrollbar_height;
+                      })
                 scroll.bbox
           | false ->
               Option.iter
@@ -398,9 +408,16 @@ let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
                     else bbox.x
                   in
                   content.scroll_x_offset <-
-                    -content_width * (bbox.x - left) / parent_width;
+                    -content_width
+                    * (right - new_scrollbar_width - left)
+                    / parent_width;
                   scroll.bbox <-
-                    Some { bbox with x; width = new_scrollbar_width })
+                    Some
+                      {
+                        bbox with
+                        x = right - new_scrollbar_width;
+                        width = new_scrollbar_width;
+                      })
                 scroll.bbox
           | false ->
               Option.iter
