@@ -235,7 +235,6 @@ let get_text_bounding_box ~(box : box) =
                 rope_pos = acc.rope_pos + 1;
               }
         | _ ->
-            let gi = get_glyph_info_from_glyph ~glyph:c ~font_info in
             let ~new_x, ~new_y, .. =
               get_text_wrap_info ~bbox ~glyph:c ~x:acc.x ~y:acc.y ~font_info
                 ~text_wrap:box.text_wrap
@@ -250,11 +249,6 @@ let get_text_bounding_box ~(box : box) =
   (~min_x:!min_x, ~max_x:!max_x, ~min_y:!min_y, ~max_y:!max_y)
 
 let calculate_bounding_box_of_text_content ~(box : box) =
-  let bbox =
-    match Option.get box.bbox with
-    | bbox -> bbox
-    | exception Invalid_argument e -> failwith (__FUNCTION__ ^ "; " ^ e)
-  in
   match box.content with
   | Some (Text _) | Some (Textarea _) -> get_text_bounding_box ~box
   | _ -> failwith "unreachable"
@@ -311,14 +305,8 @@ let rec calculate_content_boundaries ~(box : box) =
 let handle_vertical_scroll_on_evt ~y ~content ~scrollbar_box
     ~diff_from_initial_mousedown_to_start_of_bar =
   let { top; bottom; _ } = get_box_sides ~box:content in
-  let { bottom = content_bottom; right = content_right; _ } =
-    calculate_content_boundaries ~box:content
-  in
-  let content_height = content_bottom - top and parent_height = bottom - top in
   Option.iter
     (fun bbox ->
-      content.scroll_y_offset <-
-        -content_height * (bbox.y - top) / parent_height;
       scrollbar_box.bbox <-
         Some
           {
@@ -333,13 +321,8 @@ let handle_vertical_scroll_on_evt ~y ~content ~scrollbar_box
 let handle_horizontal_scroll_on_evt ~x ~content ~scrollbar_box
     ~diff_from_initial_mousedown_to_start_of_bar =
   let { left; right; _ } = get_box_sides ~box:content in
-  let { bottom = content_bottom; right = content_right; _ } =
-    calculate_content_boundaries ~box:content
-  in
-  let content_width = content_right - left and parent_width = right - left in
   Option.iter
     (fun bbox ->
-      content.scroll_x_offset <- -content_width * (bbox.x - left) / parent_width;
       scrollbar_box.bbox <-
         Some
           {
@@ -350,6 +333,34 @@ let handle_horizontal_scroll_on_evt ~x ~content ~scrollbar_box
                    (x - diff_from_initial_mousedown_to_start_of_bar));
           })
     scrollbar_box.bbox
+
+let change_content_scroll_offsets_based_off_scrollbar ~content ~scroll
+    ~orientation =
+  match scroll.bbox with
+  | Some scroll_bbox ->
+      let { left; right; top; bottom } = get_box_sides ~box:content in
+      let {
+        left = content_left;
+        right = content_right;
+        top = content_top;
+        bottom = content_bottom;
+      } =
+        calculate_content_boundaries ~box:content
+      in
+      let content_width = content_right - left in
+      let content_height = content_bottom - top in
+      let content_bbox_width = right - left in
+      let content_bbox_height = bottom - top in
+      (* distance from scrollbar to start of content divided by content size gives us the percentage
+that is supposed offscreen and I multiply by the content size to get how many pixels should be scrolled.
+negative because it needs to go in the opposite direction of the scrolling *)
+      if scroll_bbox.width > 0 && orientation = Horizontal then
+        content.scroll_x_offset <-
+          -content_width * (scroll_bbox.x - left) / content_bbox_width;
+      if scroll_bbox.height > 0 && orientation = Vertical then
+        content.scroll_y_offset <-
+          -content_height * (scroll_bbox.y - top) / content_bbox_height
+  | _ -> ()
 
 let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
   match content.bbox with
@@ -369,30 +380,21 @@ let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
                   let new_scrollbar_height =
                     parent_height * parent_height / content_height
                   in
-                  if bbox.y + new_scrollbar_height > bottom then (
-                    (* (bottom - new_scrollbar_height - top) / parent_height gives us the percentage
-									that is supposed offscreen and I multiply by the content_height to get how many pixels should be scrolled
-									or assigned to scroll_y_offset. negative because it needs to go in the opposite direction of the scrolling *)
-                    content.scroll_y_offset <-
-                      -content_height
-                      * (bottom - new_scrollbar_height - top)
-                      / parent_height;
+                  if bbox.y + new_scrollbar_height > bottom then
                     scroll.bbox <-
                       Some
                         {
                           bbox with
                           y = bottom - new_scrollbar_height;
                           height = new_scrollbar_height;
-                        })
+                        }
                   else
                     scroll.bbox <-
                       Some { bbox with height = new_scrollbar_height })
                 scroll.bbox
           | false ->
               Option.iter
-                (fun bbox ->
-                  content.scroll_y_offset <- 0;
-                  scroll.bbox <- Some { bbox with height = 0 })
+                (fun bbox -> scroll.bbox <- Some { bbox with height = 0 })
                 scroll.bbox)
       | Horizontal -> (
           let content_width = content_right - left
@@ -404,31 +406,25 @@ let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
                   let new_scrollbar_width =
                     parent_width * parent_width / content_width
                   in
-                  if bbox.x + new_scrollbar_width > right then (
-                    content.scroll_x_offset <-
-                      -content_width
-                      * (right - new_scrollbar_width - left)
-                      / parent_width;
+                  if bbox.x + new_scrollbar_width > right then
                     scroll.bbox <-
                       Some
                         {
                           bbox with
                           x = right - new_scrollbar_width;
                           width = new_scrollbar_width;
-                        })
+                        }
                   else
                     scroll.bbox <-
                       Some { bbox with width = new_scrollbar_width })
                 scroll.bbox
           | false ->
               Option.iter
-                (fun bbox ->
-                  content.scroll_x_offset <- 0;
-                  scroll.bbox <- Some { bbox with width = 0 })
+                (fun bbox -> scroll.bbox <- Some { bbox with width = 0 })
                 scroll.bbox))
   | None -> ()
 
-let get_scrollbar_event_logic ~parent ~content ~orientation =
+let get_scrollbar_event_logic ~content ~orientation =
   let original_mousedown_pos_was_within = ref false in
   let diff_from_initial_mousedown_to_start_of_bar = ref 0 in
   fun ~b ~e ->
@@ -468,7 +464,7 @@ let get_scrollbar_event_logic ~parent ~content ~orientation =
         | None -> ())
     | _ -> ()
 
-let create_scrollbar ~parent ~content ~orientation =
+let create_scrollbar ~content ~orientation =
   let content_bbox = Option.value content.bbox ~default:default_bbox in
   {
     default_box with
@@ -478,7 +474,7 @@ let create_scrollbar ~parent ~content ~orientation =
         | Vertical -> { content_bbox with width = 8; height = 0 }
         | Horizontal -> { content_bbox with width = 0; height = 8 });
     background_color = (0., 0., 0., 1.);
-    on_event = Some (get_scrollbar_event_logic ~parent ~content ~orientation);
+    on_event = Some (get_scrollbar_event_logic ~content ~orientation);
   }
 
 let create_scrollbar_container ~content ~orientation =
@@ -504,7 +500,7 @@ let create_scrollbar_container ~content ~orientation =
           content = None;
         }
   in
-  let scrollbar = create_scrollbar ~parent ~content ~orientation in
+  let scrollbar = create_scrollbar ~content ~orientation in
   parent.content <- Some (Box scrollbar);
   (~scrollbar_container:parent, ~scrollbar)
 

@@ -1022,6 +1022,8 @@ let rec draw_box ~(box : Ui.box) =
           ->
             Ui.adjust_scrollbar_according_to_content_size ~content ~scroll
               ~orientation;
+            Ui.change_content_scroll_offsets_based_off_scrollbar ~content
+              ~scroll ~orientation;
             draw_box ~box:container
         | None -> ())
   | None -> ());

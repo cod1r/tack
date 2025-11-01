@@ -1,5 +1,3 @@
-open Sdl
-
 type file = {
   rope : Rope.rope option;
   cursor_pos : int;

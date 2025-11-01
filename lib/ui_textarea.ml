@@ -302,26 +302,25 @@ let handle_kbd_evt ~(font_info : Freetype.font_info) ~char_code ~bbox
   | None -> text_area_information
 
 let handle_txt_evt ~(text_area_information : Ui.text_area_information) ~text =
-  match text_area_information.text with
-  | Some r ->
-      let cursor_pos' =
-        Option.value text_area_information.cursor_pos ~default:(Rope.length r)
-      in
-      let cursor_pos', new_rope =
-        match text_area_information.highlight_pos with
-        | Some start, Some end' ->
-            (start, Rope.delete r ~start ~len:(end' - start))
-        | _ -> (cursor_pos', r)
-      in
-      let new_rope = Rope.insert new_rope cursor_pos' text in
-      Ui.
-        {
-          text = Some new_rope;
-          highlight_pos = (None, None);
-          holding_mousedown_rope_pos = None;
-          cursor_pos = Some (cursor_pos' + String.length text);
-        }
-  | None -> { text_area_information with text = Some (text |> Rope.of_string) }
+  let r =
+    Option.value text_area_information.text ~default:(Rope.of_string "")
+  in
+  let cursor_pos' =
+    Option.value text_area_information.cursor_pos ~default:(Rope.length r)
+  in
+  let cursor_pos', new_rope =
+    match text_area_information.highlight_pos with
+    | Some start, Some end' -> (start, Rope.delete r ~start ~len:(end' - start))
+    | _ -> (cursor_pos', r)
+  in
+  let new_rope = Rope.insert new_rope cursor_pos' text in
+  Ui.
+    {
+      text = Some new_rope;
+      highlight_pos = (None, None);
+      holding_mousedown_rope_pos = None;
+      cursor_pos = Some (cursor_pos' + String.length text);
+    }
 
 let handle_mouse_motion_evt ~(text_area_information : Ui.text_area_information)
     ~x ~y ~bbox ~font_info ~rope ~scroll_y_offset ~text_wrap =
