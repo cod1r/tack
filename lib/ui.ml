@@ -225,6 +225,7 @@ let get_text_bounding_box ~(box : box) =
       ~handle_result:(fun
           (acc : Rope.rope_traversal_info Rope.traverse_info) c ->
         let (Rope_Traversal_Info acc) = acc in
+        max_y := max !max_y acc.y;
         match c with
         | '\n' ->
             Rope_Traversal_Info

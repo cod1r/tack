@@ -197,7 +197,7 @@ let write_container_values_to_ui_buffer ~(box : Ui.box)
     ~(buffer : render_buffer_wrapper) =
   let Ui.{ width; height; x; y; _ } =
     Option.value box.bbox ~default:Ui.default_bbox
-  and (r, g, b, alpha) = box.background_color in
+  and r, g, b, alpha = box.background_color in
   let points : floatarray =
     [|
       Float.of_int x;
@@ -473,73 +473,6 @@ let write_cursor_to_ui_buffer ~(render_buf_container : render_buffer_wrapper) ~x
     points;
   Float.Array.iteri (fun idx v -> render_buf_container.buffer.{idx} <- v) values;
   render_buf_container.length <- Float.Array.length values
-
-let draw_cursor ~(font_info : Freetype.font_info) ~(bbox : Ui.bounding_box)
-    ~(r : Rope.rope) ~cursor_pos ~scroll_y_offset ~scroll_x_offset ~text_wrap =
-  match cursor_pos with
-  | Some cursor_pos ->
-      let fold_fn_draw_cursor acc c =
-        let (Rope.Rope_Traversal_Info acc) = acc in
-        let y_pos = acc.y in
-        if
-          acc.rope_pos = cursor_pos && y_pos >= bbox.y
-          && y_pos <= bbox.y + bbox.height
-          && acc.x >= bbox.x
-          && acc.x <= bbox.x + bbox.width
-        then
-          write_cursor_to_ui_buffer ~render_buf_container:ui_buffer ~x:acc.x
-            ~y:acc.y ~font_height:font_info.font_height;
-        match c with
-        | '\n' ->
-            Rope.Rope_Traversal_Info
-              {
-                x = bbox.x;
-                y = acc.y + font_info.font_height;
-                rope_pos = acc.rope_pos + 1;
-              }
-        | _ ->
-            let ~new_x, ~new_y, .. =
-              Ui.get_text_wrap_info ~bbox ~glyph:c ~x:acc.x ~y:acc.y ~font_info
-                ~text_wrap
-            in
-            Rope_Traversal_Info
-              { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
-      in
-      let res =
-        Rope.traverse_rope ~rope:r ~handle_result:fold_fn_draw_cursor
-          ~result:
-            (Rope.Rope_Traversal_Info
-               {
-                 x = bbox.x + scroll_x_offset;
-                 y = bbox.y + scroll_y_offset;
-                 rope_pos = 0;
-               })
-      in
-      if res.rope_pos = cursor_pos then
-        write_cursor_to_ui_buffer ~render_buf_container:ui_buffer ~x:res.x
-          ~y:res.y ~font_height:font_info.font_height
-  | None -> ()
-
-let draw_text ~(s : string) ~(box : Ui.box) =
-  let ~font_info, ~gl_texture_id =
-    Ui.TextTextureInfo.get_or_add_font_size_text_texture
-      ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
-  in
-  Opengl.gl_bind_texture ~texture_id:gl_texture_id;
-  let start_y = get_vertical_text_start ~box ~font_info in
-  let start_x = get_horizontal_text_start ~box ~font_info ~s in
-  let horizontal_pos = ref start_x in
-  String.iter
-    (fun c ->
-      let found =
-        Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
-      in
-      let c, glyph = Option.get found in
-      write_text_to_ui_buffer ~render_buf_container:ui_buffer ~glyph_info:glyph
-        ~x:!horizontal_pos ~y:start_y ~glyph:c ~font_info;
-      horizontal_pos := !horizontal_pos + glyph.x_advance)
-    s;
-  draw_to_gl_buffer_text ()
 
 let get_available_size_for_maxed_constrained_inner_boxes
     ~(fixed_sized_boxes : Ui.box list) ~(parent_bbox : Ui.bounding_box)
@@ -889,15 +822,84 @@ let align_inner_box_horizontally ~(box : Ui.box) ~(inner_box : Ui.box) =
       | None -> ())
   | None -> ()
 
+let draw_cursor ~(font_info : Freetype.font_info) ~(bbox : Ui.bounding_box)
+    ~(r : Rope.rope) ~cursor_pos ~scroll_y_offset ~scroll_x_offset ~text_wrap =
+  let start_x = bbox.x + scroll_x_offset in
+  match cursor_pos with
+  | Some cursor_pos ->
+      let fold_fn_draw_cursor acc c =
+        let (Rope.Rope_Traversal_Info acc) = acc in
+        let y_pos = acc.y in
+        if
+          acc.rope_pos = cursor_pos && y_pos >= bbox.y
+          && y_pos <= bbox.y + bbox.height
+          && acc.x >= bbox.x
+          && acc.x <= bbox.x + bbox.width
+        then
+          write_cursor_to_ui_buffer ~render_buf_container:ui_buffer ~x:acc.x
+            ~y:acc.y ~font_height:font_info.font_height;
+        match c with
+        | '\n' ->
+            Rope.Rope_Traversal_Info
+              {
+                x = start_x;
+                y = acc.y + font_info.font_height;
+                rope_pos = acc.rope_pos + 1;
+              }
+        | _ ->
+            let ~new_x, ~new_y, ~wraps =
+              Ui.get_text_wrap_info ~bbox ~glyph:c ~x:acc.x ~y:acc.y ~font_info
+                ~text_wrap
+            in
+            Rope_Traversal_Info
+              {
+                x = (if wraps then start_x else new_x);
+                y = new_y;
+                rope_pos = acc.rope_pos + 1;
+              }
+      in
+      let res =
+        Rope.traverse_rope ~rope:r ~handle_result:fold_fn_draw_cursor
+          ~result:
+            (Rope.Rope_Traversal_Info
+               { x = start_x; y = bbox.y + scroll_y_offset; rope_pos = 0 })
+      in
+      if res.rope_pos = cursor_pos then
+        write_cursor_to_ui_buffer ~render_buf_container:ui_buffer ~x:res.x
+          ~y:res.y ~font_height:font_info.font_height
+  | None -> ()
+
+let draw_text ~(s : string) ~(box : Ui.box) =
+  let ~font_info, ~gl_texture_id =
+    Ui.TextTextureInfo.get_or_add_font_size_text_texture
+      ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
+  in
+  Opengl.gl_bind_texture ~texture_id:gl_texture_id;
+  let start_y = get_vertical_text_start ~box ~font_info in
+  let start_x = get_horizontal_text_start ~box ~font_info ~s in
+  let horizontal_pos = ref start_x in
+  String.iter
+    (fun c ->
+      let found =
+        Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
+      in
+      let c, glyph = Option.get found in
+      write_text_to_ui_buffer ~render_buf_container:ui_buffer ~glyph_info:glyph
+        ~x:!horizontal_pos ~y:start_y ~glyph:c ~font_info;
+      horizontal_pos := !horizontal_pos + glyph.x_advance)
+    s;
+  draw_to_gl_buffer_text ()
+
 let draw_text_textarea ~(font_info : Freetype.font_info)
     ~(bbox : Ui.bounding_box) ~(rope : Rope.rope) ~text_buffer ~scroll_y_offset
     ~scroll_x_offset ~text_wrap =
+  let start_x = bbox.x + scroll_x_offset in
   let fold_fn_for_drawing_text acc c =
     let (Rope.Rope_Traversal_Info acc) = acc in
     if c = '\n' then
       Rope.Rope_Traversal_Info
         {
-          x = bbox.x;
+          x = start_x;
           y = acc.y + font_info.font_height;
           rope_pos = acc.rope_pos + 1;
         }
@@ -918,7 +920,7 @@ let draw_text_textarea ~(font_info : Freetype.font_info)
         && Bytes.length gi.bytes > 0
       then
         write_text_to_ui_buffer ~render_buf_container:text_buffer
-          ~x:(if wraps then bbox.x else acc.x)
+          ~x:(if wraps then start_x else acc.x)
           ~y:y_pos_start ~glyph_info:gi ~glyph:c ~font_info;
       Rope.Rope_Traversal_Info
         { rope_pos = acc.rope_pos + 1; x = new_x; y = new_y }
@@ -929,7 +931,7 @@ let draw_text_textarea ~(font_info : Freetype.font_info)
          (Rope.Rope_Traversal_Info
             {
               rope_pos = 0;
-              x = bbox.x + scroll_x_offset;
+              x = start_x;
               y = bbox.y + font_info.font_height + scroll_y_offset;
             }))
 

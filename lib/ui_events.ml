@@ -1,4 +1,3 @@
-open Freetype
 open Sdl
 
 let event_handlers = ref []
@@ -17,7 +16,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                     (Option.value b.font_size ~default:Freetype.font_size)
               in
               match b.bbox with
-              | Some bbox ->
+              | Some _ ->
                   let new_text_area_information =
                     Ui_textarea.handle_kbd_evt
                       ~bbox:(Option.value b.bbox ~default:Ui.default_bbox)
