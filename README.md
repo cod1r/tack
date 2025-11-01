@@ -28,8 +28,10 @@ and contains text
         - each corner of the box is curved using an ellipse
 
     scrolling...
-			- need to calculate how wide or tall the content of a box is in order to know if something is overflowing
-			- need to implement horizontal scrolling
+			- need to separate the content container from the content (which is going to be scrolled) because if I only pass "content"
+				then having both horizontal and vertical scrolling won't be possible because one of the scroll containers won't be
+				"overflowing"
+			- text caret position should also influence scrolling offsets
 
     need to separate rendering of the box structure and the application of ui rules such as width, height calculation...
 

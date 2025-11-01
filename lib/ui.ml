@@ -49,8 +49,10 @@ and box_content =
   | Text of string
   | Textarea of text_area_information
   | ScrollContainer of {
+      other_scrollcontainer : box_content option;
       content : box;
       scroll : box;
+      scrollbar_container : box;
       container : box;
       orientation : direction;
     }
@@ -366,25 +368,24 @@ let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
                   let new_scrollbar_height =
                     parent_height * parent_height / content_height
                   in
-                  let y =
-                    if bbox.y + new_scrollbar_height > bottom then
-                      bottom - new_scrollbar_height
-                    else bbox.y
-                  in
-                  (* (bottom - new_scrollbar_height - top) / parent_height gives us the percentage
+                  if bbox.y + new_scrollbar_height > bottom then (
+                    (* (bottom - new_scrollbar_height - top) / parent_height gives us the percentage
 									that is supposed offscreen and I multiply by the content_height to get how many pixels should be scrolled
 									or assigned to scroll_y_offset. negative because it needs to go in the opposite direction of the scrolling *)
-                  content.scroll_y_offset <-
-                    -content_height
-                    * (bottom - new_scrollbar_height - top)
-                    / parent_height;
-                  scroll.bbox <-
-                    Some
-                      {
-                        bbox with
-                        y = bottom - new_scrollbar_height;
-                        height = new_scrollbar_height;
-                      })
+                    content.scroll_y_offset <-
+                      -content_height
+                      * (bottom - new_scrollbar_height - top)
+                      / parent_height;
+                    scroll.bbox <-
+                      Some
+                        {
+                          bbox with
+                          y = bottom - new_scrollbar_height;
+                          height = new_scrollbar_height;
+                        })
+                  else
+                    scroll.bbox <-
+                      Some { bbox with height = new_scrollbar_height })
                 scroll.bbox
           | false ->
               Option.iter
@@ -402,22 +403,21 @@ let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
                   let new_scrollbar_width =
                     parent_width * parent_width / content_width
                   in
-                  let x =
-                    if bbox.x + new_scrollbar_width > right then
-                      right - new_scrollbar_width
-                    else bbox.x
-                  in
-                  content.scroll_x_offset <-
-                    -content_width
-                    * (right - new_scrollbar_width - left)
-                    / parent_width;
-                  scroll.bbox <-
-                    Some
-                      {
-                        bbox with
-                        x = right - new_scrollbar_width;
-                        width = new_scrollbar_width;
-                      })
+                  if bbox.x + new_scrollbar_width > right then (
+                    content.scroll_x_offset <-
+                      -content_width
+                      * (right - new_scrollbar_width - left)
+                      / parent_width;
+                    scroll.bbox <-
+                      Some
+                        {
+                          bbox with
+                          x = right - new_scrollbar_width;
+                          width = new_scrollbar_width;
+                        })
+                  else
+                    scroll.bbox <-
+                      Some { bbox with width = new_scrollbar_width })
                 scroll.bbox
           | false ->
               Option.iter
@@ -507,15 +507,17 @@ let create_scrollbar_container ~content ~orientation =
   parent.content <- Some (Box scrollbar);
   (~scrollbar_container:parent, ~scrollbar)
 
-let create_scrollcontainer ~content ~orientation =
+let create_scrollcontainer ~content ~orientation ~other_scrollcontainer =
   let ~scrollbar_container, ~scrollbar =
     create_scrollbar_container ~content ~orientation
   in
   let content_bbox = Option.value content.bbox ~default:default_bbox in
   ScrollContainer
     {
+      other_scrollcontainer;
       content;
       scroll = scrollbar;
+      scrollbar_container;
       orientation;
       container =
         {
@@ -523,7 +525,22 @@ let create_scrollcontainer ~content ~orientation =
           bbox = Some { content_bbox with width = 0; height = 0 };
           width_constraint = Some Min;
           height_constraint = Some Min;
-          content = Some (Boxes [ content; scrollbar_container ]);
+          content =
+            Some
+              (Boxes
+                 [
+                   (match other_scrollcontainer with
+                   | Some _ ->
+                       {
+                         default_box with
+                         bbox = Some { content_bbox with width = 0; height = 0 };
+                         height_constraint = Some Min;
+                         width_constraint = Some Min;
+                         content = other_scrollcontainer;
+                       }
+                   | None -> content);
+                   scrollbar_container;
+                 ]);
           flow =
             Some
               (match orientation with
@@ -549,9 +566,20 @@ let clone_box ~(box : box) =
         | Some (Box b) -> Some (Box (clone_box' b))
         | Some (Boxes list) ->
             Some (Boxes (List.map (fun b -> clone_box' b) list))
-        | Some (ScrollContainer { container; content; scroll; orientation }) ->
+        | Some
+            (ScrollContainer
+               {
+                 container;
+                 content;
+                 scroll;
+                 orientation;
+                 other_scrollcontainer;
+                 _;
+               }) ->
             let content = clone_box' content in
-            Some (create_scrollcontainer ~content ~orientation)
+            Some
+              (create_scrollcontainer ~content ~orientation
+                 ~other_scrollcontainer)
         | Some (Text _) | Some (Textarea _) | None -> box.content);
       bbox = box.bbox;
       text_wrap = box.text_wrap;

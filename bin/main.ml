@@ -1,7 +1,6 @@
 open Tack
 
 let () = Sdl.sdl_gl_setswapinterval 0
-let last_add = ref (Sdl.sdl_getticks ())
 
 let textarea : Ui.box =
   let textarea_box = Ui.create_textarea_box () in
@@ -14,6 +13,11 @@ let textarea : Ui.box =
 
 let scroll_container =
   Ui.create_scrollcontainer ~content:textarea ~orientation:Horizontal
+    ~other_scrollcontainer:None
+
+let scroll_container =
+  Ui.create_scrollcontainer ~content:textarea ~orientation:Vertical
+    ~other_scrollcontainer:(Some scroll_container)
 
 let box =
   {

@@ -1,4 +1,3 @@
-open Sdl
 open Freetype
 
 let _ = Opengl.gl_enable_texture_2d ()
@@ -60,11 +59,6 @@ let text_vertex_id =
   | Ok v -> v
   | Error e -> failwith (e ^ "; couldn't create vertex shader for text")
 
-let text_fragment_id =
-  match Opengl.gl_create_fragment_shader () with
-  | Ok v -> v
-  | Error e -> failwith (e ^ "; couldn't create vertex shader for text")
-
 let text_vertex_shader =
   {|
   #version 120
@@ -120,31 +114,6 @@ let generic_fragment_shader =
     gl_FragColor = vec4(color.r, color.g, color.b, color.a);
   }
   |}
-
-let text_shader_program =
-  Opengl.compile_shaders_and_return_program ~vertex_id:text_vertex_id
-    ~fragment_id:text_fragment_id ~vertex_src:text_vertex_shader
-    ~fragment_src:text_fragment_shader
-
-let vertex_text_location =
-  match Opengl.gl_getattriblocation text_shader_program "vertex" with
-  | Ok l -> l
-  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
-
-let color_text_location =
-  match Opengl.gl_getattriblocation text_shader_program "color" with
-  | Ok l -> l
-  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
-
-let tex_coord_text_location =
-  match Opengl.gl_getattriblocation text_shader_program "tex_coord" with
-  | Ok l -> l
-  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
-
-let sampler_text_location =
-  match Opengl.gl_getuniformlocation text_shader_program "sampler" with
-  | Ok l -> l
-  | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
 
 let gl_ui_lib_buffer = Opengl.gl_gen_one_buffer ()
 
@@ -228,7 +197,7 @@ let write_container_values_to_ui_buffer ~(box : Ui.box)
     ~(buffer : render_buffer_wrapper) =
   let Ui.{ width; height; x; y; _ } =
     Option.value box.bbox ~default:Ui.default_bbox
-  and Ui.(r, g, b, alpha) = box.background_color in
+  and (r, g, b, alpha) = box.background_color in
   let points : floatarray =
     [|
       Float.of_int x;
@@ -615,10 +584,10 @@ let handle_maximizing_of_inner_content_size ~(parent_box : Ui.box) =
         List.filter (fun b -> Option.is_none b.Ui.height_constraint) list
       in
       let constrained_width_boxes =
-        List.filter (fun b -> Option.is_some b.Ui.width_constraint) list
+        List.filter (fun b -> b.Ui.width_constraint = Some Max) list
       in
       let constrained_height_boxes =
-        List.filter (fun b -> Option.is_some b.Ui.height_constraint) list
+        List.filter (fun b -> b.Ui.height_constraint = Some Max) list
       in
       match parent_box.flow with
       | Some Horizontal ->
@@ -666,7 +635,7 @@ let handle_maximizing_of_inner_content_size ~(parent_box : Ui.box) =
   | None -> ()
 
 let rec clamp_width_or_height_to_content_size ~(box : Ui.box)
-    ~(measurement : [< `Width | `Height ]) =
+    ~(measurement : [ `Width | `Height ]) =
   let bbox = Option.value box.bbox ~default:Ui.default_bbox in
   match box.content with
   | Some (Box b) -> (
@@ -734,23 +703,39 @@ let rec clamp_width_or_height_to_content_size ~(box : Ui.box)
       | `Width -> box.bbox <- Some { bbox with width = string_width }
       | `Height -> ())
   | Some (Textarea _) -> failwith "// TODO"
-  | Some (ScrollContainer { content; scroll; _ }) -> (
+  | Some (ScrollContainer { content; scrollbar_container; orientation; _ }) -> (
       match measurement with
-      | `Width ->
-          let { width = content_width; _ } : Ui.bounding_box =
-            Option.value content.bbox ~default:Ui.default_bbox
-          and { width = scroll_width; _ } : Ui.bounding_box =
-            Option.value scroll.bbox ~default:Ui.default_bbox
-          in
-          box.bbox <- Some { bbox with width = content_width + scroll_width }
-      | `Height ->
-          let { height = content_height; _ } : Ui.bounding_box =
-            Option.value content.bbox ~default:Ui.default_bbox
-          and { height = scroll_height; _ } : Ui.bounding_box =
-            Option.value scroll.bbox ~default:Ui.default_bbox
-          in
-          box.bbox <- Some { bbox with height = content_height + scroll_height }
-      )
+      | `Width -> (
+          match orientation with
+          | Vertical ->
+              let { width = content_width; _ } : Ui.bounding_box =
+                Option.value content.bbox ~default:Ui.default_bbox
+              and { width = scrollcontainer_width; _ } : Ui.bounding_box =
+                Option.value scrollbar_container.bbox ~default:Ui.default_bbox
+              in
+              box.bbox <-
+                Some { bbox with width = scrollcontainer_width + content_width }
+          | Horizontal ->
+              let { width = content_width; _ } : Ui.bounding_box =
+                Option.value content.bbox ~default:Ui.default_bbox
+              in
+              box.bbox <- Some { bbox with width = content_width })
+      | `Height -> (
+          match orientation with
+          | Horizontal ->
+              let { height = content_height; _ } : Ui.bounding_box =
+                Option.value content.bbox ~default:Ui.default_bbox
+              and { height = scrollcontainer_height; _ } : Ui.bounding_box =
+                Option.value scrollbar_container.bbox ~default:Ui.default_bbox
+              in
+              box.bbox <-
+                Some
+                  { bbox with height = scrollcontainer_height + content_height }
+          | Vertical ->
+              let { height = content_height; _ } : Ui.bounding_box =
+                Option.value content.bbox ~default:Ui.default_bbox
+              in
+              box.bbox <- Some { bbox with height = content_height }))
   | None -> ()
 
 (* I'm not sure how to handle cases where the contents are positioned outside of
@@ -825,7 +810,6 @@ let handle_list_of_boxes_initial_position ~(box : Ui.box) ~(d : Ui.direction)
     List.fold_left
       (fun (acc_w, acc_h) b ->
         let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
-        let bbox_used_width, bbox_used_height = (bbox.width, bbox.height) in
         match d with
         | Horizontal -> (acc_w + bbox.width, bbox.height)
         | Vertical -> (bbox.width, acc_h + bbox.height))
@@ -919,7 +903,6 @@ let draw_text_textarea ~(font_info : Freetype.font_info)
         }
     else
       let gi = Ui.get_glyph_info_from_glyph ~glyph:c ~font_info in
-      let x_advance = gi.x_advance in
       let ~new_x, ~new_y, ~wraps =
         Ui.get_text_wrap_info ~bbox ~glyph:c ~x:acc.x ~y:acc.y ~font_info
           ~text_wrap
@@ -1033,7 +1016,8 @@ let rec draw_box ~(box : Ui.box) =
             draw_textarea ~rope:text ~cursor_pos ~highlight:highlight_pos
               ~font_info ~box;
             Opengl.gl_disable_scissor ()
-        | Some (ScrollContainer { content; scroll; container; orientation }) ->
+        | Some (ScrollContainer { content; scroll; container; orientation; _ })
+          ->
             Ui.adjust_scrollbar_according_to_content_size ~content ~scroll
               ~orientation;
             draw_box ~box:container
