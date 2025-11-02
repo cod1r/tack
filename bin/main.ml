@@ -17,7 +17,11 @@ let scroll_container =
 
 let scroll_container =
   Ui.create_scrollcontainer ~content:textarea ~orientation:Vertical
-    ~other_scrollcontainer:(Some scroll_container)
+    ~other_scrollcontainer:
+      (Some
+         (match scroll_container with
+         | ScrollContainer info -> info
+         | _ -> failwith "impossible"))
 
 let box =
   {

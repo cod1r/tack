@@ -24,6 +24,15 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                       ~text_area_information:info
                       ~scroll_y_offset:b.scroll_y_offset ~text_wrap:b.text_wrap
                   in
+                  if
+                    List.exists
+                      (fun char_code' -> char_code = char_code')
+                      [ 1073741904; 1073741906; 1073741905; 1073741903 ]
+                    || keysym = '\n' || keysym = '\r'
+                  then
+                    Ui.adjust_scrollbar_according_to_textarea_text_caret
+                      ~box_containing_textarea:b
+                      ~text_area_info:new_text_area_information;
                   b.content <- Some (Textarea new_text_area_information)
               | None -> ())
           | Sdl.MouseMotionEvt { x; y; _ }
@@ -83,6 +92,9 @@ let pass_evt_to_focused ~(e : Sdl.event) =
               let new_text_area_information =
                 Ui_textarea.handle_txt_evt ~text_area_information:info ~text
               in
+              Ui.adjust_scrollbar_according_to_textarea_text_caret
+                ~box_containing_textarea:b
+                ~text_area_info:new_text_area_information;
               b.content <- Some (Textarea new_text_area_information)
           | _ -> ())
       | None | _ -> ())

@@ -43,19 +43,21 @@ and text_area_information = {
   holding_mousedown_rope_pos : int option;
 }
 
+and scrollcontainer_info = {
+  other_scrollcontainer : scrollcontainer_info option;
+  content : box;
+  scroll : box;
+  scrollbar_container : box;
+  container : box;
+  orientation : direction;
+}
+
 and box_content =
   | Box of box
   | Boxes of box list
   | Text of string
   | Textarea of text_area_information
-  | ScrollContainer of {
-      other_scrollcontainer : box_content option;
-      content : box;
-      scroll : box;
-      scrollbar_container : box;
-      container : box;
-      orientation : direction;
-    }
+  | ScrollContainer of scrollcontainer_info
 
 let focused_element : box option ref = ref None
 let set_focused_element ~(box : box) = focused_element := Some box
@@ -218,7 +220,7 @@ let get_text_bounding_box ~(box : box) =
   in
   let ~font_info, .. =
     TextTextureInfo.get_or_add_font_size_text_texture
-      ~font_size:Freetype.font_size
+      ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
   in
   let Rope.{ x; y; _ } =
     Rope.traverse_rope ~rope
@@ -245,13 +247,9 @@ let get_text_bounding_box ~(box : box) =
               { y = new_y; x = new_x; rope_pos = acc.rope_pos + 1 })
       ~result:(Rope_Traversal_Info { x = bbox.x; y = bbox.y; rope_pos = 0 })
   in
+  max_y := max !max_y y;
   max_y := !max_y + font_info.font_height;
   (~min_x:!min_x, ~max_x:!max_x, ~min_y:!min_y, ~max_y:!max_y)
-
-let calculate_bounding_box_of_text_content ~(box : box) =
-  match box.content with
-  | Some (Text _) | Some (Textarea _) -> get_text_bounding_box ~box
-  | _ -> failwith "unreachable"
 
 (* I thought this would be simpler to calculate but sometimes the box's bbox doesn't reflect the potential size that
 its contents could take up, so recursion is necessary *)
@@ -289,9 +287,7 @@ let rec calculate_content_boundaries ~(box : box) =
         bottom = max_vertical_position;
       }
   | Some (Text _) | Some (Textarea _) ->
-      let ~min_x, ~max_x, ~min_y, ~max_y =
-        calculate_bounding_box_of_text_content ~box
-      in
+      let ~min_x, ~max_x, ~min_y, ~max_y = get_text_bounding_box ~box in
       {
         left = min left min_x;
         right = max right max_x;
@@ -352,8 +348,8 @@ let change_content_scroll_offsets_based_off_scrollbar ~content ~scroll
       let content_bbox_width = right - left in
       let content_bbox_height = bottom - top in
       (* distance from scrollbar to start of content divided by content size gives us the percentage
-that is supposed offscreen and I multiply by the content size to get how many pixels should be scrolled.
-negative because it needs to go in the opposite direction of the scrolling *)
+         that is supposed offscreen and I multiply by the content size to get how many pixels should be scrolled.
+         negative because it needs to go in the opposite direction of the scrolling *)
       if scroll_bbox.width > 0 && orientation = Horizontal then
         content.scroll_x_offset <-
           -content_width * (scroll_bbox.x - left) / content_bbox_width;
@@ -361,6 +357,145 @@ negative because it needs to go in the opposite direction of the scrolling *)
         content.scroll_y_offset <-
           -content_height * (scroll_bbox.y - top) / content_bbox_height
   | _ -> ()
+
+let get_xy_pos_of_text_caret ~text_area_info ~box =
+  let bbox = Option.value box.bbox ~default:default_bbox in
+  if Option.is_none text_area_info.cursor_pos then None
+  else
+    let ~font_info, .. =
+      TextTextureInfo.get_or_add_font_size_text_texture
+        ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
+    in
+    match text_area_info.text with
+    | Some rope ->
+        let Rope.{ x; y; _ } =
+          let start_x = bbox.x + box.scroll_x_offset
+          and start_y = bbox.y + box.scroll_y_offset in
+          Rope.traverse_rope ~rope
+            ~handle_result:(fun acc c ->
+              let (Rope_Traversal_Info acc) = acc in
+              if acc.rope_pos = Option.get text_area_info.cursor_pos then
+                Rope_Traversal_Info acc
+              else
+                match c with
+                | '\n' ->
+                    Rope_Traversal_Info
+                      {
+                        x = start_x;
+                        y = acc.y + font_info.font_height;
+                        rope_pos = acc.rope_pos + 1;
+                      }
+                | _ ->
+                    let ~new_x, ~new_y, ~wraps =
+                      get_text_wrap_info
+                        ~bbox:(Option.value box.bbox ~default:default_bbox)
+                        ~glyph:c ~x:acc.x ~y:acc.y ~font_info
+                        ~text_wrap:box.text_wrap
+                    in
+                    Rope_Traversal_Info
+                      {
+                        x = (if wraps then start_x else new_x);
+                        y = new_y;
+                        rope_pos = acc.rope_pos + 1;
+                      })
+            ~result:
+              (Rope_Traversal_Info { x = start_x; y = start_y; rope_pos = 0 })
+        in
+        Some (~x, ~y)
+    | None -> None
+
+let textareas_and_their_scrollcontainers = ref []
+
+let get_scrollcontainers_for_textarea ~(box_containing_textarea : box) =
+  List.filter_map
+    (fun (~scrollcontainer, ~content) ->
+      if content == box_containing_textarea then Some scrollcontainer else None)
+    !textareas_and_their_scrollcontainers
+
+let adjust_scrollbar_according_to_textarea_text_caret' ~text_area_info ~scroll
+    ~orientation ~content =
+  let { right; left; top; bottom } = get_box_sides ~box:content in
+  let {
+    right = content_right;
+    left = content_left;
+    top = content_top;
+    bottom = content_bottom;
+  } =
+    calculate_content_boundaries ~box:content
+  in
+  let ~font_info, .. =
+    TextTextureInfo.get_or_add_font_size_text_texture
+      ~font_size:(Option.value content.font_size ~default:Freetype.font_size)
+  in
+  match get_xy_pos_of_text_caret ~text_area_info ~box:content with
+  | Some (~x, ~y) ->
+      Option.iter
+        (fun bbox ->
+          match orientation with
+          | Horizontal ->
+              if x + text_caret_width > right then
+                scroll.bbox <-
+                  Some
+                    {
+                      bbox with
+                      x =
+                        bbox.x
+                        + (right - left)
+                          * (x + text_caret_width - right)
+                          / (content_right - content_left);
+                    };
+              if x < left then
+                scroll.bbox <-
+                  Some
+                    {
+                      bbox with
+                      x =
+                        bbox.x
+                        + (right - left) * (x - left)
+                          / (content_right - content_left);
+                    }
+          | _ -> ())
+        scroll.bbox;
+      Option.iter
+        (fun bbox ->
+          match orientation with
+          | Vertical ->
+              if y < top then
+                scroll.bbox <-
+                  Some
+                    {
+                      bbox with
+                      y =
+                        bbox.y
+                        + (bottom - top) * (y - top)
+                          / (content_bottom - content_top);
+                    };
+              if y + font_info.font_height > bottom then
+                scroll.bbox <-
+                  Some
+                    {
+                      bbox with
+                      y =
+                        bbox.y
+                        + (bottom - top)
+                          * (y + font_info.font_height - bottom)
+                          / (content_bottom - content_top);
+                    }
+          | _ -> ())
+        scroll.bbox
+  | None -> ()
+
+let adjust_scrollbar_according_to_textarea_text_caret
+    ~(box_containing_textarea : box) ~text_area_info =
+  let list = get_scrollcontainers_for_textarea ~box_containing_textarea in
+  List.iter
+    (fun scrollcontainer ->
+      match scrollcontainer with
+      | ScrollContainer { orientation; scroll; content; _ } ->
+          adjust_scrollbar_according_to_textarea_text_caret' ~orientation
+            ~scroll ~content ~text_area_info
+      | _ -> ())
+    list
 
 let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
   match content.bbox with
@@ -509,46 +644,48 @@ let create_scrollcontainer ~content ~orientation ~other_scrollcontainer =
     create_scrollbar_container ~content ~orientation
   in
   let content_bbox = Option.value content.bbox ~default:default_bbox in
-  ScrollContainer
-    {
-      other_scrollcontainer;
-      content;
-      scroll = scrollbar;
-      scrollbar_container;
-      orientation;
-      container =
-        {
-          default_box with
-          bbox = Some { content_bbox with width = 0; height = 0 };
-          width_constraint = Some Min;
-          height_constraint = Some Min;
-          content =
-            Some
-              (Boxes
-                 [
-                   (match other_scrollcontainer with
-                   | Some _ ->
-                       {
-                         default_box with
-                         bbox = Some { content_bbox with width = 0; height = 0 };
-                         height_constraint = Some Min;
-                         width_constraint = Some Min;
-                         content = other_scrollcontainer;
-                       }
-                   | None -> content);
-                   scrollbar_container;
-                 ]);
-          flow =
-            Some
-              (match orientation with
-              | Vertical -> Horizontal
-              | Horizontal -> Vertical);
-          on_event =
-            Some
-              (fun ~b ~e ->
-                match e with Sdl.MouseWheelEvt { x; y; _ } -> () | _ -> ());
-        };
-    }
+  let scrollcontainer =
+    ScrollContainer
+      {
+        other_scrollcontainer;
+        content;
+        scroll = scrollbar;
+        scrollbar_container;
+        orientation;
+        container =
+          {
+            default_box with
+            bbox = Some { content_bbox with width = 0; height = 0 };
+            width_constraint = Some Min;
+            height_constraint = Some Min;
+            content =
+              Some
+                (Boxes
+                   [
+                     (match other_scrollcontainer with
+                     | Some info ->
+                         {
+                           default_box with
+                           bbox =
+                             Some { content_bbox with width = 0; height = 0 };
+                           height_constraint = Some Min;
+                           width_constraint = Some Min;
+                           content = Some (ScrollContainer info);
+                         }
+                     | None -> content);
+                     scrollbar_container;
+                   ]);
+            flow =
+              Some
+                (match orientation with
+                | Vertical -> Horizontal
+                | Horizontal -> Vertical);
+          };
+      }
+  in
+  textareas_and_their_scrollcontainers :=
+    (~scrollcontainer, ~content) :: !textareas_and_their_scrollcontainers;
+  scrollcontainer
 
 let clone_box ~(box : box) =
   let visited = ref [] in

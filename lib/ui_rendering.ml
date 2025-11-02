@@ -701,7 +701,7 @@ let clip_content ~(box : Ui.box) =
 let validated = ref false
 
 let validate ~(box : Ui.box) =
-  let rec validate' box visited =
+  let rec validate' (box : Ui.box) visited =
     if List.exists (fun b -> b == box) visited then
       failwith "Recursive box structure detected"
     else
