@@ -9,25 +9,8 @@ let textarea : Ui.box =
     bbox = Some { x = 200; y = 200; width = 500; height = 500 };
     background_color = (0., 0.5, 0., 0.8);
     text_wrap = false;
-  }
-
-let scroll_container =
-  Ui.create_scrollcontainer ~content:textarea ~orientation:Horizontal
-    ~other_scrollcontainer:None
-
-let scroll_container =
-  Ui.create_scrollcontainer ~content:textarea ~orientation:Vertical
-    ~other_scrollcontainer:
-      (Some
-         (match scroll_container with
-         | ScrollContainer info -> info
-         | _ -> failwith "impossible"))
-
-let box =
-  {
-    Ui.default_box with
-    bbox = Some { x = 0; y = 0; width = 500; height = 500 };
-    content = Some scroll_container;
+    allow_horizontal_scroll = true;
+    allow_vertical_scroll = true;
   }
 
 let rec loop () =
@@ -36,11 +19,11 @@ let rec loop () =
     match evt with
     | Some Quit -> false
     | None ->
-        Ui_rendering.draw ~box;
+        Ui_rendering.draw ~box:textarea;
         true
     | Some e ->
         Ui_events.emit_event ~e;
-        Ui_rendering.draw ~box;
+        Ui_rendering.draw ~box:textarea;
         true
   in
   if continue then loop () else ()

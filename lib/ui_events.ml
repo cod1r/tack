@@ -97,7 +97,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                 ~text_area_info:new_text_area_information;
               b.content <- Some (Textarea new_text_area_information)
           | _ -> ())
-      | None | _ -> ())
+      | _ -> ())
   | None -> ()
 
 let check_for_holding ~(e : Sdl.event) =
@@ -122,4 +122,9 @@ let emit_event ~(e : Sdl.event) =
 
 let add_event_handler ~(box : Ui.box option)
     ~(event_handler : Ui.event_handler_t) =
-  event_handlers := (box, event_handler) :: !event_handlers
+  if
+    not
+      (List.exists
+         (fun (_, evt_handler) -> evt_handler == event_handler)
+         !event_handlers)
+  then event_handlers := (box, event_handler) :: !event_handlers

@@ -18,7 +18,7 @@ let get_pair_col_and_rope_pos ~(rope_traversal_info : Rope.rope_traversal_info)
   | None -> (None, None)
 
 let find_closest_vertical_range ~(bbox : Ui.bounding_box)
-    ~(font_info : Freetype.font_info) ~rope ~y ~scroll_y_offset =
+    ~(font_info : Freetype.font_info) ~rope ~y ~scroll_y_offset ~text_wrap =
   let fold_fn_for_vertical_range closest_info c =
     let (Rope.Finding_Cursor (rope_traversal_info, closest_info)) =
       closest_info
@@ -42,10 +42,9 @@ let find_closest_vertical_range ~(bbox : Ui.bounding_box)
     | _ ->
         let gi = Ui.get_glyph_info_from_glyph ~glyph:c ~font_info in
         let x_advance = gi.x_advance in
-        let new_x, new_y =
-          if rope_traversal_info.x + x_advance > bbox.x + bbox.width then
-            (bbox.x, rope_traversal_info.y + font_info.font_height)
-          else (rope_traversal_info.x + x_advance, rope_traversal_info.y)
+        let ~new_x, ~new_y, .. =
+          Ui.get_text_wrap_info ~glyph:c ~bbox ~x:rope_traversal_info.x
+            ~y:rope_traversal_info.y ~font_info ~text_wrap
         in
         Finding_Cursor
           ( { rope_traversal_info with x = new_x; y = new_y },
@@ -154,6 +153,7 @@ let find_closest_rope_pos_for_cursor_on_coords ~(bbox : Ui.bounding_box)
   let x = x * width_ratio and y = y * height_ratio in
   let closest_vertical_range =
     find_closest_vertical_range ~bbox ~font_info ~rope ~scroll_y_offset ~y
+      ~text_wrap
   in
   let closest_rope =
     find_closest_horizontal_pos ~bbox ~font_info ~rope ~scroll_y_offset

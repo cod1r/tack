@@ -27,17 +27,24 @@ and contains text
         - ellipse formula (x^2/a^2 + y^2/b^2 = 1)
         - each corner of the box is curved using an ellipse
 
-    scrolling...
-			- need to separate the content container from the content (which is going to be scrolled) because if I only pass "content"
-				then having both horizontal and vertical scrolling won't be possible because one of the scroll containers won't be
-				"overflowing"
-			- text caret position should also influence scrolling offsets
-
     need to separate rendering of the box structure and the application of ui rules such as width, height calculation...
+
+		to make rendering a bit faster, i need to keep the minimum and max rope position that indicates the interval of text
+		that is going to be rendered on the screen. a new gadt variant can be introduced to change how traverse_rope works.
+
+		need to consolidate ui lib rules to make sense of how the primitive layout/sizing pieces come together
+
+		having multiple places that call traverse_rope to calculate placement is too fragile
 
 performance ideas:
 	- traversing the rope tree over and over for rendering and calculations is wasteful. there should be some stored info either
 	in the rope nodes or in another tree that saves operations (perhaps a self balancing tree).
+
+	- the main issue is with edits to the rope. rope changes cause recalculations to occur which means the function traverse_rope
+		gets called a lot. If the file that's being edited, has 1 billion characters (1 gigabyte), each edit or interaction would
+		take forever. There needs to be a way to do edits and recalculate information (such as wrapping, closest cursor position)
+		without iterating over all characters.
+	- first priority should be to make sure cursor operations are fast.
 
 vim motions?
 
@@ -77,11 +84,6 @@ MOUSEDOWN handling needs to be more accurate
 rope data structure needs to be built in a way such that there is less depth for SPEED (basically balance between leaf length and tree depth)
 
 more things to do:
-  - bugs with cursor rendering when text wrapping happens
-  - at certain font pixel sizes, the glyphs don't render properly
-  - cursor movement with arrow keys
-  - important to establish some kind of layout logic, where components/UI elements can know it's own width/height
-  - for some reason, when switching to a file, text is highlighted from the beginning to where the last cursor click position was
   - There is too much nested state, so things are hard to read. this means another session of code cleanup
   - every file should keep track of its scroll position
   - every file needs to occasionally poll if it's contents have changed on disk and make a decision about current changes vs

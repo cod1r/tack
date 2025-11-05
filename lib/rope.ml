@@ -19,6 +19,22 @@ let rec to_string = function
   | Leaf l -> l
   | Node { left; right; _ } -> to_string left ^ to_string right
 
+let rebalance r =
+  let rec flatten = function
+    | Leaf s -> [ s ]
+    | Node { left; right; _ } -> flatten left @ flatten right
+  in
+  let rec build = function
+    | [] -> failwith "Cannot rebalance an empty rope"
+    | [ s ] -> Leaf s
+    | lst ->
+        let mid = List.length lst / 2 in
+        let left = build (List.take mid lst) in
+        let right = build (List.drop mid lst) in
+        concat left right
+  in
+  build (flatten r)
+
 let rec substring r ~start ~len =
   match r with
   | Leaf l ->
@@ -59,22 +75,6 @@ let delete r ~start ~len =
     substring r ~start:(start + len) ~len:(length r - (start + len))
   in
   concat before after
-
-let rebalance r =
-  let rec flatten = function
-    | Leaf s -> [ s ]
-    | Node { left; right; _ } -> flatten left @ flatten right
-  in
-  let rec build = function
-    | [] -> failwith "Cannot rebalance an empty rope"
-    | [ s ] -> Leaf s
-    | lst ->
-        let mid = List.length lst / 2 in
-        let left = build (List.take mid lst) in
-        let right = build (List.drop mid lst) in
-        concat left right
-  in
-  build (flatten r)
 
 type rope_traversal_info = { x : int; y : int; rope_pos : int }
 

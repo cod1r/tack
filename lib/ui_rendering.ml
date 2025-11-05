@@ -198,6 +198,7 @@ let write_container_values_to_ui_buffer ~(box : Ui.box)
   let Ui.{ width; height; x; y; _ } =
     Option.value box.bbox ~default:Ui.default_bbox
   and r, g, b, alpha = box.background_color in
+  let x, y = (x + box.scroll_x_offset, y + box.scroll_y_offset) in
   let points : floatarray =
     [|
       Float.of_int x;
@@ -847,13 +848,14 @@ let draw_cursor ~(font_info : Freetype.font_info) ~(bbox : Ui.bounding_box)
                 rope_pos = acc.rope_pos + 1;
               }
         | _ ->
+            let gi = Ui.get_glyph_info_from_glyph ~glyph:c ~font_info in
             let ~new_x, ~new_y, ~wraps =
               Ui.get_text_wrap_info ~bbox ~glyph:c ~x:acc.x ~y:acc.y ~font_info
                 ~text_wrap
             in
             Rope_Traversal_Info
               {
-                x = (if wraps then start_x else new_x);
+                x = (if wraps then start_x + gi.x_advance else new_x);
                 y = new_y;
                 rope_pos = acc.rope_pos + 1;
               }
@@ -875,8 +877,10 @@ let draw_text ~(s : string) ~(box : Ui.box) =
       ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
   in
   Opengl.gl_bind_texture ~texture_id:gl_texture_id;
-  let start_y = get_vertical_text_start ~box ~font_info in
-  let start_x = get_horizontal_text_start ~box ~font_info ~s in
+  let start_y = get_vertical_text_start ~box ~font_info + box.scroll_y_offset in
+  let start_x =
+    get_horizontal_text_start ~box ~font_info ~s + box.scroll_x_offset
+  in
   let horizontal_pos = ref start_x in
   String.iter
     (fun c ->
@@ -959,8 +963,35 @@ let draw_textarea ~(font_info : Freetype.font_info) ~rope ~highlight ~cursor_pos
             ~scroll_x_offset:box.scroll_x_offset ~font_info ~bbox
             ~text_wrap:box.text_wrap;
           draw_to_gl_buffer ()
-      | None | _ -> ())
+      | _ -> ())
   | None -> ()
+
+let handle_if_content_overflows_or_not ~box =
+  let Ui.
+        {
+          left = content_left;
+          right = content_right;
+          top = content_top;
+          bottom = content_bottom;
+        } =
+    Ui.calculate_content_boundaries ~box
+  in
+  let Ui.{ width; height; _ } =
+    Option.value box.bbox ~default:Ui.default_bbox
+  in
+  if content_right - content_left > width && box.allow_horizontal_scroll then
+(
+    Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~box
+      ~orientation:Horizontal)
+  else
+    Ui_scrollcontainers.unwrap_scrollcontainer ~box
+      ~unwrap_orientation:Ui.Horizontal;
+  if content_bottom - content_top > height && box.allow_vertical_scroll then
+    Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~box
+      ~orientation:Vertical
+  else
+    Ui_scrollcontainers.unwrap_scrollcontainer ~box
+      ~unwrap_orientation:Ui.Vertical
 
 let rec draw_box ~(box : Ui.box) =
   if not !validated then validate ~box;
@@ -975,6 +1006,7 @@ let rec draw_box ~(box : Ui.box) =
         left <= window_width_gl && right >= 0 && top <= window_height_gl
         && bottom >= 0
       then (
+        handle_if_content_overflows_or_not ~box;
         write_container_values_to_ui_buffer ~box ~buffer:ui_buffer;
         draw_to_gl_buffer ();
         match box.content with
@@ -1020,10 +1052,11 @@ let rec draw_box ~(box : Ui.box) =
             Opengl.gl_disable_scissor ()
         | Some (ScrollContainer { content; scroll; container; orientation; _ })
           ->
-            Ui.adjust_scrollbar_according_to_content_size ~content ~scroll
+            Ui_scrollcontainers.adjust_scrollbar_according_to_content_size
+              ~content ~scroll ~orientation;
+            Ui_scrollcontainers
+            .change_content_scroll_offsets_based_off_scrollbar ~content ~scroll
               ~orientation;
-            Ui.change_content_scroll_offsets_based_off_scrollbar ~content
-              ~scroll ~orientation;
             draw_box ~box:container
         | None -> ())
   | None -> ());
