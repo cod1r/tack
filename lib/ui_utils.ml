@@ -47,3 +47,8 @@ let clone_box ~(box : Ui.box) =
       }
   in
   clone_box' box
+
+let direction_to_string ~(orientation : Ui.direction) =
+  match orientation with
+  | Ui.Vertical -> "Vertical"
+  | Ui.Horizontal -> "Horizontal"

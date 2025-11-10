@@ -6,6 +6,7 @@ let textarea : Ui.box =
   let textarea_box = Ui.create_textarea_box () in
   {
     textarea_box with
+    name = Some "BOX";
     bbox = Some { x = 200; y = 200; width = 500; height = 500 };
     background_color = (0., 0.5, 0., 0.8);
     text_wrap = false;

@@ -217,7 +217,8 @@ let handle_kbd_evt ~(font_info : Freetype.font_info) ~char_code ~bbox
             ((if char_code = 1073741906 then ( - ) else ( + ))
                y font_info.font_height)
       in
-      { text_area_information with cursor_pos = cursor_pos' }
+      if cursor_pos' = None then text_area_information
+      else { text_area_information with cursor_pos = cursor_pos' }
   | 1073741903 (* right arrow key *) when kbd_evt_type = Keydown ->
       let plus_1 =
         min (Rope.length r)

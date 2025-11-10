@@ -198,7 +198,6 @@ let write_container_values_to_ui_buffer ~(box : Ui.box)
   let Ui.{ width; height; x; y; _ } =
     Option.value box.bbox ~default:Ui.default_bbox
   and r, g, b, alpha = box.background_color in
-  let x, y = (x + box.scroll_x_offset, y + box.scroll_y_offset) in
   let points : floatarray =
     [|
       Float.of_int x;
@@ -474,217 +473,6 @@ let write_cursor_to_ui_buffer ~(render_buf_container : render_buffer_wrapper) ~x
     points;
   Float.Array.iteri (fun idx v -> render_buf_container.buffer.{idx} <- v) values;
   render_buf_container.length <- Float.Array.length values
-
-let get_available_size_for_maxed_constrained_inner_boxes
-    ~(fixed_sized_boxes : Ui.box list) ~(parent_bbox : Ui.bounding_box)
-    ~(measurement : [< `Width | `Height ]) ~number_of_constrained =
-  let summed_fixed, parent_measurement =
-    match measurement with
-    | `Width ->
-        ( List.fold_left
-            (fun acc b ->
-              (Option.value b.Ui.bbox ~default:Ui.default_bbox).width + acc)
-            0 fixed_sized_boxes,
-          parent_bbox.width )
-    | `Height ->
-        ( List.fold_left
-            (fun acc b ->
-              (Option.value b.Ui.bbox ~default:Ui.default_bbox).height + acc)
-            0 fixed_sized_boxes,
-          parent_bbox.height )
-  in
-  let left_over = max 0 (parent_measurement - summed_fixed) in
-  left_over / number_of_constrained
-
-let handle_maximizing_of_inner_content_size ~(parent_box : Ui.box) =
-  let parent_bbox = Option.value parent_box.bbox ~default:Ui.default_bbox in
-  match parent_box.content with
-  | Some (Box b) -> (
-      (match b.width_constraint with
-      | Some Max ->
-          let b_bbox = Option.value b.bbox ~default:Ui.default_bbox in
-          b.bbox <- Some { b_bbox with width = parent_bbox.width }
-      | Some Min | None -> ());
-      match b.height_constraint with
-      | Some Max ->
-          let b_bbox = Option.value b.bbox ~default:Ui.default_bbox in
-          b.bbox <- Some { b_bbox with height = parent_bbox.height }
-      | Some Min | None -> ())
-  | Some (Boxes list) -> (
-      let fixed_width_boxes =
-        List.filter (fun b -> Option.is_none b.Ui.width_constraint) list
-      in
-      let fixed_height_boxes =
-        List.filter (fun b -> Option.is_none b.Ui.height_constraint) list
-      in
-      let constrained_width_boxes =
-        List.filter (fun b -> b.Ui.width_constraint = Some Max) list
-      in
-      let constrained_height_boxes =
-        List.filter (fun b -> b.Ui.height_constraint = Some Max) list
-      in
-      match parent_box.flow with
-      | Some Horizontal ->
-          (if List.length constrained_width_boxes > 0 then
-             let width_for_each_constrained_box =
-               get_available_size_for_maxed_constrained_inner_boxes
-                 ~fixed_sized_boxes:fixed_width_boxes ~parent_bbox
-                 ~measurement:`Width
-                 ~number_of_constrained:(List.length constrained_width_boxes)
-             in
-             List.iter
-               (fun b ->
-                 let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
-                 b.bbox <-
-                   Some { bbox with width = width_for_each_constrained_box })
-               constrained_width_boxes);
-          List.iter
-            (fun b ->
-              let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
-              b.bbox <- Some { bbox with height = parent_bbox.height })
-            constrained_height_boxes
-      | Some Vertical ->
-          (if List.length constrained_height_boxes > 0 then
-             let height_for_each_constrained_box =
-               get_available_size_for_maxed_constrained_inner_boxes
-                 ~fixed_sized_boxes:fixed_height_boxes ~parent_bbox
-                 ~measurement:`Height
-                 ~number_of_constrained:(List.length constrained_height_boxes)
-             in
-             List.iter
-               (fun b ->
-                 let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
-                 b.bbox <-
-                   Some { bbox with height = height_for_each_constrained_box })
-               constrained_height_boxes);
-          List.iter
-            (fun b ->
-              let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
-              b.bbox <- Some { bbox with width = parent_bbox.width })
-            constrained_width_boxes
-      | _ -> ())
-  | Some (Text _) -> ()
-  | Some (Textarea _) -> ()
-  | Some (ScrollContainer _) -> ()
-  | None -> ()
-
-let rec clamp_width_or_height_to_content_size ~(box : Ui.box)
-    ~(measurement : [ `Width | `Height ]) =
-  let bbox = Option.value box.bbox ~default:Ui.default_bbox in
-  match box.content with
-  | Some (Box b) -> (
-      constrain_width_height ~box:b;
-      let inner_bbox = Option.value b.bbox ~default:Ui.default_bbox in
-      match measurement with
-      | `Width -> box.bbox <- Some { bbox with width = inner_bbox.width }
-      | `Height -> box.bbox <- Some { bbox with height = inner_bbox.height })
-  | Some (Boxes list) -> (
-      List.iter (fun b -> constrain_width_height ~box:b) list;
-      match box.flow with
-      | Some Vertical -> (
-          let summed_size =
-            List.fold_left
-              (fun acc b ->
-                acc + (Option.value b.Ui.bbox ~default:Ui.default_bbox).height)
-              0 list
-          in
-          let max_width =
-            List.fold_left
-              (fun acc b ->
-                max acc (Option.value b.Ui.bbox ~default:Ui.default_bbox).width)
-              0 list
-          in
-          match measurement with
-          | `Width -> box.bbox <- Some { bbox with width = max_width }
-          | `Height -> box.bbox <- Some { bbox with height = summed_size })
-      | Some Horizontal -> (
-          let summed_size =
-            List.fold_left
-              (fun acc b ->
-                acc + (Option.value b.Ui.bbox ~default:Ui.default_bbox).width)
-              0 list
-          in
-          let max_height =
-            List.fold_left
-              (fun acc b ->
-                max acc (Option.value b.Ui.bbox ~default:Ui.default_bbox).height)
-              0 list
-          in
-          match measurement with
-          | `Width -> box.bbox <- Some { bbox with width = summed_size }
-          | `Height -> box.bbox <- Some { bbox with height = max_height })
-      | None -> ())
-  | Some (Text s) -> (
-      let ~font_info, .. =
-        Ui.TextTextureInfo.get_or_add_font_size_text_texture
-          ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
-      in
-      let string_width =
-        String.fold_left
-          (fun acc c ->
-            let op =
-              Array.find_opt
-                (fun (c', _) -> c' = c)
-                font_info.glyph_info_with_char
-            in
-            match op with
-            | Some (_, g) -> acc + g.Freetype.x_advance
-            | None -> acc)
-          0 s
-      in
-      (* TODO: need to handle height when text_wrap is true *)
-      match measurement with
-      | `Width -> box.bbox <- Some { bbox with width = string_width }
-      | `Height -> ())
-  | Some (Textarea _) -> failwith "// TODO"
-  | Some (ScrollContainer { content; scrollbar_container; orientation; _ }) -> (
-      match measurement with
-      | `Width -> (
-          match orientation with
-          | Vertical ->
-              let { width = content_width; _ } : Ui.bounding_box =
-                Option.value content.bbox ~default:Ui.default_bbox
-              and { width = scrollcontainer_width; _ } : Ui.bounding_box =
-                Option.value scrollbar_container.bbox ~default:Ui.default_bbox
-              in
-              box.bbox <-
-                Some { bbox with width = scrollcontainer_width + content_width }
-          | Horizontal ->
-              let { width = content_width; _ } : Ui.bounding_box =
-                Option.value content.bbox ~default:Ui.default_bbox
-              in
-              box.bbox <- Some { bbox with width = content_width })
-      | `Height -> (
-          match orientation with
-          | Horizontal ->
-              let { height = content_height; _ } : Ui.bounding_box =
-                Option.value content.bbox ~default:Ui.default_bbox
-              and { height = scrollcontainer_height; _ } : Ui.bounding_box =
-                Option.value scrollbar_container.bbox ~default:Ui.default_bbox
-              in
-              box.bbox <-
-                Some
-                  { bbox with height = scrollcontainer_height + content_height }
-          | Vertical ->
-              let { height = content_height; _ } : Ui.bounding_box =
-                Option.value content.bbox ~default:Ui.default_bbox
-              in
-              box.bbox <- Some { bbox with height = content_height }))
-  | None -> ()
-
-(* I'm not sure how to handle cases where the contents are positioned outside of
-   the container. Originally I thought that having elements/boxes being absolutely
-   positioned would be fine but that leaves problems like child contents being outside of
-   the parent container which poses the question of, what should the min width/height be?
-   Perhaps, restricting this functionality when child elements are only positioned relatively *)
-and constrain_width_height ~(box : Ui.box) =
-  (match box.width_constraint with
-  | Some Min -> clamp_width_or_height_to_content_size ~box ~measurement:`Width
-  | Some Max | None -> ());
-  (match box.height_constraint with
-  | Some Min -> clamp_width_or_height_to_content_size ~box ~measurement:`Height
-  | Some Max | None -> ());
-  handle_maximizing_of_inner_content_size ~parent_box:box
 
 let clip_content ~(box : Ui.box) =
   Opengl.gl_enable_scissor ();
@@ -966,38 +754,8 @@ let draw_textarea ~(font_info : Freetype.font_info) ~rope ~highlight ~cursor_pos
       | _ -> ())
   | None -> ()
 
-let handle_if_content_overflows_or_not ~box =
-  let Ui.
-        {
-          left = content_left;
-          right = content_right;
-          top = content_top;
-          bottom = content_bottom;
-        } =
-    Ui.calculate_content_boundaries ~box
-  in
-  let Ui.{ width; height; _ } =
-    Option.value box.bbox ~default:Ui.default_bbox
-  in
-  if content_right - content_left > width && box.allow_horizontal_scroll then
-(
-    Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~box
-      ~orientation:Horizontal)
-  else
-    Ui_scrollcontainers.unwrap_scrollcontainer ~box
-      ~unwrap_orientation:Ui.Horizontal;
-  if content_bottom - content_top > height && box.allow_vertical_scroll then
-    Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~box
-      ~orientation:Vertical
-  else
-    Ui_scrollcontainers.unwrap_scrollcontainer ~box
-      ~unwrap_orientation:Ui.Vertical
-
 let rec draw_box ~(box : Ui.box) =
-  if not !validated then validate ~box;
-  if not !added_event_handlers then add_event_handlers ~box;
   if box.clip_content then clip_content ~box;
-  constrain_width_height ~box;
   (match box.bbox with
   | Some _ ->
       let Ui.{ left; top; bottom; right } = Ui.get_box_sides ~box in
@@ -1006,38 +764,11 @@ let rec draw_box ~(box : Ui.box) =
         left <= window_width_gl && right >= 0 && top <= window_height_gl
         && bottom >= 0
       then (
-        handle_if_content_overflows_or_not ~box;
         write_container_values_to_ui_buffer ~box ~buffer:ui_buffer;
         draw_to_gl_buffer ();
         match box.content with
-        | Some (Box b) ->
-            align_inner_box_horizontally ~box ~inner_box:b;
-            align_inner_box_vertically ~box ~inner_box:b;
-            draw_box ~box:b
-        | Some (Boxes list) -> (
-            match box.flow with
-            | Some ((Horizontal | Vertical) as d) ->
-                let boxes_pos =
-                  ref (handle_list_of_boxes_initial_position ~d ~box ~list)
-                in
-                List.iter
-                  (fun b ->
-                    match b.Ui.bbox with
-                    | Some bbbox -> (
-                        bbbox.x <- fst !boxes_pos;
-                        bbbox.y <- snd !boxes_pos;
-                        let bbbox_used_width, bbbox_used_height =
-                          (bbbox.width, bbbox.height)
-                        in
-                        boxes_pos :=
-                          let x, y = !boxes_pos in
-                          match d with
-                          | Horizontal -> (x + bbbox_used_width, y)
-                          | Vertical -> (x, y + bbbox_used_height))
-                    | None -> ())
-                  list;
-                List.iter (fun b -> draw_box ~box:b) list
-            | None -> List.iter (fun b -> draw_box ~box:b) list)
+        | Some (Box b) -> draw_box ~box:b
+        | Some (Boxes list) -> List.iter (fun b -> draw_box ~box:b) list
         | Some (Text s) -> draw_text ~s ~box
         | Some (Textarea { text; cursor_pos; highlight_pos; _ }) ->
             clip_content ~box;
@@ -1050,20 +781,126 @@ let rec draw_box ~(box : Ui.box) =
             draw_textarea ~rope:text ~cursor_pos ~highlight:highlight_pos
               ~font_info ~box;
             Opengl.gl_disable_scissor ()
-        | Some (ScrollContainer { content; scroll; container; orientation; _ })
-          ->
-            Ui_scrollcontainers.adjust_scrollbar_according_to_content_size
-              ~content ~scroll ~orientation;
-            Ui_scrollcontainers
-            .change_content_scroll_offsets_based_off_scrollbar ~content ~scroll
-              ~orientation;
-            draw_box ~box:container
+        | Some (ScrollContainer { container; _ }) -> draw_box ~box:container
         | None -> ())
   | None -> ());
   if box.clip_content then Opengl.gl_disable_scissor ()
 
+let handle_if_content_overflows_or_not ~(box : Ui.box)
+    ~(context : Ui.ui_traversal_context) =
+  match box.content with
+  | Some
+      (ScrollContainer
+         { content; container; orientation; other_scrollcontainer; _ }) ->
+      (* this case is for wrapped scrollcontainers. i dont like having the ui_traversal_context but it's the only way to
+know if the current box is in a scroll container due to there not being a parent reference.
+I need the context to not infinitely wrap scrollcontainers and know when to stop *)
+      let Ui.
+            {
+              left = content_left;
+              right = content_right;
+              top = content_top;
+              bottom = content_bottom;
+            } =
+        Ui.calculate_content_boundaries ~box:content
+      in
+      let Ui.{ width; height; _ } =
+        Option.value container.bbox ~default:Ui.default_bbox
+      in
+      if not context.in_scrollcontainer then (
+        if
+          content_right - content_left > width
+          && box.allow_horizontal_scroll && orientation = Vertical
+          && other_scrollcontainer = None
+        then
+          Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~box
+            ~orientation:Horizontal;
+        if
+          content_bottom - content_top > height
+          && box.allow_vertical_scroll && orientation = Horizontal
+          && other_scrollcontainer = None
+        then
+          Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~box
+            ~orientation:Vertical)
+  | _ ->
+      let Ui.
+            {
+              left = content_left;
+              right = content_right;
+              top = content_top;
+              bottom = content_bottom;
+            } =
+        Ui.calculate_content_boundaries ~box
+      in
+      let Ui.{ width; height; _ } =
+        Option.value box.bbox ~default:Ui.default_bbox
+      in
+      if not context.in_scrollcontainer then (
+        if content_right - content_left > width && box.allow_horizontal_scroll
+        then
+          Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~box
+            ~orientation:Horizontal;
+        if content_bottom - content_top > height && box.allow_vertical_scroll
+        then
+          Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~box
+            ~orientation:Vertical)
+
+let rec calculate_ui ~(box : Ui.box) ~context =
+  Ui.constrain_width_height ~box;
+  handle_if_content_overflows_or_not ~box ~context;
+  match box.content with
+  | Some (Box b) ->
+      align_inner_box_horizontally ~box ~inner_box:b;
+      align_inner_box_vertically ~box ~inner_box:b;
+      calculate_ui ~box:b ~context
+  | Some (Boxes list) ->
+      (match box.flow with
+      | Some ((Horizontal | Vertical) as d) ->
+          let boxes_pos =
+            ref (handle_list_of_boxes_initial_position ~d ~box ~list)
+          in
+          List.iter
+            (fun b ->
+              match b.Ui.bbox with
+              | Some bbbox -> (
+                  bbbox.x <- fst !boxes_pos;
+                  bbbox.y <- snd !boxes_pos;
+                  let bbbox_used_width, bbbox_used_height =
+                    (bbbox.width, bbbox.height)
+                  in
+                  boxes_pos :=
+                    let x, y = !boxes_pos in
+                    match d with
+                    | Horizontal -> (x + bbbox_used_width, y)
+                    | Vertical -> (x, y + bbbox_used_height))
+              | None -> ())
+            list
+      | None -> ());
+
+      List.iter (fun b -> calculate_ui ~box:b ~context) list
+  | Some (Text _) -> ()
+  | Some (Textarea _) -> ()
+  | Some
+      (ScrollContainer
+         { content; scroll; container; orientation; other_scrollcontainer; _ })
+    ->
+      Ui_scrollcontainers.change_content_scroll_offsets_based_off_scrollbar
+        ~content ~scroll ~orientation;
+      Ui_scrollcontainers.adjust_scrollbar_according_to_content_size ~content
+        ~scroll ~orientation;
+      (match content.content with
+      | Some (Textarea info) when !Ui.holding_mousedown = `False ->
+          Ui.adjust_scrollbar_according_to_textarea_text_caret ~box
+            ~text_area_info:info
+      | _ -> ());
+      calculate_ui ~box:container ~context:{ in_scrollcontainer = true }
+  | None -> ()
+
 let draw ~(box : Ui.box) =
   Opengl.gl_clear_color 1. 1. 1. 1.;
   Opengl.gl_clear ();
+  if not !validated then validate ~box;
+  if not !added_event_handlers then add_event_handlers ~box;
+  calculate_ui ~box ~context:{ in_scrollcontainer = false };
   draw_box ~box;
   Sdl.sdl_gl_swapwindow Sdl.w
