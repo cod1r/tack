@@ -254,55 +254,39 @@ let unwrap_scrollcontainer ~(box : Ui.box) ~unwrap_orientation =
       (ScrollContainer
          ({ content; orientation; other_scrollcontainer; container; scroll; _ }
           as scrollcontainer_info)) -> (
-      if Option.is_some box.name && unwrap_orientation = Ui.Horizontal then (
-        let bbox = Option.get box.bbox in
-        Printf.printf "unwrap %s %s %d %d\n" (Option.get box.name)
-          (match unwrap_orientation with
-          | Ui.Vertical -> "v"
-          | Ui.Horizontal -> "h")
-          bbox.width bbox.height;
-        flush_all ();
-        failwith "DONE");
       let scroll_bbox = Option.get scroll.bbox in
       let measurement =
         match orientation with
         | Vertical -> scroll_bbox.height
         | Horizontal -> scroll_bbox.width
       in
-      if unwrap_orientation = orientation && measurement = 0 then (
-        (match orientation with
-        | Vertical -> box.scroll_y_offset <- 0
-        | Horizontal -> box.scroll_x_offset <- 0);
-        match other_scrollcontainer with
-        | Some inner_scrollcontainer ->
-            box.content <- Some (ScrollContainer inner_scrollcontainer)
-        | _ ->
-            box.content <- Some (Box content);
+      (if unwrap_orientation = orientation && measurement = 0 then
+         match other_scrollcontainer with
+         | Some inner_scrollcontainer ->
+             box.content <- Some (ScrollContainer inner_scrollcontainer)
+         | None ->
+             box.content <- Some (Box content);
 
-            Option.iter
-              (fun bbox ->
-                box.bbox <-
-                  Some
-                    (match orientation with
-                    | Vertical ->
-                        {
-                          bbox with
-                          width = bbox.Ui.width - Ui.scrollbar_container_width;
-                        }
-                    | Horizontal ->
-                        {
-                          bbox with
-                          height = bbox.Ui.height - Ui.scrollbar_container_width;
-                        }))
-              box.bbox);
+             Option.iter
+               (fun bbox ->
+                 content.bbox <-
+                   Some
+                     (match orientation with
+                     | Vertical ->
+                         {
+                           bbox with
+                           width = bbox.Ui.width + Ui.scrollbar_container_width;
+                         }
+                     | Horizontal ->
+                         {
+                           bbox with
+                           height =
+                             bbox.Ui.height + Ui.scrollbar_container_width;
+                         }))
+               content.bbox);
 
       match other_scrollcontainer with
-      | Some
-          {
-            content = { content = Some (ScrollContainer { orientation; _ }); _ };
-            _;
-          }
-        when unwrap_orientation = orientation ->
+      | Some { orientation; _ } when unwrap_orientation = orientation ->
           let scroll_bbox = Option.get scroll.bbox in
           let measurement =
             match orientation with
@@ -310,29 +294,26 @@ let unwrap_scrollcontainer ~(box : Ui.box) ~unwrap_orientation =
             | Horizontal -> scroll_bbox.width
           in
           if measurement = 0 then (
-            (match orientation with
-            | Vertical -> box.scroll_y_offset <- 0
-            | Horizontal -> box.scroll_x_offset <- 0);
             box.content <-
               Some
                 (ScrollContainer
                    { scrollcontainer_info with other_scrollcontainer = None });
             Option.iter
               (fun bbox ->
-                box.bbox <-
+                content.bbox <-
                   Some
                     (match orientation with
                     | Vertical ->
                         {
                           bbox with
-                          width = bbox.Ui.width - Ui.scrollbar_container_width;
+                          width = bbox.Ui.width + Ui.scrollbar_container_width;
                         }
                     | Horizontal ->
                         {
                           bbox with
-                          height = bbox.Ui.height - Ui.scrollbar_container_width;
+                          height = bbox.Ui.height + Ui.scrollbar_container_width;
                         }))
-              box.bbox)
+              content.bbox)
       | _ -> ())
   | _ -> ()
 

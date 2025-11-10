@@ -893,6 +893,17 @@ let rec calculate_ui ~(box : Ui.box) ~context =
           Ui.adjust_scrollbar_according_to_textarea_text_caret ~box
             ~text_area_info:info
       | _ -> ());
+      (match orientation with
+      | Vertical ->
+          let bbox = Option.get scroll.bbox in
+          if bbox.height = 0 then
+            Ui_scrollcontainers.unwrap_scrollcontainer ~box
+              ~unwrap_orientation:orientation
+      | Horizontal ->
+          let bbox = Option.get scroll.bbox in
+          if bbox.width = 0 then
+            Ui_scrollcontainers.unwrap_scrollcontainer ~box
+              ~unwrap_orientation:orientation);
       calculate_ui ~box:container ~context:{ in_scrollcontainer = true }
   | None -> ()
 
