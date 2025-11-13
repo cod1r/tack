@@ -12,12 +12,14 @@ type render_buffer_wrapper = {
 
 let get_tex_coords ~(font_info : Freetype.font_info) ~(glyph : char)
     ~(glyph_info : Freetype.glyph_info_) =
-  let _, starting_x =
-    Array.fold_left
-      (fun (found, acc) ((c, gi) : char * Freetype.glyph_info_) ->
-        if c = glyph || found then (true, acc)
-        else (false, acc + gi.Freetype.width))
-      (false, 0) font_info.glyph_info_with_char
+  let starting_x =
+    let acc = ref 0 in
+    (* minus 1 because starting_x is summed widths of every glyph before *)
+    for idx = 0 to Char.code glyph - 32 - 1 do
+      let gi = font_info.glyph_info_with_char.(idx) in
+      acc := !acc + gi.width
+    done;
+    !acc
   in
   let starting_x, ending_x = (starting_x, starting_x + glyph_info.width) in
   let width_float = Float.of_int font_info.font_texture_atlas.width in
@@ -356,15 +358,8 @@ let get_horizontal_text_start ~(box : Ui.box) ~(font_info : Freetype.font_info)
   let width_of_string =
     String.fold_left
       (fun acc c ->
-        try
-          let _, glyph =
-            Array.find_opt
-              (fun (c', _) -> c' = c)
-              font_info.glyph_info_with_char
-            |> Option.get
-          in
-          acc + glyph.x_advance
-        with Invalid_argument e -> failwith (__FUNCTION__ ^ ";" ^ e))
+        let glyph = font_info.glyph_info_with_char.(Char.code c - 32) in
+        acc + glyph.x_advance)
       0 s
   in
   try
@@ -487,8 +482,6 @@ let clip_content ~(box : Ui.box) =
       ~width:bbox.width ~height:bbox.height
   with Invalid_argument e -> failwith ("clipping needs a bbox;" ^ e)
 
-let validated = ref false
-
 let validate ~(box : Ui.box) =
   let rec validate' (box : Ui.box) visited =
     if List.exists (fun b -> b == box) visited then
@@ -505,16 +498,13 @@ let validate ~(box : Ui.box) =
           validate' content (box :: visited)
       | None -> ()
   in
-  validated := true;
   validate' box []
-
-let added_event_handlers = ref false
 
 let add_event_handlers ~(box : Ui.box) =
   let rec add_event_handlers' (box : Ui.box) =
     (match box.on_event with
     | Some oc -> Ui_events.add_event_handler ~box:(Some box) ~event_handler:oc
-    | None -> ());
+    | None -> Ui_events.remove_event_handler ~box);
     match box.content with
     | Some (Ui.Box b) -> add_event_handlers' b
     | Some (Ui.Boxes list) -> List.iter (fun b -> add_event_handlers' b) list
@@ -522,7 +512,6 @@ let add_event_handlers ~(box : Ui.box) =
         add_event_handlers' container
     | Some (Ui.Text _) | Some (Ui.Textarea _) | None -> ()
   in
-  added_event_handlers := true;
   add_event_handlers' box
 
 let handle_list_of_boxes_initial_position ~(box : Ui.box) ~(d : Ui.direction)
@@ -672,10 +661,7 @@ let draw_text ~(s : string) ~(box : Ui.box) =
   let horizontal_pos = ref start_x in
   String.iter
     (fun c ->
-      let found =
-        Array.find_opt (fun (c', _) -> c' = c) font_info.glyph_info_with_char
-      in
-      let c, glyph = Option.get found in
+      let glyph = font_info.glyph_info_with_char.(Char.code c - 32) in
       write_text_to_ui_buffer ~render_buf_container:ui_buffer ~glyph_info:glyph
         ~x:!horizontal_pos ~y:start_y ~glyph:c ~font_info;
       horizontal_pos := !horizontal_pos + glyph.x_advance)
@@ -868,6 +854,10 @@ let rec calculate_ui ~(box : Ui.box) ~context =
                   let bbbox_used_width, bbbox_used_height =
                     (bbbox.width, bbbox.height)
                   in
+                  if bbbox_used_width = 0 && d = Horizontal then
+                    failwith "flow is horizontal but width is 0";
+                  if bbbox_used_height = 0 && d = Vertical then
+                    failwith "flow is vertical but height is 0";
                   boxes_pos :=
                     let x, y = !boxes_pos in
                     match d with
@@ -876,14 +866,10 @@ let rec calculate_ui ~(box : Ui.box) ~context =
               | None -> ())
             list
       | None -> ());
-
       List.iter (fun b -> calculate_ui ~box:b ~context) list
   | Some (Text _) -> ()
   | Some (Textarea _) -> ()
-  | Some
-      (ScrollContainer
-         { content; scroll; container; orientation; other_scrollcontainer; _ })
-    ->
+  | Some (ScrollContainer { content; scroll; container; orientation; _ }) ->
       Ui_scrollcontainers.change_content_scroll_offsets_based_off_scrollbar
         ~content ~scroll ~orientation;
       Ui_scrollcontainers.adjust_scrollbar_according_to_content_size ~content
@@ -910,8 +896,8 @@ let rec calculate_ui ~(box : Ui.box) ~context =
 let draw ~(box : Ui.box) =
   Opengl.gl_clear_color 1. 1. 1. 1.;
   Opengl.gl_clear ();
-  if not !validated then validate ~box;
-  if not !added_event_handlers then add_event_handlers ~box;
+  validate ~box;
+  add_event_handlers ~box;
   calculate_ui ~box ~context:{ in_scrollcontainer = false };
   draw_box ~box;
   Sdl.sdl_gl_swapwindow Sdl.w

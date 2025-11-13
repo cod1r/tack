@@ -1,5 +1,3 @@
-open Sdl
-
 let event_handlers = ref []
 
 let pass_evt_to_focused ~(e : Sdl.event) =
@@ -108,6 +106,7 @@ let emit_event ~(e : Sdl.event) =
     (fun (box, event_handler) -> event_handler ~b:box ~e)
     !event_handlers
 
+(* the reason that it's a box option is because sometimes there are going to be global event handlers *)
 let add_event_handler ~(box : Ui.box option)
     ~(event_handler : Ui.event_handler_t) =
   if
@@ -116,3 +115,9 @@ let add_event_handler ~(box : Ui.box option)
          (fun (_, evt_handler) -> evt_handler == event_handler)
          !event_handlers)
   then event_handlers := (box, event_handler) :: !event_handlers
+
+let remove_event_handler ~(box : Ui.box) =
+  event_handlers :=
+    List.filter
+      (fun (box', _) -> Option.is_none box' || Option.get box' != box)
+      !event_handlers

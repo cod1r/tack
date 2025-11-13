@@ -13,8 +13,7 @@ type glyph_info_ = {
 
 external get_font_height : ft_face -> int = "get_font_height" "get_font_height"
 
-external get_ascii_char_glyph_info_ :
-  ft_face -> int -> int -> char * glyph_info_
+external get_ascii_char_glyph_info_ : ft_face -> int -> int -> glyph_info_
   = "get_ascii_char_glyph_info_" "get_ascii_char_glyph_info_"
 
 external freetype_init_library : unit -> ft_library
@@ -49,14 +48,13 @@ let font_size =
 
 type text_texture_atlas_info = { width : int; height : int; bytes : bytes }
 
-let get_text_texture_atlas_info
-    ~(glyph_info_with_char : (char * glyph_info_) Array.t) =
+let get_text_texture_atlas_info ~(glyph_info_with_char : glyph_info_ Array.t) =
   let face = face in
   let descender = get_descender face in
   let ascender = get_ascender face in
   let widths_summed =
     Array.fold_left
-      (fun acc ((_, gi) : char * glyph_info_) -> acc + gi.width)
+      (fun acc (gi : glyph_info_) -> acc + gi.width)
       0 glyph_info_with_char
   in
   let global_font_height = ascender - descender in
@@ -71,7 +69,7 @@ let get_text_texture_atlas_info
      *)
   let current_width = ref 0 in
   for glyph_info_index = 0 to Array.length glyph_info_with_char - 1 do
-    let _, glyph_info = glyph_info_with_char.(glyph_info_index) in
+    let glyph_info = glyph_info_with_char.(glyph_info_index) in
     for row = 0 to glyph_info.rows - 1 do
       let slice =
         Bytes.sub glyph_info.bytes (row * glyph_info.width) glyph_info.width
@@ -90,7 +88,7 @@ let get_text_texture_atlas_info
   }
 
 type font_info = {
-  glyph_info_with_char : (char * glyph_info_) Array.t;
+  glyph_info_with_char : glyph_info_ Array.t;
   font_size : int;
   font_texture_atlas : text_texture_atlas_info;
   font_height : int;

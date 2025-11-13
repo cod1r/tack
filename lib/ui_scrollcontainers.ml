@@ -177,9 +177,7 @@ the contents so I have to change it here. Also text_wrap needs to be copied whic
 So many edge cases. *)
 let wrap_box_contents_in_scrollcontainer ~(box : Ui.box) ~orientation =
   match box.content with
-  | Some (ScrollContainer ({ content; container; _ } as scrollinfo)) -> (
-      Printf.printf "%s %f\n" __FUNCTION__ (Unix.gettimeofday ());
-      flush_all ();
+  | Some (ScrollContainer ({ content; _ } as scrollinfo)) -> (
       let scrollcontainer =
         create_scrollcontainer ~content ~orientation
           ~other_scrollcontainer:(Some scrollinfo)
@@ -211,6 +209,7 @@ let wrap_box_contents_in_scrollcontainer ~(box : Ui.box) ~orientation =
       let box_shallow_copy =
         {
           box with
+          name = Some "URMOM";
           content = box.content;
           background_color = Ui.default_box.background_color;
         }
@@ -244,6 +243,7 @@ let wrap_box_contents_in_scrollcontainer ~(box : Ui.box) ~orientation =
       match scrollcontainer with
       | ScrollContainer { container; content; _ } ->
           Ui.constrain_width_height ~box:container;
+          box.on_event <- None;
           box.content <- Some scrollcontainer
       | _ -> ())
   | None -> failwith "cannot wrap box with no contents"

@@ -39,7 +39,6 @@ CAMLprim value freetype_set_pixel_sizes(value face, value size);
 CAMLprim value get_ascii_char_glyph_info_(value face, value ascii, value size) {
   CAMLparam3(face, ascii, size);
   CAMLlocal1(glyph_info);
-  CAMLlocal1(tuple);
   CAMLlocal1(bytes);
 
   int ascii_value = Int_val(ascii);
@@ -56,7 +55,6 @@ CAMLprim value get_ascii_char_glyph_info_(value face, value ascii, value size) {
   }
 
   glyph_info = caml_alloc(7, 0);
-  tuple = caml_alloc(2, 0);
 
   FT_Bitmap bitmap = (*face_c)->glyph->bitmap;
 
@@ -80,11 +78,8 @@ CAMLprim value get_ascii_char_glyph_info_(value face, value ascii, value size) {
   Store_field(glyph_info, 4, bytes);
   Store_field(glyph_info, 5, Val_int(bitmap.width));
   Store_field(glyph_info, 6, Val_int(bitmap.rows));
-
-  Store_field(tuple, 0, Val_int(ascii_value));
-  Store_field(tuple, 1, glyph_info);
   }
-  CAMLreturn(tuple);
+  CAMLreturn(glyph_info);
 }
 
 CAMLprim value freetype_set_char_size(value face, value size) {

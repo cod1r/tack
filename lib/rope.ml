@@ -2,11 +2,55 @@ type rope =
   | Leaf of string
   | Node of { left : rope; right : rope; weight : int }
 
+let fib =
+  [|
+    1;
+    1;
+    2;
+    3;
+    5;
+    8;
+    13;
+    21;
+    34;
+    55;
+    89;
+    144;
+    233;
+    377;
+    610;
+    987;
+    1597;
+    2584;
+    4181;
+    6765;
+    10946;
+    17711;
+    28657;
+    46368;
+    75025;
+    121393;
+    196418;
+    317811;
+    514229;
+    832040;
+  |]
+
+let rec depth r =
+  match r with
+  | Leaf _ -> 1
+  | Node { left; right; _ } -> 1 + max (depth left) (depth right)
+
+let is_balanced r =
+  let depth' = depth r in
+  if depth' - 2 > Array.length fib then false
+  else
+    fib.(depth' + 2)
+    <= match r with Leaf l -> String.length l | Node { weight; _ } -> weight
+
 let rec length = function
   | Leaf l -> String.length l
   | Node { weight; right; _ } -> length right + weight
-
-let of_string s = Leaf s
 
 let rec length_of_everything_left = function
   | Leaf _ as leaf -> length leaf
@@ -56,18 +100,43 @@ let rec substring r ~start ~len =
         concat left_part right_part
 
 let rec insert r pos s =
-  match r with
-  | Leaf _ as ropeLeaf -> (
-      let left = substring ropeLeaf ~start:0 ~len:pos in
-      let right = substring ropeLeaf ~start:pos ~len:(length ropeLeaf - pos) in
-      match (length left, length right) with
-      | 0, 0 -> Leaf s
-      | _, 0 -> concat left (Leaf s)
-      | 0, _ -> concat (Leaf s) right
-      | _ -> concat left (concat (Leaf s) right))
-  | Node { left; right; _ } ->
-      if pos <= length left then concat (insert left pos s) right
-      else concat left (insert right (pos - length left) s)
+  let new_rope =
+    match r with
+    | Leaf _ as ropeLeaf -> (
+        let left = substring ropeLeaf ~start:0 ~len:pos in
+        let right =
+          substring ropeLeaf ~start:pos ~len:(length ropeLeaf - pos)
+        in
+        match (length left, length right) with
+        | 0, 0 -> Leaf s
+        | _, 0 -> concat left (Leaf s)
+        | 0, _ -> concat (Leaf s) right
+        | _ -> concat left (concat (Leaf s) right))
+    | Node { left; right; _ } ->
+        if pos <= length left then concat (insert left pos s) right
+        else concat left (insert right (pos - length left) s)
+  in
+  if not (is_balanced new_rope) then rebalance new_rope else new_rope
+
+let get_string_from_list_chars list =
+  let list = List.rev list in
+  Bytes.init (List.length list) (fun i -> List.nth list i) |> String.of_bytes
+
+let of_string s =
+  let chunk, split =
+    String.fold_left
+      (fun (chunk, acc) c ->
+        if List.length chunk = 64 then
+          ([ c ], get_string_from_list_chars chunk :: acc)
+        else (c :: chunk, acc))
+      ([], []) s
+  in
+  let split =
+    if List.length chunk > 0 then get_string_from_list_chars chunk :: split
+    else split
+  in
+  let split = List.rev split in
+  List.fold_left (fun acc s -> insert acc (length acc) s) (Leaf "") split
 
 let delete r ~start ~len =
   let before = substring r ~start:0 ~len:start in
@@ -89,7 +158,6 @@ type _ traverse_info =
   | Rope_Traversal_Info :
       rope_traversal_info
       -> rope_traversal_info traverse_info
-  | Num_Lines : int -> int traverse_info
   | Finding_Cursor :
       (rope_traversal_info * closest_information)
       -> (rope_traversal_info * closest_information) traverse_info
@@ -124,14 +192,6 @@ let rec traverse_rope : type a.
             in
             acc := temp
           done;
-          !acc
-      | Num_Lines r ->
-          let acc = ref r in
-          let len = String.length l in
-          for i = 0 to len - 1 do
-            let (Num_Lines temp) = handle_result (Num_Lines !acc) l.[i] in
-            acc := temp
-          done;
           !acc)
   | Node { left; right; _ } ->
       let left_result = traverse_rope ~rope:left ~handle_result ~result in
@@ -140,7 +200,6 @@ let rec traverse_rope : type a.
           ~result:
             (match result with
             | Rope_Traversal_Info _ -> Rope_Traversal_Info left_result
-            | Finding_Cursor _ -> Finding_Cursor left_result
-            | Num_Lines _ -> Num_Lines left_result)
+            | Finding_Cursor _ -> Finding_Cursor left_result)
       in
       right_result

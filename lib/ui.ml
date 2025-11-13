@@ -32,9 +32,10 @@ type box = {
   mutable allow_vertical_scroll : bool;
   mutable horizontal_align : horizontal_alignment option;
   mutable vertical_align : vertical_alignment option;
-  on_event : event_handler_t option;
+  mutable on_event : event_handler_t option;
   mutable scroll_x_offset : int;
   mutable scroll_y_offset : int;
+  mutable focusable : bool;
 }
 
 and event_handler_t = b:box option -> e:Sdl.event -> unit
@@ -105,13 +106,14 @@ let default_textarea_event_handler =
   match b with
   | Some b -> (
       match b.content with
-      | Some (Textarea info) -> (
+      | Some (Textarea _) -> (
           match e with
           | Sdl.MouseButtonEvt { x; y; _ } -> (
               match b.bbox with
               | Some _ ->
-                  if is_within_box ~x ~y ~from_sdl_evt:true ~box:b then
-                    set_focused_element ~box:b
+                  if
+                    is_within_box ~x ~y ~from_sdl_evt:true ~box:b && b.focusable
+                  then set_focused_element ~box:b
               | None -> ())
           | _ -> ())
       | _ -> ())
@@ -138,18 +140,11 @@ let default_box =
     on_event = None;
     scroll_x_offset = 0;
     scroll_y_offset = 0;
+    focusable = false;
   }
 
 let get_glyph_info_from_glyph ~glyph ~font_info =
-  let opt =
-    Array.find_opt
-      (fun (c', _) -> c' = glyph)
-      font_info.Freetype.glyph_info_with_char
-  in
-  try
-    let _, gi = Option.get opt in
-    gi
-  with Invalid_argument e -> failwith (__FUNCTION__ ^ "; " ^ e)
+  font_info.Freetype.glyph_info_with_char.(Char.code glyph - 32)
 
 let get_text_wrap_info ~bbox ~glyph ~x ~y ~font_info ~text_wrap =
   if glyph = '\n' then
@@ -225,7 +220,7 @@ let get_text_bounding_box ~(box : box) =
     TextTextureInfo.get_or_add_font_size_text_texture
       ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
   in
-  let Rope.{ x; y; _ } =
+  let Rope.{ y; _ } =
     Rope.traverse_rope ~rope
       ~handle_result:(fun
           (acc : Rope.rope_traversal_info Rope.traverse_info) c ->
@@ -581,14 +576,10 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
       let string_width =
         String.fold_left
           (fun acc c ->
-            let op =
-              Array.find_opt
-                (fun (c', _) -> c' = c)
-                font_info.glyph_info_with_char
-            in
-            match op with
-            | Some (_, g) -> acc + g.Freetype.x_advance
-            | None -> acc)
+            if String.contains "\n\t" c then acc
+            else
+              let gi = font_info.glyph_info_with_char.(Char.code c - 32) in
+              acc + gi.Freetype.x_advance)
           0 s
       in
       (* TODO: need to handle height when text_wrap is true *)

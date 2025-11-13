@@ -44,6 +44,7 @@ let clone_box ~(box : Ui.box) =
         on_event = box.on_event;
         scroll_y_offset = box.scroll_y_offset;
         scroll_x_offset = box.scroll_x_offset;
+        focusable = box.focusable;
       }
   in
   clone_box' box
