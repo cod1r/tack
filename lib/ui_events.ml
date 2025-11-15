@@ -77,10 +77,84 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                       | _ -> ())
                   | None -> ())
               | None -> ())
+          | Sdl.MouseWheelEvt { x; y; mouseX; mouseY }
+            when Ui.is_within_box ~x:mouseX ~y:mouseY ~box:b ~from_sdl_evt:true
+            -> (
+              match
+                List.find_opt
+                  (function
+                    | Ui.ScrollContainer { content; _ } -> content == b
+                    | _ -> failwith "impossible")
+                  !Ui.scrollcontainers
+              with
+              | Some
+                  (ScrollContainer
+                     {
+                       scroll;
+                       orientation;
+                       other_scrollcontainer;
+                       scrollbar_container;
+                       _;
+                     }) -> (
+                  let adjust_scroll ~scroll = function
+                    | Ui.Vertical ->
+                        Option.iter
+                          (fun bbox ->
+                            let Ui.{ y = scrollbar_container_y; _ } =
+                              Option.get scrollbar_container.bbox
+                            in
+                            scroll.Ui.bbox <-
+                              Some
+                                {
+                                  bbox with
+                                  y = max scrollbar_container_y (bbox.Ui.y + -y);
+                                })
+                          scroll.bbox
+                    | Horizontal ->
+                        Option.iter
+                          (fun bbox ->
+                            let Ui.{ x = scrollbar_container_x; _ } =
+                              Option.get scrollbar_container.bbox
+                            in
+                            scroll.bbox <-
+                              Some
+                                {
+                                  bbox with
+                                  x = max scrollbar_container_x (bbox.Ui.x + -x);
+                                })
+                          scroll.bbox
+                  in
+                  adjust_scroll ~scroll orientation;
+                  match other_scrollcontainer with
+                  | Some { scroll; orientation; _ } ->
+                      adjust_scroll ~scroll orientation
+                  | _ -> ())
+              | _ -> ())
           | Sdl.TextInputEvt { text; _ } ->
               let new_text_area_information =
                 Ui_textarea.handle_txt_evt ~text_area_information:info ~text
               in
+              (match
+                 List.find_opt
+                   (function
+                     | Ui.ScrollContainer { content; _ } -> content == b
+                     | _ -> failwith "impossible")
+                   !Ui.scrollcontainers
+               with
+              | Some
+                  (ScrollContainer
+                     { scroll; orientation; other_scrollcontainer; content; _ })
+                -> (
+                  Ui.adjust_scrollbar_according_to_textarea_text_caret
+                    ~text_area_info:new_text_area_information ~scroll
+                    ~orientation ~content;
+                  match other_scrollcontainer with
+                  | Some { scroll; orientation; content; _ } ->
+                      Ui.adjust_scrollbar_according_to_textarea_text_caret
+                        ~text_area_info:new_text_area_information ~scroll
+                        ~orientation ~content
+                  | _ -> ())
+              | _ -> ());
               b.content <- Some (Textarea new_text_area_information)
           | _ -> ())
       | _ -> ())

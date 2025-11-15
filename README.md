@@ -38,17 +38,7 @@ and contains text
 
     set width and height as percentages relative to the parent size.
 
-    performance is still a problem on large texts.
-      calculate_ui is slow due to the recursion (List.iter (fun _ -> calculate_ui box))
-      draw_textarea is slow
-      the main bottle neck seems to be our traverse_rope logic/code
-        the loop itself is not slow but calling handle_result in the loop is slow
-      turns out Array.find_opt was also slow in get_glyph_info_from_glyph. just made it an array that maps chars to glyph infos
-
 performance ideas:
-	- traversing the rope tree over and over for rendering and calculations is wasteful. there should be some stored info either
-	in the rope nodes or in another tree that saves operations (perhaps a self balancing tree).
-
 	- the main issue is with edits to the rope. rope changes cause recalculations to occur which means the function traverse_rope
 		gets called a lot. If the file that's being edited, has 1 billion characters (1 gigabyte), each edit or interaction would
 		take forever. There needs to be a way to do edits and recalculate information (such as wrapping, closest cursor position)

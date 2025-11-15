@@ -67,6 +67,7 @@ let focused_element : box option ref = ref None
 let set_focused_element ~(box : box) = focused_element := Some box
 let unfocus_element () = focused_element := None
 let default_bbox : bounding_box = { width = 0; height = 0; x = 0; y = 0 }
+let scrollcontainers : box_content list ref = ref []
 
 let holding_mousedown :
     [ `True of original_x:int * original_y:int | `False ] ref =
@@ -294,7 +295,6 @@ let calculate_content_boundaries ~(box : box) =
       let { left = left'; right = right'; top = top'; bottom = bottom' } =
         get_box_sides ~box:container
       in
-      let bbox = Option.get container.bbox in
       {
         left = min left left';
         right = max right right';
@@ -351,7 +351,7 @@ let get_xy_pos_of_text_caret ~text_area_info ~box =
         Some (~x, ~y)
     | None -> None
 
-let adjust_scrollbar_according_to_textarea_text_caret' ~text_area_info ~scroll
+let adjust_scrollbar_according_to_textarea_text_caret ~text_area_info ~scroll
     ~orientation ~content =
   let { right; left; top; bottom } = get_box_sides ~box:content in
   let {
@@ -418,16 +418,6 @@ let adjust_scrollbar_according_to_textarea_text_caret' ~text_area_info ~scroll
                     })
         scroll.bbox
   | None -> ()
-
-let adjust_scrollbar_according_to_textarea_text_caret ~(box : box)
-    ~text_area_info =
-  match box.content with
-  | Some
-      (ScrollContainer
-         { orientation; scroll; content; other_scrollcontainer; _ }) ->
-      adjust_scrollbar_according_to_textarea_text_caret' ~orientation ~scroll
-        ~content ~text_area_info
-  | _ -> ()
 
 let get_available_size_for_maxed_constrained_inner_boxes
     ~(fixed_sized_boxes : box list) ~(parent_bbox : bounding_box)

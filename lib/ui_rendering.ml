@@ -874,11 +874,6 @@ let rec calculate_ui ~(box : Ui.box) ~context =
         ~content ~scroll ~orientation;
       Ui_scrollcontainers.adjust_scrollbar_according_to_content_size ~content
         ~scroll ~orientation;
-      (match content.content with
-      | Some (Textarea info) when !Ui.holding_mousedown = `False ->
-          Ui.adjust_scrollbar_according_to_textarea_text_caret ~box
-            ~text_area_info:info
-      | _ -> ());
       (match orientation with
       | Vertical ->
           let bbox = Option.get scroll.bbox in

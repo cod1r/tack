@@ -42,7 +42,7 @@ type event =
     }
   | TextInputEvt of { timestamp : int; windowID : int; text : string }
   | Quit
-  | MouseWheelEvt of { preciseX : float; preciseY : float; x : int; y : int }
+  | MouseWheelEvt of { mouseX : int; mouseY : int; x : int; y : int }
 
 external sdl_delay : int -> unit = "SDL_Delay" "SDL_Delay"
 external init_sdl : unit -> (unit, string) result = "init_sdl" "init_sdl"

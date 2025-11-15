@@ -169,6 +169,7 @@ let create_scrollcontainer ~content ~orientation ~other_scrollcontainer =
           };
       }
   in
+  Ui.scrollcontainers := scrollcontainer :: !Ui.scrollcontainers;
   scrollcontainer
 
 (* the code in this function reveals how fragile the design of the ui lib is.
@@ -209,7 +210,6 @@ let wrap_box_contents_in_scrollcontainer ~(box : Ui.box) ~orientation =
       let box_shallow_copy =
         {
           box with
-          name = Some "URMOM";
           content = box.content;
           background_color = Ui.default_box.background_color;
         }
@@ -241,7 +241,7 @@ let wrap_box_contents_in_scrollcontainer ~(box : Ui.box) ~orientation =
           ~other_scrollcontainer:None
       in
       match scrollcontainer with
-      | ScrollContainer { container; content; _ } ->
+      | ScrollContainer { container; _ } ->
           Ui.constrain_width_height ~box:container;
           box.on_event <- None;
           box.content <- Some scrollcontainer
@@ -252,8 +252,8 @@ let unwrap_scrollcontainer ~(box : Ui.box) ~unwrap_orientation =
   match box.content with
   | Some
       (ScrollContainer
-         ({ content; orientation; other_scrollcontainer; container; scroll; _ }
-          as scrollcontainer_info)) -> (
+         ({ content; orientation; other_scrollcontainer; scroll; _ } as
+          scrollcontainer_info)) -> (
       let scroll_bbox = Option.get scroll.bbox in
       let measurement =
         match orientation with

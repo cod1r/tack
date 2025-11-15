@@ -415,8 +415,8 @@ CAMLprim value sdl_pollevent(value unit) {
       } break;
       case SDL_MOUSEWHEEL: {
         evt_type = caml_alloc(4, 5);
-        Store_field(evt_type, 0, caml_copy_double(e.wheel.preciseX));
-        Store_field(evt_type, 1, caml_copy_double(e.wheel.preciseY));
+        Store_field(evt_type, 0, Val_int(e.wheel.mouseX));
+        Store_field(evt_type, 1, Val_int(e.wheel.mouseY));
         Store_field(evt_type, 2, Val_int(e.wheel.x));
         Store_field(evt_type, 3, Val_int(e.wheel.y));
         option_val = caml_alloc_some(evt_type);
