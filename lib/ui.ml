@@ -217,6 +217,14 @@ let create_textarea_box ?(text : Rope.rope option) () =
 
 let text_caret_width = 3
 
+let get_max_int x y =
+  let comparison = Int.compare x y in
+  if comparison = 1 then x else y
+
+let get_min_int x y =
+  let max_int = get_max_int x y in
+  if x = max_int then y else x
+
 let get_text_bounding_box ~(box : box) =
   let rope, is_textarea =
     match box.content with
@@ -226,7 +234,7 @@ let get_text_bounding_box ~(box : box) =
     | _ -> failwith __FUNCTION__
   in
   let bbox = Option.value box.bbox ~default:default_bbox in
-  let min_x, min_y, max_x, max_y =
+  let (min_x, min_y, max_x, max_y) : int ref * int ref * int ref * int ref =
     (ref bbox.x, ref bbox.y, ref Int.min_int, ref Int.min_int)
   in
   let ~font_info, .. =
@@ -238,7 +246,7 @@ let get_text_bounding_box ~(box : box) =
       ~handle_result:(fun
           (acc : Rope.rope_traversal_info Rope.traverse_info) c ->
         let (Rope_Traversal_Info acc) = acc in
-        max_y := max !max_y acc.y;
+        max_y := get_max_int !max_y acc.y;
         match c with
         | '\n' ->
             Rope_Traversal_Info
@@ -253,12 +261,12 @@ let get_text_bounding_box ~(box : box) =
                 ~text_wrap:box.text_wrap
             in
             max_x :=
-              max !max_x (new_x + if is_textarea then text_caret_width else 0);
+              get_max_int !max_x (new_x + if is_textarea then text_caret_width else 0);
             Rope_Traversal_Info
               { y = new_y; x = new_x; rope_pos = acc.rope_pos + 1 })
       ~result:(Rope_Traversal_Info { x = bbox.x; y = bbox.y; rope_pos = 0 })
   in
-  max_y := max !max_y y;
+  max_y := get_max_int !max_y y;
   max_y := !max_y + font_info.font_height;
   (~min_x:!min_x, ~max_x:!max_x, ~min_y:!min_y, ~max_y:!max_y)
 
@@ -270,10 +278,10 @@ let calculate_content_boundaries ~(box : box) =
         get_box_sides ~box:b
       in
       {
-        left = min left left';
-        right = max right right';
-        top = min top top';
-        bottom = max bottom bottom';
+        left = get_min_int left left';
+        right = get_max_int right right';
+        top = get_min_int top top';
+        bottom = get_max_int bottom bottom';
       }
   | Some (Boxes list) ->
       let ( min_horizontal_position,
@@ -283,10 +291,10 @@ let calculate_content_boundaries ~(box : box) =
         List.fold_left
           (fun (min_horizontal, max_horizontal, min_vertical, max_vertical) b ->
             let { left; right; top; bottom } = get_box_sides ~box:b in
-            ( min min_horizontal left,
-              max max_horizontal right,
-              min min_vertical top,
-              max max_vertical bottom ))
+            ( get_min_int min_horizontal left,
+              get_max_int max_horizontal right,
+              get_min_int min_vertical top,
+              get_max_int max_vertical bottom ))
           (left, right, top, bottom) list
       in
       {
@@ -298,30 +306,30 @@ let calculate_content_boundaries ~(box : box) =
   | Some (Text _) | Some (Textarea _) ->
       let ~min_x, ~max_x, ~min_y, ~max_y = get_text_bounding_box ~box in
       {
-        left = min left min_x;
-        right = max right max_x;
-        top = min top min_y;
-        bottom = max bottom max_y;
+        left = get_min_int left min_x;
+        right = get_max_int right max_x;
+        top = get_min_int top min_y;
+        bottom = get_max_int bottom max_y;
       }
   | Some (ScrollContainer { container; _ }) ->
       let { left = left'; right = right'; top = top'; bottom = bottom' } =
         get_box_sides ~box:container
       in
       {
-        left = min left left';
-        right = max right right';
-        top = min top top';
-        bottom = max bottom bottom';
+        left = get_min_int left left';
+        right = get_max_int right right';
+        top = get_min_int top top';
+        bottom = get_max_int bottom bottom';
       }
   | Some (TextAreaWithLineNumbers { container; _ }) ->
       let { left = left'; right = right'; top = top'; bottom = bottom' } =
         get_box_sides ~box:container
       in
       {
-        left = min left left';
-        right = max right right';
-        top = min top top';
-        bottom = max bottom bottom';
+        left = get_min_int left left';
+        right = get_max_int right right';
+        top = get_min_int top top';
+        bottom = get_max_int bottom bottom';
       }
   | None -> { left; right; top; bottom }
 
@@ -459,7 +467,7 @@ let get_available_size_for_maxed_constrained_inner_boxes
             0 fixed_sized_boxes,
           parent_bbox.height )
   in
-  let left_over = max 0 (parent_measurement - summed_fixed) in
+  let left_over = get_max_int 0 (parent_measurement - summed_fixed) in
   left_over / number_of_constrained
 
 let handle_maximizing_of_inner_content_size ~(parent_box : box) =
@@ -562,7 +570,7 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
           let max_width =
             List.fold_left
               (fun acc b ->
-                max acc (Option.value b.bbox ~default:default_bbox).width)
+                get_max_int acc (Option.value b.bbox ~default:default_bbox).width)
               0 list
           in
           match measurement with
@@ -581,7 +589,7 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
           let max_height =
             List.fold_left
               (fun acc b ->
-                max acc (Option.value b.bbox ~default:default_bbox).height)
+                get_max_int acc (Option.value b.bbox ~default:default_bbox).height)
               0 list
           in
           match measurement with
