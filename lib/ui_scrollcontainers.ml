@@ -206,7 +206,8 @@ let wrap_box_contents_in_scrollcontainer ~(box : Ui.box) ~orientation =
             container.bbox;
           box.content <- Some scrollcontainer
       | _ -> ())
-  | Some (Box _ | Boxes _ | Textarea _ | Text _) -> (
+  | Some (Box _ | Boxes _ | Textarea _ | Text _ | TextAreaWithLineNumbers _)
+    -> (
       let box_shallow_copy =
         {
           box with

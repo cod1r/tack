@@ -100,27 +100,47 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                     | Ui.Vertical ->
                         Option.iter
                           (fun bbox ->
-                            let Ui.{ y = scrollbar_container_y; _ } =
+                            let Ui.
+                                  {
+                                    y = scrollbar_container_y;
+                                    height = scrollbar_container_height;
+                                    _;
+                                  } =
                               Option.get scrollbar_container.bbox
                             in
                             scroll.Ui.bbox <-
                               Some
                                 {
                                   bbox with
-                                  y = max scrollbar_container_y (bbox.Ui.y + -y);
+                                  y =
+                                    min
+                                      (scrollbar_container_y
+                                     + scrollbar_container_height
+                                     - bbox.Ui.height)
+                                      (max scrollbar_container_y (bbox.Ui.y + -y));
                                 })
                           scroll.bbox
                     | Horizontal ->
                         Option.iter
                           (fun bbox ->
-                            let Ui.{ x = scrollbar_container_x; _ } =
+                            let Ui.
+                                  {
+                                    x = scrollbar_container_x;
+                                    width = scrollbar_container_width;
+                                    _;
+                                  } =
                               Option.get scrollbar_container.bbox
                             in
                             scroll.bbox <-
                               Some
                                 {
                                   bbox with
-                                  x = max scrollbar_container_x (bbox.Ui.x + -x);
+                                  x =
+                                    min
+                                      (scrollbar_container_x
+                                     + scrollbar_container_width - bbox.Ui.width
+                                      )
+                                      (max scrollbar_container_x (bbox.Ui.x + -x));
                                 })
                           scroll.bbox
                   in

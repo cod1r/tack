@@ -14,19 +14,16 @@ let clone_box ~(box : Ui.box) =
               Some (Boxes (List.map (fun b -> clone_box' b) list))
           | Some
               (ScrollContainer
-                 {
-                   container;
-                   content;
-                   scroll;
-                   orientation;
-                   other_scrollcontainer;
-                   _;
-                 }) ->
+                 { content; orientation; other_scrollcontainer; _ }) ->
               let content = clone_box' content in
               Some
                 (Ui_scrollcontainers.create_scrollcontainer ~content
                    ~orientation ~other_scrollcontainer)
-          | Some (Text _) | Some (Textarea _) | None -> box.content);
+          | Some (Text _)
+          | Some (Textarea _)
+          | Some (TextAreaWithLineNumbers _)
+          | None ->
+              box.content);
         bbox = box.bbox;
         text_wrap = box.text_wrap;
         background_color = box.background_color;

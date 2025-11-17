@@ -11,7 +11,6 @@ type positioning = Relative of { x : int; y : int } | Absolute
 type horizontal_alignment = Left | Center | Right
 type vertical_alignment = Top | Center | Bottom
 type size_constraint = Min | Max
-type ui_traversal_context = { in_scrollcontainer : bool }
 
 let scrollbar_container_width = 15
 
@@ -62,6 +61,13 @@ and box_content =
   | Text of string
   | Textarea of text_area_information
   | ScrollContainer of scrollcontainer_info
+  | TextAreaWithLineNumbers of {
+      line_numbers : box;
+      textarea : box;
+      container : box;
+    }
+
+type ui_traversal_context = { in_scrollcontainer : bool; parent : box option }
 
 let focused_element : box option ref = ref None
 let set_focused_element ~(box : box) = focused_element := Some box
@@ -148,15 +154,12 @@ let get_glyph_info_from_glyph ~glyph ~font_info =
   font_info.Freetype.glyph_info_with_char.(Char.code glyph - 32)
 
 let get_text_wrap_info ~bbox ~glyph ~x ~y ~font_info ~text_wrap =
-  if glyph = '\n' then
-    (~new_x:bbox.x, ~new_y:(y + font_info.Freetype.font_height), ~wraps:true)
-  else
-    let glyph_info = get_glyph_info_from_glyph ~glyph ~font_info in
-    if x + glyph_info.x_advance > bbox.x + bbox.width && text_wrap then
-      ( ~new_x:(bbox.x + glyph_info.x_advance),
-        ~new_y:(y + font_info.font_height),
-        ~wraps:true )
-    else (~new_x:(x + glyph_info.x_advance), ~new_y:y, ~wraps:false)
+  let glyph_info = get_glyph_info_from_glyph ~glyph ~font_info in
+  if x + glyph_info.x_advance > bbox.x + bbox.width && text_wrap then
+    ( ~new_x:(bbox.x + glyph_info.x_advance),
+      ~new_y:(y + font_info.font_height),
+      ~wraps:true )
+  else (~new_x:(x + glyph_info.x_advance), ~new_y:y, ~wraps:false)
 
 module TextTextureInfo = struct
   type texture_info = {
@@ -196,10 +199,19 @@ module TextTextureInfo = struct
         (~font_info, ~gl_texture_id:gl_buffer_glyph_texture_atlas)
 end
 
-let create_textarea_box () =
+let create_textarea_box ?(text : Rope.rope option) () =
   {
     default_box with
-    content = Some (Textarea default_text_area_information);
+    focusable = true;
+    content =
+      Some
+        (Textarea
+           {
+             default_text_area_information with
+             text = (match text with Some text -> Some text | None -> None);
+           });
+    allow_vertical_scroll = true;
+    allow_horizontal_scroll = true;
     on_event = Some default_textarea_event_handler;
   }
 
@@ -292,6 +304,16 @@ let calculate_content_boundaries ~(box : box) =
         bottom = max bottom max_y;
       }
   | Some (ScrollContainer { container; _ }) ->
+      let { left = left'; right = right'; top = top'; bottom = bottom' } =
+        get_box_sides ~box:container
+      in
+      {
+        left = min left left';
+        right = max right right';
+        top = min top top';
+        bottom = max bottom bottom';
+      }
+  | Some (TextAreaWithLineNumbers { container; _ }) ->
       let { left = left'; right = right'; top = top'; bottom = bottom' } =
         get_box_sides ~box:container
       in
@@ -510,6 +532,8 @@ let handle_maximizing_of_inner_content_size ~(parent_box : box) =
   | Some (Text _) -> ()
   | Some (Textarea _) -> ()
   | Some (ScrollContainer _) -> ()
+  | Some (TextAreaWithLineNumbers { container; _ }) ->
+      container.bbox <- parent_box.bbox
   | None -> ()
 
 let rec clamp_width_or_height_to_content_size ~(box : box)
@@ -520,8 +544,11 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
       constrain_width_height ~box:b;
       let inner_bbox = Option.value b.bbox ~default:default_bbox in
       match measurement with
-      | `Width -> box.bbox <- Some { bbox with width = inner_bbox.width }
-      | `Height -> box.bbox <- Some { bbox with height = inner_bbox.height })
+      | `Width when box.width_constraint = Some Min ->
+          box.bbox <- Some { bbox with width = inner_bbox.width }
+      | `Height when box.height_constraint = Some Min ->
+          box.bbox <- Some { bbox with height = inner_bbox.height }
+      | _ -> ())
   | Some (Boxes list) -> (
       List.iter (fun b -> constrain_width_height ~box:b) list;
       match box.flow with
@@ -539,8 +566,11 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
               0 list
           in
           match measurement with
-          | `Width -> box.bbox <- Some { bbox with width = max_width }
-          | `Height -> box.bbox <- Some { bbox with height = summed_size })
+          | `Width when box.width_constraint = Some Min ->
+              box.bbox <- Some { bbox with width = max_width }
+          | `Height when box.height_constraint = Some Min ->
+              box.bbox <- Some { bbox with height = summed_size }
+          | _ -> ())
       | Some Horizontal -> (
           let summed_size =
             List.fold_left
@@ -555,8 +585,11 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
               0 list
           in
           match measurement with
-          | `Width -> box.bbox <- Some { bbox with width = summed_size }
-          | `Height -> box.bbox <- Some { bbox with height = max_height })
+          | `Width when box.width_constraint = Some Min ->
+              box.bbox <- Some { bbox with width = summed_size }
+          | `Height when box.height_constraint = Some Min ->
+              box.bbox <- Some { bbox with height = max_height }
+          | _ -> ())
       | None -> ())
   | Some (Text s) -> (
       let ~font_info, .. =
@@ -572,15 +605,22 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
               acc + gi.Freetype.x_advance)
           0 s
       in
-      (* TODO: need to handle height when text_wrap is true *)
+      (* this doesn't handle the case of text wrapping *)
       match measurement with
-      | `Width -> box.bbox <- Some { bbox with width = string_width }
-      | `Height -> ())
-  | Some (Textarea _) -> failwith "// TODO"
+      | `Width when box.width_constraint = Some Min ->
+          box.bbox <- Some { bbox with width = string_width }
+      | `Height when box.width_constraint = Some Min ->
+          box.bbox <- Some { bbox with height = font_info.font_height }
+      | _ -> ())
+  | Some (Textarea _)
+    when box.width_constraint = Some Min || box.height_constraint = Some Min ->
+      let { left; right; top; bottom } = calculate_content_boundaries ~box in
+      box.bbox <-
+        Some { x = left; y = top; width = right - left; height = bottom - top }
   | Some (ScrollContainer { container; scrollbar_container; orientation; _ })
     -> (
       match measurement with
-      | `Width -> (
+      | `Width when box.width_constraint = Some Min -> (
           match orientation with
           | Vertical ->
               let { width = content_width; _ } : bounding_box =
@@ -595,7 +635,7 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
                 Option.value container.bbox ~default:default_bbox
               in
               box.bbox <- Some { bbox with width = content_width })
-      | `Height -> (
+      | `Height when box.height_constraint = Some Min -> (
           match orientation with
           | Horizontal ->
               let { height = content_height; _ } : bounding_box =
@@ -610,8 +650,17 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
               let { height = content_height; _ } : bounding_box =
                 Option.value container.bbox ~default:default_bbox
               in
-              box.bbox <- Some { bbox with height = content_height }))
+              box.bbox <- Some { bbox with height = content_height })
+      | _ -> ())
+  | Some (TextAreaWithLineNumbers { container; _ }) -> (
+      match measurement with
+      | `Width when box.width_constraint = Some Min ->
+          box.bbox <- container.bbox
+      | `Height when box.height_constraint = Some Min ->
+          box.bbox <- container.bbox
+      | _ -> ())
   | None -> ()
+  | _ -> ()
 
 (* I'm not sure how to handle cases where the contents are positioned outside of
    the container. Originally I thought that having elements/boxes being absolutely
@@ -619,10 +668,6 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
    the parent container which poses the question of, what should the min width/height be?
    Perhaps, restricting this functionality when child elements are only positioned relatively *)
 and constrain_width_height ~(box : box) =
-  (match box.width_constraint with
-  | Some Min -> clamp_width_or_height_to_content_size ~box ~measurement:`Width
-  | Some Max | None -> ());
-  (match box.height_constraint with
-  | Some Min -> clamp_width_or_height_to_content_size ~box ~measurement:`Height
-  | Some Max | None -> ());
+  clamp_width_or_height_to_content_size ~box ~measurement:`Width;
+  clamp_width_or_height_to_content_size ~box ~measurement:`Height;
   handle_maximizing_of_inner_content_size ~parent_box:box

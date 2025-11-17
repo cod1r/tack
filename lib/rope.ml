@@ -158,6 +158,9 @@ type _ traverse_info =
   | Rope_Traversal_Info :
       rope_traversal_info
       -> rope_traversal_info traverse_info
+  | Line_Numbers :
+      (rope_traversal_info * int option list)
+      -> (rope_traversal_info * int option list) traverse_info
   | Finding_Cursor :
       (rope_traversal_info * closest_information)
       -> (rope_traversal_info * closest_information) traverse_info
@@ -183,6 +186,14 @@ let rec traverse_rope : type a.
             acc := temp
           done;
           !acc
+      | Line_Numbers r ->
+          let acc = ref r in
+          let len = String.length l in
+          for i = 0 to len - 1 do
+            let (Line_Numbers temp) = handle_result (Line_Numbers !acc) l.[i] in
+            acc := temp
+          done;
+          !acc
       | Finding_Cursor r ->
           let acc = ref r in
           let len = String.length l in
@@ -200,6 +211,7 @@ let rec traverse_rope : type a.
           ~result:
             (match result with
             | Rope_Traversal_Info _ -> Rope_Traversal_Info left_result
-            | Finding_Cursor _ -> Finding_Cursor left_result)
+            | Finding_Cursor _ -> Finding_Cursor left_result
+            | Line_Numbers _ -> Line_Numbers left_result)
       in
       right_result

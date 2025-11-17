@@ -3,25 +3,9 @@ open Tack
 let () = Sdl.sdl_gl_setswapinterval 0
 let rendering_content = Editor.open_file "lib/ui_rendering.ml"
 
-let textarea : Ui.box =
-  let textarea_box = Ui.create_textarea_box () in
-  {
-    textarea_box with
-    focusable = true;
-    bbox = Some { x = 0; y = 0; width = 1700; height = 0 };
-    background_color = (0., 0.5, 0., 0.8);
-    text_wrap = true;
-    allow_horizontal_scroll = true;
-    allow_vertical_scroll = true;
-    height_constraint = Some Max;
-    content =
-      Some
-        (Textarea
-           {
-             Ui.default_text_area_information with
-             text = Some rendering_content;
-           });
-  }
+let textarea_with_line_numbers =
+  Ui_textarea_with_line_numbers.create_textarea_with_line_numbers
+    ~text:rendering_content ~textarea_width:1000 ~textarea_height:1000 ()
 
 let file_explorer =
   {
@@ -35,7 +19,18 @@ let box =
   {
     Ui.default_box with
     bbox = Some { x = 0; y = 0; width = 2000; height = 2000 };
-    content = Some (Boxes [ file_explorer; textarea ]);
+    content =
+      Some
+        (Boxes
+           [
+             file_explorer;
+             {
+               Ui.default_box with
+               height_constraint = Some Max;
+               width_constraint = Some Max;
+               content = Some textarea_with_line_numbers;
+             };
+           ]);
     flow = Some Horizontal;
   }
 

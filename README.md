@@ -35,8 +35,13 @@ and contains text
 		need to consolidate ui lib rules to make sense of how the primitive layout/sizing pieces come together
 
 		having multiple places that call traverse_rope to calculate placement is too fragile
+		  need to provide better interface for traversing the rope and accumulating values
 
     set width and height as percentages relative to the parent size.
+
+    refactor box_content to be GADTs
+
+    a lot of logic is fragile and needs to be tested
 
 performance ideas:
 	- the main issue is with edits to the rope. rope changes cause recalculations to occur which means the function traverse_rope

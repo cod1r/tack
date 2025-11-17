@@ -1,5 +1,4 @@
 open Sdl
-open Opengl
 
 let _LINE_NUMBER_RIGHT_PADDING = 20
 
@@ -40,8 +39,6 @@ let find_closest_vertical_range ~(bbox : Ui.bounding_box)
                  else closest_info.closest_vertical_range);
             } )
     | _ ->
-        let gi = Ui.get_glyph_info_from_glyph ~glyph:c ~font_info in
-        let x_advance = gi.x_advance in
         let ~new_x, ~new_y, .. =
           Ui.get_text_wrap_info ~glyph:c ~bbox ~x:rope_traversal_info.x
             ~y:rope_traversal_info.y ~font_info ~text_wrap

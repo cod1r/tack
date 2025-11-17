@@ -489,12 +489,14 @@ let validate ~(box : Ui.box) =
     else
       match box.Ui.content with
       | Some (Ui.Box b) -> validate' b (box :: visited)
-      | Some (Ui.Boxes list) ->
+      | Some (Boxes list) ->
           let visited = box :: visited in
           List.iter (fun b -> validate' b visited) list
-      | Some (Ui.Text _) -> ()
-      | Some (Ui.Textarea _) -> ()
-      | Some (Ui.ScrollContainer { content; _ }) ->
+      | Some (TextAreaWithLineNumbers { container; _ }) ->
+          validate' container (box :: visited)
+      | Some (Text _) -> ()
+      | Some (Textarea _) -> ()
+      | Some (ScrollContainer { content; _ }) ->
           validate' content (box :: visited)
       | None -> ()
   in
@@ -507,10 +509,11 @@ let add_event_handlers ~(box : Ui.box) =
     | None -> Ui_events.remove_event_handler ~box);
     match box.content with
     | Some (Ui.Box b) -> add_event_handlers' b
-    | Some (Ui.Boxes list) -> List.iter (fun b -> add_event_handlers' b) list
-    | Some (Ui.ScrollContainer { container; _ }) ->
+    | Some (Boxes list) -> List.iter (fun b -> add_event_handlers' b) list
+    | Some (ScrollContainer { container; _ }) -> add_event_handlers' container
+    | Some (TextAreaWithLineNumbers { container; _ }) ->
         add_event_handlers' container
-    | Some (Ui.Text _) | Some (Ui.Textarea _) | None -> ()
+    | Some (Text _) | Some (Textarea _) | None -> ()
   in
   add_event_handlers' box
 
@@ -541,7 +544,7 @@ let handle_list_of_boxes_initial_position ~(box : Ui.box) ~(d : Ui.direction)
     | Some Center -> box_bbox.y + (box_bbox_used_height / 2) - (acc_height / 2)
     | Some Bottom -> box_bbox.y + box_bbox_used_height - acc_height
   in
-  (x_pos, y_pos)
+  (x_pos + box.scroll_x_offset, y_pos + box.scroll_y_offset)
 
 let align_inner_box_vertically ~(box : Ui.box) ~(inner_box : Ui.box) =
   match box.bbox with
@@ -768,6 +771,8 @@ let rec draw_box ~(box : Ui.box) =
               ~font_info ~box;
             Opengl.gl_disable_scissor ()
         | Some (ScrollContainer { container; _ }) -> draw_box ~box:container
+        | Some (TextAreaWithLineNumbers { container; _ }) ->
+            draw_box ~box:container
         | None -> ())
   | None -> ());
   if box.clip_content then Opengl.gl_disable_scissor ()
@@ -838,7 +843,7 @@ let rec calculate_ui ~(box : Ui.box) ~context =
   | Some (Box b) ->
       align_inner_box_horizontally ~box ~inner_box:b;
       align_inner_box_vertically ~box ~inner_box:b;
-      calculate_ui ~box:b ~context
+      calculate_ui ~box:b ~context:{ context with parent = Some box }
   | Some (Boxes list) ->
       (match box.flow with
       | Some ((Horizontal | Vertical) as d) ->
@@ -854,10 +859,11 @@ let rec calculate_ui ~(box : Ui.box) ~context =
                   let bbbox_used_width, bbbox_used_height =
                     (bbbox.width, bbbox.height)
                   in
-                  if bbbox_used_width = 0 && d = Horizontal then
-                    failwith "flow is horizontal but width is 0";
-                  if bbbox_used_height = 0 && d = Vertical then
-                    failwith "flow is vertical but height is 0";
+                  if Sys.getenv_opt "DEBUG" |> Option.is_some then (
+                    if bbbox_used_width = 0 && d = Horizontal then
+                      Printf.eprintf "flow is horizontal but width is 0\n";
+                    if bbbox_used_height = 0 && d = Vertical then
+                      Printf.eprintf "flow is vertical but height is 0\n");
                   boxes_pos :=
                     let x, y = !boxes_pos in
                     match d with
@@ -866,7 +872,10 @@ let rec calculate_ui ~(box : Ui.box) ~context =
               | None -> ())
             list
       | None -> ());
-      List.iter (fun b -> calculate_ui ~box:b ~context) list
+      List.iter
+        (fun b ->
+          calculate_ui ~box:b ~context:{ context with parent = Some box })
+        list
   | Some (Text _) -> ()
   | Some (Textarea _) -> ()
   | Some (ScrollContainer { content; scroll; container; orientation; _ }) ->
@@ -885,7 +894,14 @@ let rec calculate_ui ~(box : Ui.box) ~context =
           if bbox.width = 0 then
             Ui_scrollcontainers.unwrap_scrollcontainer ~box
               ~unwrap_orientation:orientation);
-      calculate_ui ~box:container ~context:{ in_scrollcontainer = true }
+      calculate_ui ~box:container
+        ~context:{ in_scrollcontainer = true; parent = Some box }
+  | Some
+      (TextAreaWithLineNumbers { container; _ } as textarea_with_line_numbers)
+    ->
+      Ui_textarea_with_line_numbers.adjust_textarea_with_line_numbers
+        ~textarea_with_line_numbers;
+      calculate_ui ~box:container ~context:{ context with parent = Some box }
   | None -> ()
 
 let draw ~(box : Ui.box) =
@@ -893,6 +909,6 @@ let draw ~(box : Ui.box) =
   Opengl.gl_clear ();
   validate ~box;
   add_event_handlers ~box;
-  calculate_ui ~box ~context:{ in_scrollcontainer = false };
+  calculate_ui ~box ~context:{ in_scrollcontainer = false; parent = None };
   draw_box ~box;
   Sdl.sdl_gl_swapwindow Sdl.w
