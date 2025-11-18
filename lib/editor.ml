@@ -25,10 +25,16 @@ let config_has_been_modified_during_runtime () =
   Unix.time () -. s.st_mtime < 1.
 
 let default_editor : editor =
-  let width, height = Sdl.sdl_gl_getdrawablesize () in
+  let window_width_height = Sdl.sdl_gl_getdrawablesize () in
   {
     ropes = [];
     holding_ctrl = false;
     current_rope_idx = None;
-    bounds = { width; height; x = 0; y = 0 };
+    bounds =
+      {
+        width = window_width_height lsr 32;
+        height = window_width_height land ((1 lsl 32) - 1);
+        x = 0;
+        y = 0;
+      };
   }

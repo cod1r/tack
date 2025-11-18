@@ -50,3 +50,12 @@ let direction_to_string ~(orientation : Ui.direction) =
   match orientation with
   | Ui.Vertical -> "Vertical"
   | Ui.Horizontal -> "Horizontal"
+
+let calculate_string_width ~s ~font_info =
+  String.fold_left
+    (fun acc c ->
+      if c = '\n' || c = '\t' then acc
+      else
+        let gi = font_info.Freetype.glyph_info_with_char.(Char.code c - 32) in
+        acc + gi.Freetype.x_advance)
+    0 s

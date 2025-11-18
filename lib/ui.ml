@@ -58,7 +58,7 @@ and scrollcontainer_info = {
 and box_content =
   | Box of box
   | Boxes of box list
-  | Text of string
+  | Text of { string : string; string_width : int }
   | Textarea of text_area_information
   | ScrollContainer of scrollcontainer_info
   | TextAreaWithLineNumbers of {
@@ -228,7 +228,7 @@ let get_min_int x y =
 let get_text_bounding_box ~(box : box) =
   let rope, is_textarea =
     match box.content with
-    | Some (Text s) -> (Rope.of_string s, false)
+    | Some (Text { string; _ }) -> (Rope.of_string string, false)
     | Some (Textarea { text; _ }) ->
         ((match text with Some r -> r | None -> Rope.of_string ""), true)
     | _ -> failwith __FUNCTION__
@@ -612,19 +612,10 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
               box.bbox <- Some { bbox with height = max_height }
           | _ -> ())
       | None -> ())
-  | Some (Text s) -> (
+  | Some (Text { string_width; _ }) -> (
       let ~font_info, .. =
         TextTextureInfo.get_or_add_font_size_text_texture
           ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
-      in
-      let string_width =
-        String.fold_left
-          (fun acc c ->
-            if String.contains "\n\t" c then acc
-            else
-              let gi = font_info.glyph_info_with_char.(Char.code c - 32) in
-              acc + gi.Freetype.x_advance)
-          0 s
       in
       (* this doesn't handle the case of text wrapping *)
       match measurement with

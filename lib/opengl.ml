@@ -18,8 +18,8 @@ external set_gl_tex_parameters : unit -> unit
 external set_gl_tex_parameters_ui_text : unit -> unit
   = "set_gl_tex_parameters_ui_text" "set_gl_tex_parameters_ui_text"
 
-external gl_uniform_1i : location:int -> value:int -> unit
-  = "gl_uniform_1i" "gl_uniform_1i"
+external gl_uniform_1i : location:int -> value:int -> unit = "gl_uniform_1i"
+[@@noalloc]
 
 external gl_gen_texture : unit -> int = "gl_gen_texture" "gl_gen_texture"
 
@@ -46,7 +46,7 @@ external gl_enable_vertex_attrib_array : int -> unit
   = "gl_enable_vertex_attrib_array" "gl_enable_vertex_attrib_array"
 
 external gl_use_program : int -> unit = "gl_use_program" [@@noalloc]
-external gl_clear : unit -> unit = "gl_clear" "gl_clear"
+external gl_clear : unit -> unit = "gl_clear" [@@noalloc]
 
 external gl_gen_one_buffer : unit -> int
   = "gl_gen_one_buffer" "gl_gen_one_buffer"
@@ -57,14 +57,14 @@ external gl_vertex_attrib_pointer_float_type :
   stride:int ->
   normalized:bool ->
   start_idx:int ->
-  unit
-  = "gl_vertex_attrib_pointer_float_type" "gl_vertex_attrib_pointer_float_type"
+  unit = "gl_vertex_attrib_pointer_float_type"
+[@@noalloc]
 
-external gl_draw_arrays_with_quads : int -> unit
-  = "gl_draw_arrays_with_quads" "gl_draw_arrays_with_quads"
+external gl_draw_arrays_with_quads : int -> unit = "gl_draw_arrays_with_quads"
+[@@noalloc]
 
 external gl_draw_arrays : int -> unit = "gl_draw_arrays" "gl_draw_arrays"
-external gl_bind_buffer : int -> unit = "gl_bind_buffer" "gl_bind_buffer"
+external gl_bind_buffer : int -> unit = "gl_bind_buffer" [@@noalloc]
 
 external gl_getuniformlocation : int -> string -> (int, string) result
   = "gl_getuniformlocation" "gl_getuniformlocation"
@@ -89,11 +89,13 @@ external gl_get_shader_compile_status : int -> bool
 
 external gl_buffer_data_big_array :
   render_buffer:render_buffer -> capacity:int -> unit
-  = "gl_buffer_data_big_array" "gl_buffer_data_big_array"
+  = "gl_buffer_data_big_array"
+[@@noalloc]
 
 external gl_buffer_subdata_big_array :
   render_buffer:render_buffer -> length:int -> unit
-  = "gl_buffer_subdata_big_array" "gl_buffer_subdata_big_array"
+  = "gl_buffer_subdata_big_array"
+[@@noalloc]
 
 external gl_shader_source : int -> string -> unit
   = "gl_shader_source" "gl_shader_source"

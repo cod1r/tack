@@ -135,8 +135,8 @@ external sdl_set_render_draw_color :
 external sdl_create_renderer : window -> int -> unit
   = "sdl_create_renderer" "sdl_create_renderer"
 
-external sdl_gl_getdrawablesize : (unit[@untagged]) -> int * int
-  = "sdl_gl_getdrawablesize" "sdl_gl_getdrawablesize"
+external sdl_gl_getdrawablesize : unit -> int = "sdl_gl_getdrawablesize"
+[@@noalloc]
 
 external sdl_create_and_set_system_cursor : unit -> unit
   = "sdl_create_and_set_system_cursor" "sdl_create_and_set_system_cursor"
@@ -169,5 +169,8 @@ let () = Opengl.glew_init ()
 
 let get_logical_to_opengl_window_dims_ratio () =
   let window_width, window_height = sdl_get_window_size w
-  and window_width_gl, window_height_gl = sdl_gl_getdrawablesize () in
+  and window_width_height = sdl_gl_getdrawablesize () in
+  let window_width_gl, window_height_gl =
+    (window_width_height lsr 32, window_width_height land ((1 lsl 32) - 1))
+  in
   (window_width_gl / window_width, window_height_gl / window_height)

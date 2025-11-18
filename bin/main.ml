@@ -22,15 +22,44 @@ let box =
     content =
       Some
         (Boxes
-           [
-             file_explorer;
-             {
-               Ui.default_box with
-               height_constraint = Some Max;
-               width_constraint = Some Max;
-               content = Some textarea_with_line_numbers;
-             };
-           ]);
+           (List.init 100 (fun _ ->
+                {
+                  Ui.default_box with
+                  content =
+                    Some
+                      (Boxes
+                         (List.init 100 (fun _ ->
+                              {
+                                Ui.default_box with
+                                background_color =
+                                  ( Random.float 1.,
+                                    Random.float 1.,
+                                    Random.float 1.,
+                                    1.0 );
+                                font_size = Some 5;
+                                content =
+                                  Some
+                                    (Text
+                                       {
+                                         string = "20";
+                                         string_width =
+                                           Ui_utils.calculate_string_width
+                                             ~s:"20"
+                                             ~font_info:
+                                               (let ~font_info, .. =
+                                                  Ui.TextTextureInfo
+                                                  .get_or_add_font_size_text_texture
+                                                    ~font_size:5
+                                                in
+                                                font_info);
+                                       });
+                                bbox =
+                                  Some { x = 0; y = 0; width = 20; height = 20 };
+                              })));
+                  width_constraint = Some Min;
+                  height_constraint = Some Min;
+                  flow = Some Vertical;
+                })));
     flow = Some Horizontal;
   }
 

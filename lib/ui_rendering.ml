@@ -191,9 +191,11 @@ let transform_xy_coords_to_opengl_viewport_coords ~(x : float) ~(y : float) =
   let width_ratio, height_ratio =
     (Float.of_int width_ratio, Float.of_int height_ratio)
   in
-  let window_width, window_height = Sdl.sdl_gl_getdrawablesize () in
-  ( (x *. width_ratio /. Float.of_int window_width) -. 1.,
-    (-.y *. height_ratio /. Float.of_int window_height) +. 1. )
+  let window_width_height = Sdl.sdl_gl_getdrawablesize () in
+  ( (x *. width_ratio /. Float.of_int (window_width_height lsr 32)) -. 1.,
+    -.y *. height_ratio
+    /. Float.of_int (window_width_height land ((1 lsl 32) - 1))
+    +. 1. )
 
 let write_container_values_to_ui_buffer ~(box : Ui.box)
     ~(buffer : render_buffer_wrapper) =
@@ -473,7 +475,8 @@ let clip_content ~(box : Ui.box) =
   Opengl.gl_enable_scissor ();
   try
     let bbox = Option.get box.bbox in
-    let _, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
+    let window_width_height = Sdl.sdl_gl_getdrawablesize () in
+    let window_height_gl = window_width_height land ((1 lsl 32) - 1) in
     (* have to do some math to get the location of the bottom left corner
        because I instinctively did top left corner for box origins mainly bc
        I was adjusted to web platform but for opengl, bottom left corner is the origin *)
@@ -748,7 +751,10 @@ let rec draw_box ~(box : Ui.box) =
   (match box.bbox with
   | Some _ ->
       let Ui.{ left; top; bottom; right } = Ui.get_box_sides ~box in
-      let window_width_gl, window_height_gl = Sdl.sdl_gl_getdrawablesize () in
+      let window_width_height = Sdl.sdl_gl_getdrawablesize () in
+      let window_width_gl, window_height_gl =
+        (window_width_height lsr 32, window_width_height land ((1 lsl 32) - 1))
+      in
       if
         left <= window_width_gl && right >= 0 && top <= window_height_gl
         && bottom >= 0
@@ -758,7 +764,7 @@ let rec draw_box ~(box : Ui.box) =
         match box.content with
         | Some (Box b) -> draw_box ~box:b
         | Some (Boxes list) -> List.iter (fun b -> draw_box ~box:b) list
-        | Some (Text s) -> draw_text ~s ~box
+        | Some (Text { string; _ }) -> draw_text ~s:string ~box
         | Some (Textarea { text; cursor_pos; highlight_pos; _ }) ->
             clip_content ~box;
             let ~font_info, ~gl_texture_id =
