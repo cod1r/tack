@@ -261,7 +261,8 @@ let get_text_bounding_box ~(box : box) =
                 ~text_wrap:box.text_wrap
             in
             max_x :=
-              get_max_int !max_x (new_x + if is_textarea then text_caret_width else 0);
+              get_max_int !max_x
+                (new_x + if is_textarea then text_caret_width else 0);
             Rope_Traversal_Info
               { y = new_y; x = new_x; rope_pos = acc.rope_pos + 1 })
       ~result:(Rope_Traversal_Info { x = bbox.x; y = bbox.y; rope_pos = 0 })
@@ -570,13 +571,19 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
           let max_width =
             List.fold_left
               (fun acc b ->
-                get_max_int acc (Option.value b.bbox ~default:default_bbox).width)
+                get_max_int acc
+                  (Option.value b.bbox ~default:default_bbox).width)
               0 list
           in
           match measurement with
-          | `Width when box.width_constraint = Some Min ->
+          | `Width
+            when match box.width_constraint with Some Min -> true | _ -> false
+            ->
               box.bbox <- Some { bbox with width = max_width }
-          | `Height when box.height_constraint = Some Min ->
+          | `Height
+            when match box.height_constraint with
+                 | Some Min -> true
+                 | _ -> false ->
               box.bbox <- Some { bbox with height = summed_size }
           | _ -> ())
       | Some Horizontal -> (
@@ -589,13 +596,19 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
           let max_height =
             List.fold_left
               (fun acc b ->
-                get_max_int acc (Option.value b.bbox ~default:default_bbox).height)
+                get_max_int acc
+                  (Option.value b.bbox ~default:default_bbox).height)
               0 list
           in
           match measurement with
-          | `Width when box.width_constraint = Some Min ->
+          | `Width
+            when match box.width_constraint with Some Min -> true | _ -> false
+            ->
               box.bbox <- Some { bbox with width = summed_size }
-          | `Height when box.height_constraint = Some Min ->
+          | `Height
+            when match box.height_constraint with
+                 | Some Min -> true
+                 | _ -> false ->
               box.bbox <- Some { bbox with height = max_height }
           | _ -> ())
       | None -> ())
@@ -615,20 +628,25 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
       in
       (* this doesn't handle the case of text wrapping *)
       match measurement with
-      | `Width when box.width_constraint = Some Min ->
+      | `Width
+        when match box.width_constraint with Some Min -> true | _ -> false ->
           box.bbox <- Some { bbox with width = string_width }
-      | `Height when box.width_constraint = Some Min ->
+      | `Height
+        when match box.width_constraint with Some Min -> true | _ -> false ->
           box.bbox <- Some { bbox with height = font_info.font_height }
       | _ -> ())
   | Some (Textarea _)
-    when box.width_constraint = Some Min || box.height_constraint = Some Min ->
+    when match (box.width_constraint, box.height_constraint) with
+         | Some Min, None | None, Some Min -> true
+         | _ -> false ->
       let { left; right; top; bottom } = calculate_content_boundaries ~box in
       box.bbox <-
         Some { x = left; y = top; width = right - left; height = bottom - top }
   | Some (ScrollContainer { container; scrollbar_container; orientation; _ })
     -> (
       match measurement with
-      | `Width when box.width_constraint = Some Min -> (
+      | `Width
+        when match box.width_constraint with Some Min -> true | _ -> false -> (
           match orientation with
           | Vertical ->
               let { width = content_width; _ } : bounding_box =
@@ -643,7 +661,8 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
                 Option.value container.bbox ~default:default_bbox
               in
               box.bbox <- Some { bbox with width = content_width })
-      | `Height when box.height_constraint = Some Min -> (
+      | `Height
+        when match box.height_constraint with Some Min -> true | _ -> false -> (
           match orientation with
           | Horizontal ->
               let { height = content_height; _ } : bounding_box =
@@ -662,9 +681,11 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
       | _ -> ())
   | Some (TextAreaWithLineNumbers { container; _ }) -> (
       match measurement with
-      | `Width when box.width_constraint = Some Min ->
+      | `Width
+        when match box.width_constraint with Some Min -> true | _ -> false ->
           box.bbox <- container.bbox
-      | `Height when box.height_constraint = Some Min ->
+      | `Height
+        when match box.height_constraint with Some Min -> true | _ -> false ->
           box.bbox <- container.bbox
       | _ -> ())
   | None -> ()

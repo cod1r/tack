@@ -41,6 +41,9 @@ and contains text
 
     refactor box_content to be GADTs
 
+    currently there's an issue where the child box will try and max its size to the parents size and the parent will try and min
+      its size to the child's size so neither gets the right size...
+
     a lot of logic is fragile and needs to be tested
 
 performance ideas:

@@ -34,38 +34,40 @@ let get_line_nums rope textarea =
     Ui.TextTextureInfo.get_or_add_font_size_text_texture
       ~font_size:(Option.value textarea.font_size ~default:Freetype.font_size)
   in
-  let _, line_nums =
-    Rope.traverse_rope ~rope
-      ~handle_result:(fun acc c ->
-        let (Rope.Line_Numbers (rope_traversal_info, list)) = acc in
-        match c with
-        | '\n' ->
-            Rope.Line_Numbers
-              ( {
-                  rope_traversal_info with
-                  x = textarea_bbox.x;
-                  y = rope_traversal_info.y + font_info.Freetype.font_height;
-                },
-                let most_recent_line_number =
-                  List.find_opt (fun ln -> Option.is_some ln) list
-                in
-                match most_recent_line_number with
-                | Some hd -> Some (Option.get hd + 1) :: list
-                | None -> [ Some 1 ] )
-        | _ ->
-            let ~wraps, ~new_x, ~new_y =
-              Ui.get_text_wrap_info ~bbox:textarea_bbox ~glyph:c
-                ~x:rope_traversal_info.x ~y:rope_traversal_info.y ~font_info
-                ~text_wrap:textarea.text_wrap
+  let fold_fn_for_line_nums =
+   fun acc c ->
+    let (Rope.Line_Numbers (rope_traversal_info, list)) = acc in
+    match c with
+    | '\n' ->
+        Rope.Line_Numbers
+          ( {
+              rope_traversal_info with
+              x = textarea_bbox.x;
+              y = rope_traversal_info.y + font_info.Freetype.font_height;
+            },
+            let most_recent_line_number =
+              List.find_opt (fun ln -> Option.is_some ln) list
             in
-            Rope.Line_Numbers
-              ( { rope_traversal_info with x = new_x; y = new_y },
-                let most_recent_line_number =
-                  List.find_opt (fun ln -> Option.is_some ln) list
-                in
-                match most_recent_line_number with
-                | Some _ -> if wraps then None :: list else list
-                | None -> [ Some 1 ] ))
+            match most_recent_line_number with
+            | Some hd -> Some (Option.get hd + 1) :: list
+            | None -> [ Some 1 ] )
+    | _ ->
+        let ~wraps, ~new_x, ~new_y =
+          Ui.get_text_wrap_info ~bbox:textarea_bbox ~glyph:c
+            ~x:rope_traversal_info.x ~y:rope_traversal_info.y ~font_info
+            ~text_wrap:textarea.text_wrap
+        in
+        Rope.Line_Numbers
+          ( { rope_traversal_info with x = new_x; y = new_y },
+            let most_recent_line_number =
+              List.find_opt (fun ln -> Option.is_some ln) list
+            in
+            match most_recent_line_number with
+            | Some _ -> if wraps then None :: list else list
+            | None -> [ Some 1 ] )
+  in
+  let _, line_nums =
+    Rope.traverse_rope ~rope ~handle_result:fold_fn_for_line_nums
       ~result:
         (Rope.Line_Numbers
            ({ x = textarea_bbox.x; y = textarea_bbox.y; rope_pos = 0 }, []))
@@ -86,6 +88,7 @@ let get_line_number_boxes ~rope ~box_containing_textarea =
            Ui.default_box with
            height_constraint = Some Min;
            width_constraint = Some Min;
+           horizontal_align = Some Right;
            content = Some (Ui.Text s);
          })
        (stringified |> List.rev))
