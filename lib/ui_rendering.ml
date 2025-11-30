@@ -36,6 +36,14 @@ let ui_buffer : render_buffer_wrapper =
     length = 0;
   }
 
+let text_buffer : render_buffer_wrapper =
+  {
+    buffer =
+      Bigarray.Array1.create Bigarray.Float32 Bigarray.c_layout
+        (1000 * 1000 * _EACH_POINT_FLOAT_AMOUNT_TEXT);
+    length = 0;
+  }
+
 let vertex_cursor =
   match Opengl.gl_create_vertex_shader () with
   | Ok v -> v
@@ -117,8 +125,6 @@ let generic_fragment_shader =
   }
   |}
 
-let gl_ui_lib_buffer = Opengl.gl_gen_one_buffer ()
-
 let vertex_id =
   match Opengl.gl_create_vertex_shader () with
   | Ok v -> v
@@ -197,8 +203,14 @@ let transform_xy_coords_to_opengl_viewport_coords ~(x : float) ~(y : float) =
     /. Float.of_int (window_width_height land ((1 lsl 32) - 1))
     +. 1. )
 
-let write_container_values_to_ui_buffer ~(box : Ui.box)
-    ~(buffer : render_buffer_wrapper) =
+let gl_ui_lib_buffer = Opengl.gl_gen_one_buffer ()
+
+let () =
+  Opengl.gl_bind_buffer gl_ui_lib_buffer;
+  Opengl.gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
+    ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
+
+let write_container_values_to_ui_buffer ~(box : Ui.box) =
   let Ui.{ width; height; x; y; _ } =
     Option.value box.bbox ~default:Ui.default_bbox
   and r, g, b, alpha = box.background_color in
@@ -214,31 +226,32 @@ let write_container_values_to_ui_buffer ~(box : Ui.box)
       Float.of_int (y + height);
     |]
   in
-  let idx = ref 0 in
+  let idx = ref ui_buffer.length in
   let float_array_index = ref 0 in
   while !float_array_index < Float.Array.length points do
     let x = Float.Array.get points !float_array_index
     and y = Float.Array.get points (!float_array_index + 1) in
     let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
-    buffer.buffer.{!idx} <- x;
-    buffer.buffer.{!idx + 1} <- y;
-    buffer.buffer.{!idx + 2} <- r;
-    buffer.buffer.{!idx + 3} <- g;
-    buffer.buffer.{!idx + 4} <- b;
-    buffer.buffer.{!idx + 5} <- alpha;
-    idx := ((!float_array_index / 2) + 1) * 6;
+    ui_buffer.buffer.{!idx} <- x;
+    ui_buffer.buffer.{!idx + 1} <- y;
+    ui_buffer.buffer.{!idx + 2} <- r;
+    ui_buffer.buffer.{!idx + 3} <- g;
+    ui_buffer.buffer.{!idx + 4} <- b;
+    ui_buffer.buffer.{!idx + 5} <- alpha;
+    idx := !idx + 6;
     float_array_index := !float_array_index + 2
   done;
-  buffer.length <- 24
+  ui_buffer.length <- ui_buffer.length + 24
+
+let gl_text_buffer = Opengl.gl_gen_one_buffer ()
 
 let () =
-  Opengl.gl_bind_buffer gl_ui_lib_buffer;
-  Opengl.gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
-    ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
+  Opengl.gl_bind_buffer gl_text_buffer;
+  Opengl.gl_buffer_data_big_array ~render_buffer:text_buffer.buffer
+    ~capacity:(Bigarray.Array1.dim text_buffer.buffer)
 
-let write_text_to_ui_buffer ~(render_buf_container : render_buffer_wrapper)
-    ~(glyph_info : Freetype.glyph_info_) ~x ~y ~(glyph : char)
-    ~(font_info : Freetype.font_info) =
+let write_to_text_buffer ~(glyph_info : Freetype.glyph_info_) ~x ~y
+    ~(glyph : char) ~(font_info : Freetype.font_info) =
   let points : floatarray =
     [|
       Float.of_int (x + glyph_info.horiBearingX);
@@ -305,14 +318,12 @@ let write_text_to_ui_buffer ~(render_buf_container : render_buffer_wrapper)
       bottom;
     |]
   in
-  let start = render_buf_container.length in
-  Float.Array.iteri
-    (fun idx v -> render_buf_container.buffer.{idx + start} <- v)
-    values;
-  render_buf_container.length <- start + Float.Array.length values
+  let start = text_buffer.length in
+  Float.Array.iteri (fun idx v -> text_buffer.buffer.{idx + start} <- v) values;
+  text_buffer.length <- start + Float.Array.length values
 
 let draw_to_gl_buffer_text () =
-  Opengl.gl_bind_buffer gl_ui_lib_buffer;
+  Opengl.gl_bind_buffer gl_text_buffer;
   Opengl.gl_use_program text_shader_program;
   Opengl.gl_uniform_1i ~location:sampler_text_location ~value:0;
   Opengl.gl_vertex_attrib_pointer_float_type ~location:vertex_text_location
@@ -321,11 +332,11 @@ let draw_to_gl_buffer_text () =
     ~size:3 ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:2;
   Opengl.gl_vertex_attrib_pointer_float_type ~location:tex_coord_text_location
     ~size:2 ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT ~normalized:false ~start_idx:5;
-  Opengl.gl_buffer_subdata_big_array ~render_buffer:ui_buffer.buffer
-    ~length:ui_buffer.length;
+  Opengl.gl_buffer_subdata_big_array ~render_buffer:text_buffer.buffer
+    ~length:text_buffer.length;
   Opengl.gl_draw_arrays_with_quads
-    (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT_TEXT);
-  ui_buffer.length <- 0
+    (text_buffer.length / _EACH_POINT_FLOAT_AMOUNT_TEXT);
+  text_buffer.length <- 0
 
 let draw_to_gl_buffer () =
   Opengl.gl_bind_buffer gl_ui_lib_buffer;
@@ -668,14 +679,13 @@ let draw_text ~(s : string) ~(box : Ui.box) =
   String.iter
     (fun c ->
       let glyph = font_info.glyph_info_with_char.(Char.code c - 32) in
-      write_text_to_ui_buffer ~render_buf_container:ui_buffer ~glyph_info:glyph
-        ~x:!horizontal_pos ~y:start_y ~glyph:c ~font_info;
+      write_to_text_buffer ~glyph_info:glyph ~x:!horizontal_pos ~y:start_y
+        ~glyph:c ~font_info;
       horizontal_pos := !horizontal_pos + glyph.x_advance)
-    s;
-  draw_to_gl_buffer_text ()
+    s
 
 let draw_text_textarea ~(font_info : Freetype.font_info)
-    ~(bbox : Ui.bounding_box) ~(rope : Rope.rope) ~text_buffer ~scroll_y_offset
+    ~(bbox : Ui.bounding_box) ~(rope : Rope.rope) ~scroll_y_offset
     ~scroll_x_offset ~text_wrap =
   let start_x = bbox.x + scroll_x_offset in
   let fold_fn_for_drawing_text acc c =
@@ -703,7 +713,7 @@ let draw_text_textarea ~(font_info : Freetype.font_info)
         && y_pos_start >= bbox.y
         && Bytes.length gi.bytes > 0
       then
-        write_text_to_ui_buffer ~render_buf_container:text_buffer
+        write_to_text_buffer
           ~x:(if wraps then start_x else acc.x)
           ~y:y_pos_start ~glyph_info:gi ~glyph:c ~font_info;
       Rope.Rope_Traversal_Info
@@ -730,8 +740,7 @@ let draw_textarea ~(font_info : Freetype.font_info) ~rope ~highlight ~cursor_pos
   | Some r -> (
       draw_text_textarea ~font_info ~rope:r ~bbox
         ~scroll_y_offset:box.scroll_y_offset
-        ~scroll_x_offset:box.scroll_x_offset ~text_wrap:box.text_wrap
-        ~text_buffer:ui_buffer;
+        ~scroll_x_offset:box.scroll_x_offset ~text_wrap:box.text_wrap;
       draw_to_gl_buffer_text ();
       match !Ui.focused_element with
       | Some b when b == box ->
@@ -759,8 +768,8 @@ let rec draw_box ~(box : Ui.box) =
         left <= window_width_gl && right >= 0 && top <= window_height_gl
         && bottom >= 0
       then (
-        write_container_values_to_ui_buffer ~box ~buffer:ui_buffer;
-        draw_to_gl_buffer ();
+        write_container_values_to_ui_buffer ~box;
+        (* draw_to_gl_buffer (); *)
         match box.content with
         | Some (Box b) -> draw_box ~box:b
         | Some (Boxes list) -> List.iter (fun b -> draw_box ~box:b) list
@@ -917,4 +926,6 @@ let draw ~(box : Ui.box) =
   add_event_handlers ~box;
   calculate_ui ~box ~context:{ in_scrollcontainer = false; parent = None };
   draw_box ~box;
+  draw_to_gl_buffer ();
+  draw_to_gl_buffer_text ();
   Sdl.sdl_gl_swapwindow Sdl.w
