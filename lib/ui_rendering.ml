@@ -383,22 +383,21 @@ let get_horizontal_text_start ~(box : Ui.box) ~(font_info : Freetype.font_info)
     | Some Right -> bbox.x + bbox.width - width_of_string
   with Invalid_argument e -> failwith ("alignment requires a bbox;" ^ e)
 
-let write_highlight_to_ui_buffer ~(buffer : render_buffer_wrapper)
-    ~(points : (int * int) list) =
-  let start = buffer.length in
+let write_highlight_to_ui_buffer ~(points : (int * int) list) =
+  let start = ui_buffer.length in
   List.iteri
     (fun i (x, y) ->
       let x, y = (Float.of_int x, Float.of_int y) in
       let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
       let idx = (i * 6) + start in
-      buffer.buffer.{idx} <- x;
-      buffer.buffer.{idx + 1} <- y;
-      buffer.buffer.{idx + 2} <- 0.;
-      buffer.buffer.{idx + 3} <- 0.;
-      buffer.buffer.{idx + 4} <- 1.;
-      buffer.buffer.{idx + 5} <- 0.5)
+      ui_buffer.buffer.{idx} <- x;
+      ui_buffer.buffer.{idx + 1} <- y;
+      ui_buffer.buffer.{idx + 2} <- 0.;
+      ui_buffer.buffer.{idx + 3} <- 0.;
+      ui_buffer.buffer.{idx + 4} <- 1.;
+      ui_buffer.buffer.{idx + 5} <- 0.5)
     points;
-  buffer.length <- List.length points * 6
+  ui_buffer.length <- List.length points * 6
 
 let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Freetype.font_info)
     ~(r : Rope.rope) ~(highlight : int option * int option) ~scroll_y_offset
@@ -452,12 +451,10 @@ let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Freetype.font_info)
                   y = bbox.y + scroll_y_offset;
                   rope_pos = 0;
                 }));
-      write_highlight_to_ui_buffer ~buffer:ui_buffer
-        ~points:!entire_points_of_highlight_quads
+      write_highlight_to_ui_buffer ~points:!entire_points_of_highlight_quads
   | _ -> ()
 
-let write_cursor_to_ui_buffer ~(render_buf_container : render_buffer_wrapper) ~x
-    ~y ~font_height =
+let write_cursor_to_ui_buffer ~x ~y ~font_height =
   let points =
     [
       (x, y + font_height);
@@ -479,8 +476,10 @@ let write_cursor_to_ui_buffer ~(render_buf_container : render_buffer_wrapper) ~x
       Float.Array.set values (start + 4) 0.;
       Float.Array.set values (start + 5) 1.)
     points;
-  Float.Array.iteri (fun idx v -> render_buf_container.buffer.{idx} <- v) values;
-  render_buf_container.length <- Float.Array.length values
+  Float.Array.iteri
+    (fun idx v -> ui_buffer.buffer.{idx + ui_buffer.length} <- v)
+    values;
+  ui_buffer.length <- ui_buffer.length + Float.Array.length values
 
 let clip_content ~(box : Ui.box) =
   Opengl.gl_enable_scissor ();
@@ -631,8 +630,8 @@ let draw_cursor ~(font_info : Freetype.font_info) ~(bbox : Ui.bounding_box)
           && acc.x >= bbox.x
           && acc.x <= bbox.x + bbox.width
         then
-          write_cursor_to_ui_buffer ~render_buf_container:ui_buffer ~x:acc.x
-            ~y:acc.y ~font_height:font_info.font_height;
+          write_cursor_to_ui_buffer ~x:acc.x ~y:acc.y
+            ~font_height:font_info.font_height;
         match c with
         | '\n' ->
             Rope.Rope_Traversal_Info
@@ -661,8 +660,8 @@ let draw_cursor ~(font_info : Freetype.font_info) ~(bbox : Ui.bounding_box)
                { x = start_x; y = bbox.y + scroll_y_offset; rope_pos = 0 })
       in
       if res.rope_pos = cursor_pos then
-        write_cursor_to_ui_buffer ~render_buf_container:ui_buffer ~x:res.x
-          ~y:res.y ~font_height:font_info.font_height
+        write_cursor_to_ui_buffer ~x:res.x ~y:res.y
+          ~font_height:font_info.font_height
   | None -> ()
 
 let draw_text ~(s : string) ~(box : Ui.box) =
@@ -741,21 +740,20 @@ let draw_textarea ~(font_info : Freetype.font_info) ~rope ~highlight ~cursor_pos
       draw_text_textarea ~font_info ~rope:r ~bbox
         ~scroll_y_offset:box.scroll_y_offset
         ~scroll_x_offset:box.scroll_x_offset ~text_wrap:box.text_wrap;
-      draw_to_gl_buffer_text ();
       match !Ui.focused_element with
       | Some b when b == box ->
           draw_highlight ~r ~scroll_y_offset:box.scroll_y_offset
             ~scroll_x_offset:box.scroll_x_offset ~highlight ~bbox ~font_info
             ~text_wrap:box.text_wrap;
-          draw_to_gl_buffer ();
           draw_cursor ~r ~cursor_pos ~scroll_y_offset:box.scroll_y_offset
             ~scroll_x_offset:box.scroll_x_offset ~font_info ~bbox
-            ~text_wrap:box.text_wrap;
-          draw_to_gl_buffer ()
+            ~text_wrap:box.text_wrap
       | _ -> ())
   | None -> ()
 
-let rec draw_box ~(box : Ui.box) =
+type draw_context = { batch_writes : bool }
+
+let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
   if box.clip_content then clip_content ~box;
   (match box.bbox with
   | Some _ ->
@@ -769,13 +767,16 @@ let rec draw_box ~(box : Ui.box) =
         && bottom >= 0
       then (
         write_container_values_to_ui_buffer ~box;
-        (* draw_to_gl_buffer (); *)
         match box.content with
-        | Some (Box b) -> draw_box ~box:b
-        | Some (Boxes list) -> List.iter (fun b -> draw_box ~box:b) list
+        | Some (Box b) ->
+            draw_box ~box:b ~context:{ batch_writes = box.batch_writes }
+        | Some (Boxes list) ->
+            List.iter
+              (fun b ->
+                draw_box ~box:b ~context:{ batch_writes = box.batch_writes })
+              list
         | Some (Text { string; _ }) -> draw_text ~s:string ~box
         | Some (Textarea { text; cursor_pos; highlight_pos; _ }) ->
-            clip_content ~box;
             let ~font_info, ~gl_texture_id =
               Ui.TextTextureInfo.get_or_add_font_size_text_texture
                 ~font_size:
@@ -783,13 +784,16 @@ let rec draw_box ~(box : Ui.box) =
             in
             Opengl.gl_bind_texture ~texture_id:gl_texture_id;
             draw_textarea ~rope:text ~cursor_pos ~highlight:highlight_pos
-              ~font_info ~box;
-            Opengl.gl_disable_scissor ()
-        | Some (ScrollContainer { container; _ }) -> draw_box ~box:container
+              ~font_info ~box
+        | Some (ScrollContainer { container; _ }) ->
+            draw_box ~box:container ~context:{ batch_writes = box.batch_writes }
         | Some (TextAreaWithLineNumbers { container; _ }) ->
-            draw_box ~box:container
+            draw_box ~box:container ~context:{ batch_writes = box.batch_writes }
         | None -> ())
   | None -> ());
+  if (not context.batch_writes) || box.batch_writes then (
+    draw_to_gl_buffer ();
+    draw_to_gl_buffer_text ());
   if box.clip_content then Opengl.gl_disable_scissor ()
 
 let handle_if_content_overflows_or_not ~(box : Ui.box)
@@ -925,7 +929,5 @@ let draw ~(box : Ui.box) =
   validate ~box;
   add_event_handlers ~box;
   calculate_ui ~box ~context:{ in_scrollcontainer = false; parent = None };
-  draw_box ~box;
-  draw_to_gl_buffer ();
-  draw_to_gl_buffer_text ();
+  draw_box ~box ~context:{ batch_writes = box.batch_writes };
   Sdl.sdl_gl_swapwindow Sdl.w

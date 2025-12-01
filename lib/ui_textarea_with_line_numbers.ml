@@ -6,6 +6,7 @@ let create_textarea_with_line_numbers ?text ~textarea_width ~textarea_height ()
       height_constraint = Some Min;
       width_constraint = Some Min;
       flow = Some Horizontal;
+      clip_content = true;
     }
   in
   let line_numbers =
@@ -16,6 +17,7 @@ let create_textarea_with_line_numbers ?text ~textarea_width ~textarea_height ()
       flow = Some Vertical;
       height_constraint = Some Max;
       width_constraint = Some Min;
+      batch_writes = true;
     }
   in
   let textarea =

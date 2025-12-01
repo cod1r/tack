@@ -63,6 +63,13 @@ let box =
     flow = Some Horizontal;
   }
 
+let box =
+  {
+    Ui.default_box with
+    bbox = Some { x = 0; y = 0; width = 2000; height = 2000 };
+    content = Some textarea_with_line_numbers;
+  }
+
 let rec loop () =
   let evt = Sdl.sdl_pollevent () in
   let continue =

@@ -35,6 +35,7 @@ type box = {
   mutable scroll_x_offset : int;
   mutable scroll_y_offset : int;
   mutable focusable : bool;
+  mutable batch_writes : bool;
 }
 
 and event_handler_t = b:box option -> e:Sdl.event -> unit
@@ -148,6 +149,7 @@ let default_box =
     scroll_x_offset = 0;
     scroll_y_offset = 0;
     focusable = false;
+    batch_writes = false;
   }
 
 let get_glyph_info_from_glyph ~glyph ~font_info =
