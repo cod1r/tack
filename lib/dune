@@ -5,9 +5,24 @@
   (names sdl_stubs opengl_stubs freetype_stubs)
   (flags
    (:include c_flags.sexp)))
+ (extra_objects sdl_menu_bar)
  (c_library_flags
   (:include c_library_flags.sexp))
  (libraries yojson unix))
+
+(data_only_dirs sdl_menu_bar)
+
+(rule
+ (deps
+  (source_tree sdl_menu_bar))
+ (targets sdl_menu_bar.o)
+ (action
+  (no-infer
+   (progn
+    (chdir
+     sdl_menu_bar
+     (run make))
+    (copy sdl_menu_bar/sdl_menu_bar.o sdl_menu_bar.o)))))
 
 (rule
  (targets c_flags.sexp c_library_flags.sexp)

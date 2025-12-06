@@ -147,6 +147,9 @@ external sdl_gl_getswapinterval : unit -> int = "sdl_gl_getswapinterval"
 external sdl_gl_setswapinterval : int -> unit = "sdl_gl_setswapinterval"
 [@@noalloc]
 
+external sdl_print_menu_bar_title : unit -> unit
+  = "sdl_print_menu_bar_title" "sdl_print_menu_bar_title"
+
 let actually_init_sdl () =
   (match init_sdl () with Ok () -> () | Error e -> failwith e);
   let w =
@@ -166,6 +169,7 @@ let actually_init_sdl () =
 
 let w = actually_init_sdl ()
 let () = Opengl.glew_init ()
+let () = sdl_print_menu_bar_title ()
 
 let get_logical_to_opengl_window_dims_ratio () =
   let window_width, window_height = sdl_get_window_size w

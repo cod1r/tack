@@ -9,6 +9,15 @@
 #include <stdio.h>
 #include <string.h>
 
+extern void print_menu_bar_title();
+
+CAMLprim value sdl_print_menu_bar_title() {
+  CAMLparam0();
+  print_menu_bar_title();
+  fflush(stdout);
+  CAMLreturn(Val_unit);
+}
+
 CAMLprim value sdl_getticks() {
   CAMLparam0();
   uint32_t ticks = SDL_GetTicks();
