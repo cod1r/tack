@@ -44,6 +44,8 @@ and contains text
     currently there's an issue where the child box will try and max its size to the parents size and the parent will try and min
       its size to the child's size so neither gets the right size...
 
+    if the line number container gets an extra digit, the container isn't resized properly.
+
     a lot of logic is fragile and needs to be tested
 
 performance ideas:

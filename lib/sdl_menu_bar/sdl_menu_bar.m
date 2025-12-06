@@ -1,37 +1,15 @@
 /* Type your code here, or load an example. */
-#include <stdio.h>
 #include <Foundation/Foundation.h>
 #include <AppKit/AppKit.h>
-#include "sdl_menu_bar.h"
 
-@implementation Chicken
-- (void) hi {
-    printf ("CHICKEN");
-}
-@end
-void print_menu_bar_title() {
+void setup_macos_menu_bar() {
     NSApplication *app = [NSApplication sharedApplication];
-    NSMenu *menu = [app mainMenu];
-    NSString *title = [menu title];
-    NSLog(@"title: %@\n", title);
-    NSLog(@"length: %lu\n", [title length]);
+    NSMenu *menu = app.mainMenu;
+    NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:@"Menu" action:NULL keyEquivalent:@""];
+    NSMenu *submenu = [[NSMenu alloc] initWithTitle:@"File"];
+    submenu.minimumWidth = 200;
+    NSMenuItem *save = [[NSMenuItem alloc] initWithTitle:@"Save" action:NULL keyEquivalent:@""];
+    [submenu addItem:save];
+    item.submenu = submenu;
+    [menu insertItem:item atIndex:1];
 }
-/*
-int main () {
-    Chicken *c = [Chicken alloc];
-    [c hi];
-    NSApplication *app = [NSApplication sharedApplication];
-    NSMenu *menu = [app mainMenu];
-    bool visible = [NSMenu menuBarVisible];
-    if (visible) { printf("HI THERE\n"); }
-    {
-    NSString *title = [menu title];
-    NSLog(@"title: %@\n", title);
-    NSLog(@"length: %lu\n", [title length]);
-    menu.title = @"CHICKEN";
-    }
-    NSSize size = [menu size];
-    NSLog(@"size: %f %f\n", size.width, size.height);
-    while (true) {}
-}
-*/

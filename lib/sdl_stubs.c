@@ -9,12 +9,13 @@
 #include <stdio.h>
 #include <string.h>
 
-extern void print_menu_bar_title();
 
-CAMLprim value sdl_print_menu_bar_title() {
+CAMLprim value sdl_setup_macos_menu_bar() {
   CAMLparam0();
-  print_menu_bar_title();
-  fflush(stdout);
+  #ifdef __APPLE__
+  extern void setup_macos_menu_bar();
+  setup_macos_menu_bar();
+  #endif
   CAMLreturn(Val_unit);
 }
 
