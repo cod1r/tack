@@ -163,12 +163,21 @@ let find_coords_for_cursor_pos ~(font_info : Freetype.font_info)
   let fold_fn_for_finding_coords acc c =
     let (Rope.Rope_Traversal_Info acc) = acc in
     if acc.rope_pos != cursor_pos then
-      let ~new_x, ~new_y, .. =
-        Ui.get_text_wrap_info ~bbox ~font_info ~x:acc.x ~y:acc.y ~glyph:c
-          ~text_wrap
-      in
-      Rope.Rope_Traversal_Info
-        { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
+      match c with
+      | '\n' ->
+          Rope.Rope_Traversal_Info
+            {
+              x = bbox.x;
+              y = acc.y + font_info.font_height;
+              rope_pos = acc.rope_pos + 1;
+            }
+      | _ ->
+          let ~new_x, ~new_y, .. =
+            Ui.get_text_wrap_info ~bbox ~font_info ~x:acc.x ~y:acc.y ~glyph:c
+              ~text_wrap
+          in
+          Rope.Rope_Traversal_Info
+            { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
     else Rope_Traversal_Info acc
   in
   Rope.traverse_rope ~rope ~handle_result:fold_fn_for_finding_coords

@@ -468,7 +468,7 @@ let write_cursor_to_ui_buffer ~x ~y ~font_height =
     (fun idx (x, y) ->
       let x, y = (Float.of_int x, Float.of_int y) in
       let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
-      let start = idx * 6 in
+      let start = idx * _EACH_POINT_FLOAT_AMOUNT in
       Float.Array.set values start x;
       Float.Array.set values (start + 1) y;
       Float.Array.set values (start + 2) 0.;
