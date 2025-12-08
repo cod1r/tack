@@ -1,72 +1,75 @@
 type keyboardEvtType = Keydown | Keyup
+
 type keyboardEvtState = Pressed | Released
+
 type mouseEvtType = Mousedown | Mouseup
+
 type mouseEvtState = Pressed | Released
+
 type windowEvtType = WindowClose | WindowResize | Unhandled
 
 let sdl_window_resizable = 0x00000020
+
 let sdl_window_opengl = 0x00000002
+
 let sdl_window_shown = 0x00000004
+
 let sdl_window_allow_highdpi = 0x00002000
+
 let sdl_blendmode_blend = 0x00000001
+
 let sdl_renderer_software = 0x00000001
+
 let sdl_renderer_accelerated = 0x00000002
 
 type event =
-  | KeyboardEvt of {
-      kbd_evt_type : keyboardEvtType;
-      timestamp : int;
-      windowID : int;
-      state : keyboardEvtState;
-      repeat : bool;
-      keysym : char;
-    }
-  | MouseButtonEvt of {
-      mouse_evt_type : mouseEvtType;
-      timestamp : int;
-      windowID : int;
-      button : int;
-      clicks : int;
-      x : int;
-      y : int;
-    }
-  | WindowEvt of { timestamp : int; windowID : int; event : windowEvtType }
-  | MouseMotionEvt of {
-      timestamp : int;
-      windowID : int;
-      which : int;
-      x : int;
-      y : int;
-      xrel : int;
-      yrel : int;
-    }
-  | TextInputEvt of { timestamp : int; windowID : int; text : string }
+  | KeyboardEvt of
+      { kbd_evt_type: keyboardEvtType
+      ; timestamp: int
+      ; windowID: int
+      ; state: keyboardEvtState
+      ; repeat: bool
+      ; keysym: char }
+  | MouseButtonEvt of
+      { mouse_evt_type: mouseEvtType
+      ; timestamp: int
+      ; windowID: int
+      ; button: int
+      ; clicks: int
+      ; x: int
+      ; y: int }
+  | WindowEvt of {timestamp: int; windowID: int; event: windowEvtType}
+  | MouseMotionEvt of
+      { timestamp: int
+      ; windowID: int
+      ; which: int
+      ; x: int
+      ; y: int
+      ; xrel: int
+      ; yrel: int }
+  | TextInputEvt of {timestamp: int; windowID: int; text: string}
   | Quit
-  | MouseWheelEvt of { mouseX : int; mouseY : int; x : int; y : int }
+  | MouseWheelEvt of {mouseX: int; mouseY: int; x: int; y: int}
 
 external sdl_delay : int -> unit = "SDL_Delay" "SDL_Delay"
+
 external init_sdl : unit -> (unit, string) result = "init_sdl" "init_sdl"
+
 external sdl_getticks : unit -> int = "sdl_getticks" "sdl_getticks"
 
 external sdl_pollevent : (unit[@untagged]) -> event option
   = "sdl_pollevent" "sdl_pollevent"
 
-type window = {
-  id : int;
-  title : string;
-  x : int;
-  y : int;
-  width : int;
-  height : int;
-}
+type window = {id: int; title: string; x: int; y: int; width: int; height: int}
 
 type window_size = int * int
 
 type rect =
-  | Rect of { x : int; y : int; width : int; height : int }
-  | RectF of { x : float; y : float; width : float; height : float }
+  | Rect of {x: int; y: int; width: int; height: int}
+  | RectF of {x: float; y: float; width: float; height: float}
 
 type point = Point of int * int
+
 type pointf = PointF of float * float
 
 external set_clipboard_text : string -> unit
@@ -125,12 +128,12 @@ external sdl_renderer_draw_rect : window -> rect -> unit
   = "sdl_renderer_draw_rect" "sdl_renderer_draw_rect"
 
 external sdl_set_render_draw_color :
-  window ->
-  (int32[@unboxed]) ->
-  (int32[@unboxed]) ->
-  (int32[@unboxed]) ->
-  (int32[@unboxed]) ->
-  unit = "sdl_set_render_draw_color_bytec" "sdl_set_render_draw_color"
+     window
+  -> (int32[@unboxed])
+  -> (int32[@unboxed])
+  -> (int32[@unboxed])
+  -> (int32[@unboxed])
+  -> unit = "sdl_set_render_draw_color_bytec" "sdl_set_render_draw_color"
 
 external sdl_create_renderer : window -> int -> unit
   = "sdl_create_renderer" "sdl_create_renderer"
@@ -151,24 +154,26 @@ external sdl_setup_macos_menu_bar : unit -> unit
   = "sdl_setup_macos_menu_bar" "sdl_setup_macos_menu_bar"
 
 let actually_init_sdl () =
-  (match init_sdl () with Ok () -> () | Error e -> failwith e);
-  sdl_setup_macos_menu_bar ();
+  (match init_sdl () with Ok () -> () | Error e -> failwith e) ;
+  sdl_setup_macos_menu_bar () ;
   let w =
     match
       sdl_create_window "tack" 0 0 1000 1000
         (sdl_window_allow_highdpi lor sdl_window_opengl lor sdl_window_resizable)
     with
-    | Some ({ width; height; title; _ } as w) ->
-        Printf.printf "Created window: %s %d %d" title width height;
-        print_newline ();
+    | Some ({width; height; title; _} as w) ->
+        Printf.printf "Created window: %s %d %d" title width height ;
+        print_newline () ;
         w
-    | None -> failwith "unable to create window"
+    | None ->
+        failwith "unable to create window"
   in
-  (match sdl_gl_create_context w with Ok () -> () | Error e -> failwith e);
-  (match sdl_gl_make_current w with Ok () -> () | Error e -> failwith e);
+  (match sdl_gl_create_context w with Ok () -> () | Error e -> failwith e) ;
+  (match sdl_gl_make_current w with Ok () -> () | Error e -> failwith e) ;
   w
 
 let w = actually_init_sdl ()
+
 let () = Opengl.glew_init ()
 
 let get_logical_to_opengl_window_dims_ratio () =

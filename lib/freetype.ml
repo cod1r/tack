@@ -1,15 +1,15 @@
 type ft_face
+
 type ft_library
 
-type glyph_info_ = {
-  horiBearingX : int;
-  horiBearingY : int;
-  x_advance : int;
-  y_advance : int;
-  bytes : bytes;
-  width : int;
-  rows : int;
-}
+type glyph_info_ =
+  { horiBearingX: int
+  ; horiBearingY: int
+  ; x_advance: int
+  ; y_advance: int
+  ; bytes: bytes
+  ; width: int
+  ; rows: int }
 
 external get_font_height : ft_face -> int = "get_font_height" "get_font_height"
 
@@ -32,9 +32,11 @@ external freetype_set_pixel_sizes : ft_face -> int -> unit
   = "freetype_set_pixel_sizes" "freetype_set_pixel_sizes"
 
 external get_descender : ft_face -> int = "get_descender" "get_descender"
+
 external get_ascender : ft_face -> int = "get_ascender" "get_ascender"
 
 let config = Config.read_config ()
+
 let library = freetype_init_library ()
 
 let face =
@@ -46,7 +48,7 @@ let face =
 let font_size =
   Yojson.Safe.Util.member "ui_font_size" config |> Yojson.Safe.Util.to_int
 
-type text_texture_atlas_info = { width : int; height : int; bytes : bytes }
+type text_texture_atlas_info = {width: int; height: int; bytes: bytes}
 
 let get_text_texture_atlas_info ~(glyph_info_with_char : glyph_info_ Array.t) =
   let face = face in
@@ -77,24 +79,21 @@ let get_text_texture_atlas_info ~(glyph_info_with_char : glyph_info_ Array.t) =
       Bytes.blit slice 0 bytes_texture_atlas
         (!current_width + (widths_summed * row))
         glyph_info.width
-    done;
+    done ;
     current_width := !current_width + glyph_info.width
-  done;
-  {
-    (* width and height of text texture *)
-    width = widths_summed;
-    height = global_font_height;
-    bytes = bytes_texture_atlas;
-  }
+  done ;
+  { (* width and height of text texture *)
+    width= widths_summed
+  ; height= global_font_height
+  ; bytes= bytes_texture_atlas }
 
-type font_info = {
-  glyph_info_with_char : glyph_info_ Array.t;
-  font_size : int;
-  font_texture_atlas : text_texture_atlas_info;
-  font_height : int;
-  ascender : int;
-  descender : int;
-}
+type font_info =
+  { glyph_info_with_char: glyph_info_ Array.t
+  ; font_size: int
+  ; font_texture_atlas: text_texture_atlas_info
+  ; font_height: int
+  ; ascender: int
+  ; descender: int }
 
 let get_new_font_info_with_font_size ~(font_size : int) ~(face : ft_face) =
   let _, height_ratio = Sdl.get_logical_to_opengl_window_dims_ratio () in
@@ -111,11 +110,9 @@ let get_new_font_info_with_font_size ~(font_size : int) ~(face : ft_face) =
   let text_texture_atlas_info =
     get_text_texture_atlas_info ~glyph_info_with_char
   in
-  {
-    glyph_info_with_char;
-    font_size;
-    font_texture_atlas = text_texture_atlas_info;
-    font_height;
-    ascender;
-    descender;
-  }
+  { glyph_info_with_char
+  ; font_size
+  ; font_texture_atlas= text_texture_atlas_info
+  ; font_height
+  ; ascender
+  ; descender }

@@ -35,15 +35,17 @@ let timing_test_concatenation _ =
     List.fold_left
       (fun acc gj ->
         match acc with
-        | Some a -> Some (Tack.Rope.concat a (Leaf gj))
-        | None -> Some (Leaf "j"))
+        | Some a ->
+            Some (Tack.Rope.concat a (Leaf gj))
+        | None ->
+            Some (Leaf "j") )
       None all_j
     |> Option.get
   in
-  ();
+  () ;
   let end' = Unix.gettimeofday () -. start in
   Printf.printf "timing_test took: %f. Rope length: %d\n" end'
-    (Tack.Rope.length rope);
+    (Tack.Rope.length rope) ;
   assert_bool
     ("time it takes to append " ^ Int.to_string j_amt ^ " ropes/leaves")
     (end' < 0.6)
@@ -56,20 +58,22 @@ let timing_test_traverse_rope _ =
     List.fold_left
       (fun acc gj ->
         match acc with
-        | Some a -> Some (Tack.Rope.concat a (Leaf gj))
-        | None -> Some (Leaf gj))
+        | Some a ->
+            Some (Tack.Rope.concat a (Leaf gj))
+        | None ->
+            Some (Leaf gj) )
       None all_j
     |> Option.get
   in
-  ();
+  () ;
   let rec traverse_rope r =
     match r with
-    | Tack.Rope.Leaf _ -> ()
-    | Node { left; right; _ } ->
-        traverse_rope left;
-        traverse_rope right
+    | Tack.Rope.Leaf _ ->
+        ()
+    | Node {left; right; _} ->
+        traverse_rope left ; traverse_rope right
   in
-  traverse_rope rope;
+  traverse_rope rope ;
   let end' = Unix.gettimeofday () -. start in
   assert_bool
     ("time it takes to traverse " ^ Int.to_string j_amt ^ " rope/leaves")
@@ -81,12 +85,12 @@ let insertion_rope_test _ =
   let str_result = Tack.Rope.to_string r2 in
   assert_bool
     ("insertion rope result failed; got: " ^ str_result)
-    (str_result = "Hello, Jason Ho");
+    (str_result = "Hello, Jason Ho") ;
   let r3 = Tack.Rope.insert r1 9 name in
   let str_result = Tack.Rope.to_string r3 in
   assert_bool
     ("insertion rope result failed 2; got: " ^ str_result)
-    (str_result = "Hello, Ho Jason");
+    (str_result = "Hello, Ho Jason") ;
   let r4 = Tack.Rope.insert r1 0 name in
   let str_result = Tack.Rope.to_string r4 in
   assert_bool
@@ -95,14 +99,12 @@ let insertion_rope_test _ =
 
 let tests =
   "rope tests"
-  >::: [
-         "delete test" >:: delete_test;
-         "concat test" >:: concat_test;
-         "length test" >:: length_test;
-         "substring test" >:: substring_test;
-         "rope concatenation time" >:: timing_test_concatenation;
-         "traversing rope tree time" >:: timing_test_traverse_rope;
-         "rope insertion test" >:: insertion_rope_test;
-       ]
+  >::: [ "delete test" >:: delete_test
+       ; "concat test" >:: concat_test
+       ; "length test" >:: length_test
+       ; "substring test" >:: substring_test
+       ; "rope concatenation time" >:: timing_test_concatenation
+       ; "traversing rope tree time" >:: timing_test_traverse_rope
+       ; "rope insertion test" >:: insertion_rope_test ]
 
 let () = run_test_tt_main tests

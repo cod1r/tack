@@ -1,6 +1,7 @@
 open Tack
 
 let () = Sdl.sdl_gl_setswapinterval 0
+
 let rendering_content = Editor.open_file "lib/ui_rendering.ml"
 
 let textarea_with_line_numbers =
@@ -8,41 +9,35 @@ let textarea_with_line_numbers =
     ~text:rendering_content ~textarea_width:1000 ~textarea_height:1000 ()
 
 let file_explorer =
-  {
-    Ui.default_box with
-    bbox = Some { x = 0; y = 0; height = 0; width = 300 };
-    height_constraint = Some Max;
-    background_color = (0.0, 0.0, 0.3, 1.);
-  }
+  { Ui.default_box with
+    bbox= Some {x= 0; y= 0; height= 0; width= 300}
+  ; height_constraint= Some Max
+  ; background_color= (0.0, 0.0, 0.3, 1.) }
 
 let box =
-  {
-    Ui.default_box with
-    bbox = Some { x = 0; y = 0; width = 2000; height = 2000 };
-    content =
+  { Ui.default_box with
+    bbox= Some {x= 0; y= 0; width= 2000; height= 2000}
+  ; content=
       Some
         (Boxes
            (List.init 100 (fun _ ->
-                {
-                  Ui.default_box with
-                  content =
+                { Ui.default_box with
+                  content=
                     Some
                       (Boxes
                          (List.init 100 (fun _ ->
-                              {
-                                Ui.default_box with
-                                background_color =
-                                  ( Random.float 1.,
-                                    Random.float 1.,
-                                    Random.float 1.,
-                                    1.0 );
-                                font_size = Some 5;
-                                content =
+                              { Ui.default_box with
+                                background_color=
+                                  ( Random.float 1.
+                                  , Random.float 1.
+                                  , Random.float 1.
+                                  , 1.0 )
+                              ; font_size= Some 5
+                              ; content=
                                   Some
                                     (Text
-                                       {
-                                         string = "20";
-                                         string_width =
+                                       { string= "20"
+                                       ; string_width=
                                            Ui_utils.calculate_string_width
                                              ~s:"20"
                                              ~font_info:
@@ -51,37 +46,29 @@ let box =
                                                   .get_or_add_font_size_text_texture
                                                     ~font_size:5
                                                 in
-                                                font_info);
-                                       });
-                                bbox =
-                                  Some { x = 0; y = 0; width = 20; height = 20 };
-                              })));
-                  width_constraint = Some Min;
-                  height_constraint = Some Min;
-                  flow = Some Vertical;
-                })));
-    flow = Some Horizontal;
-  }
+                                                font_info ) } )
+                              ; bbox= Some {x= 0; y= 0; width= 20; height= 20}
+                              } ) ) )
+                ; width_constraint= Some Min
+                ; height_constraint= Some Min
+                ; flow= Some Vertical } ) ) )
+  ; flow= Some Horizontal }
 
 let box =
-  {
-    Ui.default_box with
-    bbox = Some { x = 0; y = 0; width = 2000; height = 2000 };
-    content = Some textarea_with_line_numbers;
-  }
+  { Ui.default_box with
+    bbox= Some {x= 0; y= 0; width= 2000; height= 2000}
+  ; content= Some textarea_with_line_numbers }
 
 let rec loop () =
   let evt = Sdl.sdl_pollevent () in
   let continue =
     match evt with
-    | Some Quit -> false
+    | Some Quit ->
+        false
     | None ->
-        Ui_rendering.draw ~box;
-        true
+        Ui_rendering.draw ~box ; true
     | Some e ->
-        Ui_events.emit_event ~e;
-        Ui_rendering.draw ~box;
-        true
+        Ui_events.emit_event ~e ; Ui_rendering.draw ~box ; true
   in
   if continue then loop () else ()
 
