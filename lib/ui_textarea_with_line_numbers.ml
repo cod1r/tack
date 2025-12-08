@@ -111,27 +111,16 @@ let adjust_textarea_with_line_numbers ~textarea_with_line_numbers =
   match textarea_with_line_numbers with
   | Ui.TextAreaWithLineNumbers { line_numbers; textarea; _ } -> (
       match textarea.content with
-      | Some (Ui.Textarea info) -> (
+      | Some (Ui.Textarea info) -> begin
           let rope = info.text in
           match rope with
           | Some rope ->
               line_numbers.content <-
                 Some
-                  (get_line_number_boxes ~rope ~box_containing_textarea:textarea)
-          | None -> ())
-      | Some (ScrollContainer { content; _ }) -> (
-          match content.content with
-          | Some (Textarea info) -> (
-              let rope = info.text in
-              match rope with
-              | Some rope ->
-                  line_numbers.content <-
-                    Some
-                      (get_line_number_boxes ~rope
-                         ~box_containing_textarea:content);
-                  line_numbers.scroll_y_offset <- content.scroll_y_offset;
-                  line_numbers.scroll_x_offset <- content.scroll_x_offset
-              | None -> ())
-          | _ -> failwith "impossible")
+                  (get_line_number_boxes ~rope ~box_containing_textarea:textarea);
+              line_numbers.scroll_y_offset <- textarea.scroll_y_offset;
+              line_numbers.scroll_x_offset <- textarea.scroll_x_offset
+          | None -> ()
+        end
       | _ -> failwith "impossible")
   | _ -> failwith "impossible"

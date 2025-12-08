@@ -397,7 +397,7 @@ let write_highlight_to_ui_buffer ~(points : (int * int) list) =
       ui_buffer.buffer.{idx + 4} <- 1.;
       ui_buffer.buffer.{idx + 5} <- 0.5)
     points;
-  ui_buffer.length <- List.length points * 6
+  ui_buffer.length <- start + (List.length points * _EACH_POINT_FLOAT_AMOUNT)
 
 let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Freetype.font_info)
     ~(r : Rope.rope) ~(highlight : int option * int option) ~scroll_y_offset
@@ -817,21 +817,25 @@ I need the context to not infinitely wrap scrollcontainers and know when to stop
       let Ui.{ width; height; _ } =
         Option.value container.bbox ~default:Ui.default_bbox
       in
-      if not context.in_scrollcontainer then (
+      if not context.in_scrollcontainer then
         if
           content_right - content_left > width
           && box.allow_horizontal_scroll && orientation = Vertical
           && other_scrollcontainer = None
-        then
-          Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~box
+          && Option.is_some context.parent
+        then (
+          let parent = Option.get context.parent in
+          Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~parent ~box
             ~orientation:Horizontal;
-        if
-          content_bottom - content_top > height
-          && box.allow_vertical_scroll && orientation = Horizontal
-          && other_scrollcontainer = None
-        then
-          Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~box
-            ~orientation:Vertical)
+          if
+            content_bottom - content_top > height
+            && box.allow_vertical_scroll && orientation = Horizontal
+            && other_scrollcontainer = None
+            && Option.is_some context.parent
+          then
+            let parent = Option.get context.parent in
+            Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~parent
+              ~box ~orientation:Vertical)
   | _ ->
       let Ui.
             {
@@ -846,13 +850,21 @@ I need the context to not infinitely wrap scrollcontainers and know when to stop
         Option.value box.bbox ~default:Ui.default_bbox
       in
       if not context.in_scrollcontainer then (
-        if content_right - content_left > width && box.allow_horizontal_scroll
+        (if
+           content_right - content_left > width
+           && box.allow_horizontal_scroll
+           && Option.is_some context.parent
+         then
+           let parent = Option.get context.parent in
+           Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~parent ~box
+             ~orientation:Horizontal);
+        if
+          content_bottom - content_top > height
+          && box.allow_vertical_scroll
+          && Option.is_some context.parent
         then
-          Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~box
-            ~orientation:Horizontal;
-        if content_bottom - content_top > height && box.allow_vertical_scroll
-        then
-          Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~box
+          let parent = Option.get context.parent in
+          Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~parent ~box
             ~orientation:Vertical)
 
 let rec calculate_ui ~(box : Ui.box) ~context =
@@ -866,13 +878,21 @@ let rec calculate_ui ~(box : Ui.box) ~context =
   | Some (Boxes list) ->
       (match box.flow with
       | Some ((Horizontal | Vertical) as d) ->
+          let parent_bbox =
+            Option.get context.parent |> fun p -> Option.get p.bbox
+          in
+          Option.iter
+            (fun bbox ->
+              box.bbox <-
+                Some { bbox with x = parent_bbox.x; y = parent_bbox.y })
+            box.bbox;
           let boxes_pos =
             ref (handle_list_of_boxes_initial_position ~d ~box ~list)
           in
           List.iter
             (fun b ->
               match b.Ui.bbox with
-              | Some bbbox -> (
+              | Some bbbox -> begin
                   bbbox.x <- fst !boxes_pos;
                   bbbox.y <- snd !boxes_pos;
                   let bbbox_used_width, bbbox_used_height =
@@ -887,7 +907,8 @@ let rec calculate_ui ~(box : Ui.box) ~context =
                     let x, y = !boxes_pos in
                     match d with
                     | Horizontal -> (x + bbbox_used_width, y)
-                    | Vertical -> (x, y + bbbox_used_height))
+                    | Vertical -> (x, y + bbbox_used_height)
+                end
               | None -> ())
             list
       | None -> ());
@@ -916,8 +937,8 @@ let rec calculate_ui ~(box : Ui.box) ~context =
       calculate_ui ~box:container
         ~context:{ in_scrollcontainer = true; parent = Some box }
   | Some
-      (TextAreaWithLineNumbers { container; _ } as textarea_with_line_numbers)
-    ->
+      (TextAreaWithLineNumbers { container; line_numbers; textarea } as
+       textarea_with_line_numbers) ->
       Ui_textarea_with_line_numbers.adjust_textarea_with_line_numbers
         ~textarea_with_line_numbers;
       calculate_ui ~box:container ~context:{ context with parent = Some box }

@@ -176,7 +176,8 @@ let create_scrollcontainer ~content ~orientation ~other_scrollcontainer =
 I change the box contents and the focused box/element needs to be the direct box that holds
 the contents so I have to change it here. Also text_wrap needs to be copied which is another edge case.
 So many edge cases. *)
-let wrap_box_contents_in_scrollcontainer ~(box : Ui.box) ~orientation =
+let wrap_box_contents_in_scrollcontainer ~(parent : Ui.box) ~(box : Ui.box)
+    ~orientation =
   match box.content with
   | Some (ScrollContainer ({ content; _ } as scrollinfo)) -> (
       let scrollcontainer =
@@ -208,44 +209,47 @@ let wrap_box_contents_in_scrollcontainer ~(box : Ui.box) ~orientation =
       | _ -> ())
   | Some (Box _ | Boxes _ | Textarea _ | Text _ | TextAreaWithLineNumbers _)
     -> (
-      let box_shallow_copy =
-        {
-          box with
-          content = box.content;
-          background_color = Ui.default_box.background_color;
-        }
-      in
-      if
-        Option.is_some !Ui.focused_element
-        && Option.get !Ui.focused_element == box
-      then Ui.set_focused_element ~box:box_shallow_copy;
       Option.iter
         (fun bbox ->
           match orientation with
           | Ui.Vertical ->
-              box_shallow_copy.bbox <-
+              box.bbox <-
                 Some
                   {
                     bbox with
                     width = bbox.Ui.width - Ui.scrollbar_container_width;
                   }
           | Horizontal ->
-              box_shallow_copy.bbox <-
+              box.bbox <-
                 Some
                   {
                     bbox with
                     height = bbox.Ui.height - Ui.scrollbar_container_width;
                   })
-        box_shallow_copy.bbox;
+        box.bbox;
       let scrollcontainer =
-        create_scrollcontainer ~content:box_shallow_copy ~orientation
+        create_scrollcontainer ~content:box ~orientation
           ~other_scrollcontainer:None
       in
       match scrollcontainer with
-      | ScrollContainer { container; _ } ->
+      | ScrollContainer { container; _ } -> (
           Ui.constrain_width_height ~box:container;
-          box.on_event <- None;
-          box.content <- Some scrollcontainer
+          match parent.content with
+          | Some (Boxes list) ->
+              let new_list =
+                List.map
+                  (fun b ->
+                    if b == box then
+                      {
+                        Ui.default_box with
+                        bbox = box.bbox;
+                        content = Some scrollcontainer;
+                      }
+                    else b)
+                  list
+              in
+              parent.content <- Some (Boxes new_list)
+          | _ -> parent.content <- Some scrollcontainer)
       | _ -> ())
   | None -> failwith "cannot wrap box with no contents"
 
@@ -267,7 +271,6 @@ let unwrap_scrollcontainer ~(box : Ui.box) ~unwrap_orientation =
              box.content <- Some (ScrollContainer inner_scrollcontainer)
          | None ->
              box.content <- Some (Box content);
-
              Option.iter
                (fun bbox ->
                  content.bbox <-

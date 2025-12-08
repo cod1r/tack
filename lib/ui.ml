@@ -219,6 +219,7 @@ let create_textarea_box ?(text : Rope.rope option) () =
 
 let text_caret_width = 3
 
+(* these functions exist purely because polymorphic comparison is slow *)
 let get_max_int x y =
   let comparison = Int.compare x y in
   if comparison = 1 then x else y
@@ -306,7 +307,7 @@ let calculate_content_boundaries ~(box : box) =
         top = min_vertical_position;
         bottom = max_vertical_position;
       }
-  | Some (Text _) | Some (Textarea _) ->
+  | Some (Text _ | Textarea _) ->
       let ~min_x, ~max_x, ~min_y, ~max_y = get_text_bounding_box ~box in
       {
         left = get_min_int left min_x;
