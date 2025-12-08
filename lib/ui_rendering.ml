@@ -791,9 +791,10 @@ let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
             draw_box ~box:container ~context:{ batch_writes = box.batch_writes }
         | None -> ())
   | None -> ());
-  if (not context.batch_writes) || box.batch_writes then (
+  if (not context.batch_writes) || box.batch_writes then begin
     draw_to_gl_buffer ();
-    draw_to_gl_buffer_text ());
+    draw_to_gl_buffer_text ()
+  end;
   if box.clip_content then Opengl.gl_disable_scissor ()
 
 let handle_if_content_overflows_or_not ~(box : Ui.box)

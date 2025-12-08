@@ -436,7 +436,8 @@ let adjust_scrollbar_according_to_textarea_text_caret ~text_area_info ~scroll
                       bbox with
                       y =
                         bbox.y
-                        + (bottom - top) * (y - top)
+                        + (bottom - top)
+                          * (y - (top + font_info.font_height))
                           / (content_bottom - content_top);
                     };
               if y + font_info.font_height > bottom then
@@ -447,7 +448,8 @@ let adjust_scrollbar_according_to_textarea_text_caret ~text_area_info ~scroll
                       y =
                         bbox.y
                         + (bottom - top)
-                          * (y + font_info.font_height - bottom)
+                          * (y + font_info.font_height
+                            - (bottom - font_info.font_height))
                           / (content_bottom - content_top);
                     })
         scroll.bbox

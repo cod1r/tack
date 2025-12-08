@@ -1,12 +1,33 @@
 let event_handlers = ref []
 
+let adjust_scroll_container_for_focused_element b new_text_area_information =
+  match
+    List.find_opt
+      (function
+        | Ui.ScrollContainer { content; _ } -> content == b
+        | _ -> failwith "impossible")
+      !Ui.scrollcontainers
+  with
+  | Some
+      (ScrollContainer
+         { scroll; orientation; other_scrollcontainer; content; _ }) -> (
+      Ui.adjust_scrollbar_according_to_textarea_text_caret
+        ~text_area_info:new_text_area_information ~scroll ~orientation ~content;
+      match other_scrollcontainer with
+      | Some { scroll; orientation; content; _ } ->
+          Ui.adjust_scrollbar_according_to_textarea_text_caret
+            ~text_area_info:new_text_area_information ~scroll ~orientation
+            ~content
+      | _ -> ())
+  | _ -> ()
+
 let pass_evt_to_focused ~(e : Sdl.event) =
   match !Ui.focused_element with
   | Some b -> (
       match b.content with
       | Some (Textarea info) -> (
           match e with
-          | Sdl.KeyboardEvt { kbd_evt_type; keysym; _ } -> (
+          | Sdl.KeyboardEvt { kbd_evt_type; keysym; _ } -> begin
               let char_code = Char.code keysym in
               let ~font_info, .. =
                 Ui.TextTextureInfo.get_or_add_font_size_text_texture
@@ -22,8 +43,11 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                       ~text_area_information:info
                       ~scroll_y_offset:b.scroll_y_offset ~text_wrap:b.text_wrap
                   in
+                  adjust_scroll_container_for_focused_element b
+                    new_text_area_information;
                   b.content <- Some (Textarea new_text_area_information)
-              | None -> ())
+              | None -> ()
+            end
           | Sdl.MouseMotionEvt { x; y; _ }
             when Ui.is_within_box ~x ~y ~from_sdl_evt:true ~box:b -> (
               match b.bbox with
@@ -154,27 +178,8 @@ let pass_evt_to_focused ~(e : Sdl.event) =
               let new_text_area_information =
                 Ui_textarea.handle_txt_evt ~text_area_information:info ~text
               in
-              (match
-                 List.find_opt
-                   (function
-                     | Ui.ScrollContainer { content; _ } -> content == b
-                     | _ -> failwith "impossible")
-                   !Ui.scrollcontainers
-               with
-              | Some
-                  (ScrollContainer
-                     { scroll; orientation; other_scrollcontainer; content; _ })
-                -> (
-                  Ui.adjust_scrollbar_according_to_textarea_text_caret
-                    ~text_area_info:new_text_area_information ~scroll
-                    ~orientation ~content;
-                  match other_scrollcontainer with
-                  | Some { scroll; orientation; content; _ } ->
-                      Ui.adjust_scrollbar_according_to_textarea_text_caret
-                        ~text_area_info:new_text_area_information ~scroll
-                        ~orientation ~content
-                  | _ -> ())
-              | _ -> ());
+              adjust_scroll_container_for_focused_element b
+                new_text_area_information;
               b.content <- Some (Textarea new_text_area_information)
           | _ -> ())
       | _ -> ())
