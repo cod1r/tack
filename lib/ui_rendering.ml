@@ -788,8 +788,9 @@ type draw_context = {batch_writes: bool}
 
 let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
   if box.clip_content then clip_content ~box ;
-  ( match box.bbox with
+  begin match box.bbox with
   | Some _ ->
+      let batch_writes = context.batch_writes || box.batch_writes in
       let Ui.{left; top; bottom; right} = Ui.get_box_sides ~box in
       let window_width_height = Sdl.sdl_gl_getdrawablesize () in
       let window_width_gl, window_height_gl =
@@ -802,12 +803,9 @@ let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
         write_container_values_to_ui_buffer ~box ;
         match box.content with
         | Some (Box b) ->
-            draw_box ~box:b ~context:{batch_writes= box.batch_writes}
+            draw_box ~box:b ~context:{batch_writes}
         | Some (Boxes list) ->
-            List.iter
-              (fun b ->
-                draw_box ~box:b ~context:{batch_writes= box.batch_writes} )
-              list
+            List.iter (fun b -> draw_box ~box:b ~context:{batch_writes}) list
         | Some (Text {string; _}) ->
             draw_text ~s:string ~box
         | Some (Textarea {text; cursor_pos; highlight_pos; _}) ->
@@ -820,13 +818,14 @@ let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
             draw_textarea ~rope:text ~cursor_pos ~highlight:highlight_pos
               ~font_info ~box
         | Some (ScrollContainer {container; _}) ->
-            draw_box ~box:container ~context:{batch_writes= box.batch_writes}
+            draw_box ~box:container ~context:{batch_writes}
         | Some (TextAreaWithLineNumbers {container; _}) ->
-            draw_box ~box:container ~context:{batch_writes= box.batch_writes}
+            draw_box ~box:container ~context:{batch_writes}
         | None ->
             () )
   | None ->
-      () ) ;
+      ()
+  end ;
   if (not context.batch_writes) || box.batch_writes then begin
     draw_to_gl_buffer () ; draw_to_gl_buffer_text ()
   end ;
@@ -910,13 +909,16 @@ let rec calculate_ui ~(box : Ui.box) ~context =
   | Some (Boxes list) ->
       ( match box.flow with
       | Some ((Horizontal | Vertical) as d) ->
-          let parent_bbox =
-            Option.get context.parent |> fun p -> Option.get p.bbox
-          in
-          Option.iter
-            (fun bbox ->
-              box.bbox <- Some {bbox with x= parent_bbox.x; y= parent_bbox.y} )
-            box.bbox ;
+          begin match context.parent with
+          | Some parent ->
+              let parent_bbox = Option.get parent.bbox in
+              Option.iter
+                (fun bbox ->
+                  box.bbox <- Some {bbox with x= parent_bbox.x; y= parent_bbox.y} )
+                box.bbox
+          | None ->
+              ()
+          end ;
           let boxes_pos =
             ref (handle_list_of_boxes_initial_position ~d ~box ~list)
           in

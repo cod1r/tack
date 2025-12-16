@@ -16,7 +16,8 @@ let file_explorer =
 
 let box =
   { Ui.default_box with
-    bbox= Some {x= 0; y= 0; width= 2000; height= 2000}
+    batch_writes= true
+  ; bbox= Some {x= 0; y= 0; width= 2000; height= 2000}
   ; content=
       Some
         (Boxes

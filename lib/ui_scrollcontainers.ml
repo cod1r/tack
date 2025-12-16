@@ -162,6 +162,7 @@ So many edge cases. *)
 let wrap_box_contents_in_scrollcontainer ~(parent : Ui.box) ~(box : Ui.box)
     ~orientation =
   match box.content with
+  (* todo: we might not need this branch *)
   | Some (ScrollContainer ({content; _} as scrollinfo)) -> (
       let scrollcontainer =
         create_scrollcontainer ~content ~orientation
