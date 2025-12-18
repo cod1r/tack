@@ -236,7 +236,34 @@ let () =
   Opengl.gl_buffer_data_big_array ~render_buffer:ui_buffer.buffer
     ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
 
-let write_container_values_to_ui_buffer ~(box : Ui.box) =
+let get_potential_clipped_points ~parent ~points =
+  let Ui.{left; right; top; bottom} =
+    try Ui.get_box_sides ~box:parent
+    with Invalid_argument e -> failwith (e ^ __LOC__)
+  in
+  let left, right, top, bottom =
+    ( Float.of_int left
+    , Float.of_int right
+    , Float.of_int top
+    , Float.of_int bottom )
+  in
+  let clipped_points : floatarray = [|0.; 0.; 0.; 0.; 0.; 0.; 0.; 0.|] in
+  assert (Float.Array.length clipped_points = Float.Array.length points) ;
+  let points_arr_length = Float.Array.length points in
+  let idx = ref 0 in
+  while !idx < points_arr_length do
+    let points_x = Float.Array.get points !idx in
+    let points_y = Float.Array.get points (!idx + 1) in
+    let clamped_x = Float.max left points_x |> Float.min right in
+    let clamped_y = Float.max top points_y |> Float.min bottom in
+    Float.Array.set clipped_points !idx clamped_x ;
+    Float.Array.set clipped_points (!idx + 1) clamped_y ;
+    idx := !idx + 2
+  done ;
+  clipped_points
+
+let write_container_values_to_ui_buffer ~(box : Ui.box) ~(parent : Ui.box option)
+    =
   let Ui.{width; height; x; y; _} =
     Option.value box.bbox ~default:Ui.default_bbox
   and r, g, b, alpha = box.background_color in
@@ -249,6 +276,13 @@ let write_container_values_to_ui_buffer ~(box : Ui.box) =
      ; Float.of_int y
      ; Float.of_int (x + width)
      ; Float.of_int (y + height) |]
+  in
+  let points =
+    match parent with
+    | Some parent when box.clip_content ->
+        get_potential_clipped_points ~parent ~points
+    | _ ->
+        points
   in
   let idx = ref ui_buffer.length in
   let float_array_index = ref 0 in
@@ -274,29 +308,100 @@ let () =
   Opengl.gl_buffer_data_big_array ~render_buffer:text_buffer.buffer
     ~capacity:(Bigarray.Array1.dim text_buffer.buffer)
 
-let write_to_text_buffer ~(glyph_info : Freetype.glyph_info_) ~x ~y
-    ~(glyph : char) ~(font_info : Freetype.font_info) =
-  let points : floatarray =
-    [| Float.of_int (x + glyph_info.horiBearingX)
-     ; Float.of_int (y + glyph_info.rows - glyph_info.horiBearingY)
-     ; Float.of_int (x + glyph_info.horiBearingX)
-     ; Float.of_int (y - glyph_info.horiBearingY)
-     ; Float.of_int (x + glyph_info.width + glyph_info.horiBearingX)
-     ; Float.of_int (y - glyph_info.horiBearingY)
-     ; Float.of_int (x + glyph_info.width + glyph_info.horiBearingX)
-     ; Float.of_int (y + glyph_info.rows - glyph_info.horiBearingY) |]
-  in
-  let points_idx = ref 0 in
-  while !points_idx < Float.Array.length points do
-    let x = Float.Array.get points !points_idx
-    and y = Float.Array.get points (!points_idx + 1) in
-    let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
-    Float.Array.set points !points_idx x ;
-    Float.Array.set points (!points_idx + 1) y ;
-    points_idx := !points_idx + 2
-  done ;
-  let left, right, top, bottom = get_tex_coords ~font_info ~glyph ~glyph_info in
+let get_new_tex_coords_based_off_of_clipped_points ~clipped_points ~points
+    ~(glyph_info : Freetype.glyph_info_) (left, right, top, bottom) =
   (*
+what it is: index
+  left bottom x;0
+  left bottom y;1
+  left top x;2
+  left top y;3
+  right top x;4
+  right top y;5
+  right bottom x;6
+  right bottom y;7
+  *)
+  let get_values_from_index_for_both i =
+    (Float.Array.get points i, Float.Array.get clipped_points i)
+  in
+  let glyph_width = Float.of_int glyph_info.Freetype.width
+  and glyph_height = Float.of_int glyph_info.Freetype.rows
+  and points_x_left, clipped_x_left = get_values_from_index_for_both 0 in
+  let diff_x_left = (clipped_x_left -. points_x_left) /. glyph_width
+  and points_y_bottom, clipped_y_bottom = get_values_from_index_for_both 1 in
+  let diff_y_bottom = (clipped_y_bottom -. points_y_bottom) /. glyph_height
+  and points_x_right, clipped_x_right = get_values_from_index_for_both 4 in
+  let diff_x_right = (clipped_x_right -. points_x_right) /. glyph_width
+  and points_y_top, clipped_y_top = get_values_from_index_for_both 5 in
+  let diff_y_top = (clipped_y_top -. points_y_top) /. glyph_height
+  and glyph_texture_width = right -. left
+  and glyph_texture_height = bottom -. top in
+  ( left +. (diff_x_left *. glyph_texture_width)
+  , right +. (diff_x_right *. glyph_texture_width)
+  , top +. (diff_y_top *. glyph_texture_height)
+  , bottom +. (diff_y_bottom *. glyph_texture_height) )
+
+let write_to_text_buffer ~(glyph_info : Freetype.glyph_info_) ~x ~y
+    ~(glyph : char) ~(font_info : Freetype.font_info) ~parent =
+  (*
+    left bottom x;
+    left bottom y;
+    left top x;
+    left top y;
+    right top x;
+    right top y;
+    right bottom x;
+    right bottom y;
+    *)
+  let Ui.{left; right; top; bottom} = Ui.get_box_sides ~box:parent in
+  let glyph_left, glyph_right, glyph_top, glyph_bottom =
+    ( x + glyph_info.horiBearingX
+    , x + glyph_info.width + glyph_info.horiBearingX
+    , y - glyph_info.horiBearingY
+    , y + glyph_info.rows - glyph_info.horiBearingY )
+  in
+  let out =
+    parent.clip_content
+    && ( glyph_right < left || glyph_left > right || glyph_bottom < top
+       || glyph_top > bottom )
+  in
+  if not out then begin
+    let points : floatarray =
+      [| Float.of_int glyph_left
+       ; Float.of_int glyph_bottom
+       ; Float.of_int glyph_left
+       ; Float.of_int glyph_top
+       ; Float.of_int glyph_right
+       ; Float.of_int glyph_top
+       ; Float.of_int glyph_right
+       ; Float.of_int glyph_bottom |]
+    in
+    let clipped_points =
+      if
+        parent.Ui.clip_content
+        && ( glyph_right > right || glyph_left < left || glyph_top < top
+           || glyph_bottom > bottom )
+      then get_potential_clipped_points ~parent ~points
+      else points
+    in
+    let left, right, top, bottom =
+      get_tex_coords ~font_info ~glyph ~glyph_info
+    in
+    let left, right, top, bottom =
+      get_new_tex_coords_based_off_of_clipped_points ~clipped_points ~points
+        ~glyph_info (left, right, top, bottom)
+    in
+    let points = clipped_points in
+    let points_idx = ref 0 in
+    while !points_idx < Float.Array.length points do
+      let x = Float.Array.get points !points_idx
+      and y = Float.Array.get points (!points_idx + 1) in
+      let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
+      Float.Array.set points !points_idx x ;
+      Float.Array.set points (!points_idx + 1) y ;
+      points_idx := !points_idx + 2
+    done ;
+    (*
      layout of the values list is:
        vertex x
        vertex y
@@ -308,39 +413,42 @@ let write_to_text_buffer ~(glyph_info : Freetype.glyph_info_) ~x ~y
 
       that is repeated for the 4 points of the quad
    *)
-  let values : floatarray =
-    [| Float.Array.get points 0
-     ; Float.Array.get points 1
-     ; 0.
-     ; 0.
-     ; 0.
-     ; left
-     ; bottom
-     ; Float.Array.get points 2
-     ; Float.Array.get points 3
-     ; 0.
-     ; 0.
-     ; 0.
-     ; left
-     ; top
-     ; Float.Array.get points 4
-     ; Float.Array.get points 5
-     ; 0.
-     ; 0.
-     ; 0.
-     ; right
-     ; top
-     ; Float.Array.get points 6
-     ; Float.Array.get points 7
-     ; 0.
-     ; 0.
-     ; 0.
-     ; right
-     ; bottom |]
-  in
-  let start = text_buffer.length in
-  Float.Array.iteri (fun idx v -> text_buffer.buffer.{idx + start} <- v) values ;
-  text_buffer.length <- start + Float.Array.length values
+    let values : floatarray =
+      [| Float.Array.get points 0
+       ; Float.Array.get points 1
+       ; 0.
+       ; 0.
+       ; 0.
+       ; left
+       ; bottom
+       ; Float.Array.get points 2
+       ; Float.Array.get points 3
+       ; 0.
+       ; 0.
+       ; 0.
+       ; left
+       ; top
+       ; Float.Array.get points 4
+       ; Float.Array.get points 5
+       ; 0.
+       ; 0.
+       ; 0.
+       ; right
+       ; top
+       ; Float.Array.get points 6
+       ; Float.Array.get points 7
+       ; 0.
+       ; 0.
+       ; 0.
+       ; right
+       ; bottom |]
+    in
+    let start = text_buffer.length in
+    Float.Array.iteri
+      (fun idx v -> text_buffer.buffer.{idx + start} <- v)
+      values ;
+    text_buffer.length <- start + Float.Array.length values
+  end
 
 let draw_to_gl_buffer_text () =
   Opengl.gl_bind_buffer gl_text_buffer ;
@@ -424,9 +532,10 @@ let write_highlight_to_ui_buffer ~(points : (int * int) list) =
     points ;
   ui_buffer.length <- start + (List.length points * _EACH_POINT_FLOAT_AMOUNT)
 
-let draw_highlight ~(bbox : Ui.bounding_box) ~(font_info : Freetype.font_info)
+let draw_highlight ~(box : Ui.box) ~(font_info : Freetype.font_info)
     ~(r : Rope.rope) ~(highlight : int option * int option) ~scroll_y_offset
     ~scroll_x_offset ~text_wrap =
+  let bbox = Option.value box.bbox ~default:Ui.default_bbox in
   let entire_points_of_highlight_quads = ref [] in
   match highlight with
   | Some highlight_start, Some highlight_end ->
@@ -497,20 +606,6 @@ let write_cursor_to_ui_buffer ~x ~y ~font_height =
     (fun idx v -> ui_buffer.buffer.{idx + ui_buffer.length} <- v)
     values ;
   ui_buffer.length <- ui_buffer.length + Float.Array.length values
-
-let clip_content ~(box : Ui.box) =
-  Opengl.gl_enable_scissor () ;
-  try
-    let bbox = Option.get box.bbox in
-    let window_width_height = Sdl.sdl_gl_getdrawablesize () in
-    let window_height_gl = window_width_height land ((1 lsl 32) - 1) in
-    (* have to do some math to get the location of the bottom left corner
-       because I instinctively did top left corner for box origins mainly bc
-       I was adjusted to web platform but for opengl, bottom left corner is the origin *)
-    Opengl.gl_scissor ~x:bbox.x
-      ~y:(window_height_gl - (bbox.y + bbox.height))
-      ~width:bbox.width ~height:bbox.height
-  with Invalid_argument e -> failwith ("clipping needs a bbox;" ^ e)
 
 let validate ~(box : Ui.box) =
   let rec validate' (box : Ui.box) visited =
@@ -655,8 +750,9 @@ let align_inner_box_horizontally ~(box : Ui.box) ~(inner_box : Ui.box) =
   | None ->
       ()
 
-let draw_cursor ~(font_info : Freetype.font_info) ~(bbox : Ui.bounding_box)
-    ~(r : Rope.rope) ~cursor_pos ~scroll_y_offset ~scroll_x_offset ~text_wrap =
+let draw_cursor ~(font_info : Freetype.font_info) ~box ~(r : Rope.rope)
+    ~cursor_pos ~scroll_y_offset ~scroll_x_offset ~text_wrap =
+  let bbox = Option.value box.Ui.bbox ~default:Ui.default_bbox in
   let start_x = bbox.x + scroll_x_offset in
   match cursor_pos with
   | Some cursor_pos ->
@@ -700,7 +796,7 @@ let draw_cursor ~(font_info : Freetype.font_info) ~(bbox : Ui.bounding_box)
   | None ->
       ()
 
-let draw_text ~(s : string) ~(box : Ui.box) =
+let draw_text ~(s : string) ~(box : Ui.box) ~parent =
   let ~font_info, ~gl_texture_id =
     Ui.TextTextureInfo.get_or_add_font_size_text_texture
       ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
@@ -714,14 +810,15 @@ let draw_text ~(s : string) ~(box : Ui.box) =
   String.iter
     (fun c ->
       let glyph = font_info.glyph_info_with_char.(Char.code c - 32) in
+      let parent = Option.value parent ~default:box in
       write_to_text_buffer ~glyph_info:glyph ~x:!horizontal_pos ~y:start_y
-        ~glyph:c ~font_info ;
+        ~glyph:c ~font_info ~parent ;
       horizontal_pos := !horizontal_pos + glyph.x_advance )
     s
 
-let draw_text_textarea ~(font_info : Freetype.font_info)
-    ~(bbox : Ui.bounding_box) ~(rope : Rope.rope) ~scroll_y_offset
-    ~scroll_x_offset ~text_wrap =
+let draw_text_textarea ~(font_info : Freetype.font_info) ~(box : Ui.box)
+    ~(rope : Rope.rope) ~scroll_y_offset ~scroll_x_offset ~text_wrap =
+  let bbox = Option.value box.bbox ~default:Ui.default_bbox in
   let start_x = bbox.x + scroll_x_offset in
   let fold_fn_for_drawing_text acc c =
     let (Rope.Rope_Traversal_Info acc) = acc in
@@ -748,7 +845,7 @@ let draw_text_textarea ~(font_info : Freetype.font_info)
       then
         write_to_text_buffer
           ~x:(if wraps then start_x else acc.x)
-          ~y:y_pos_start ~glyph_info:gi ~glyph:c ~font_info ;
+          ~y:y_pos_start ~glyph_info:gi ~glyph:c ~font_info ~parent:box ;
       Rope.Rope_Traversal_Info {rope_pos= acc.rope_pos + 1; x= new_x; y= new_y}
   in
   ignore
@@ -765,32 +862,29 @@ let draw_text_textarea ~(font_info : Freetype.font_info)
 *)
 let draw_textarea ~(font_info : Freetype.font_info) ~rope ~highlight ~cursor_pos
     ~(box : Ui.box) =
-  let bbox = Option.value box.bbox ~default:Ui.default_bbox in
   match rope with
   | Some r -> (
-      draw_text_textarea ~font_info ~rope:r ~bbox
+      draw_text_textarea ~font_info ~rope:r ~box
         ~scroll_y_offset:box.scroll_y_offset
         ~scroll_x_offset:box.scroll_x_offset ~text_wrap:box.text_wrap ;
       match !Ui.focused_element with
       | Some b when b == box ->
           draw_highlight ~r ~scroll_y_offset:box.scroll_y_offset
-            ~scroll_x_offset:box.scroll_x_offset ~highlight ~bbox ~font_info
+            ~scroll_x_offset:box.scroll_x_offset ~highlight ~box ~font_info
             ~text_wrap:box.text_wrap ;
           draw_cursor ~r ~cursor_pos ~scroll_y_offset:box.scroll_y_offset
-            ~scroll_x_offset:box.scroll_x_offset ~font_info ~bbox
+            ~scroll_x_offset:box.scroll_x_offset ~font_info ~box
             ~text_wrap:box.text_wrap
       | _ ->
           () )
   | None ->
       ()
 
-type draw_context = {batch_writes: bool}
+type draw_context = {parent: Ui.box option}
 
 let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
-  if box.clip_content then clip_content ~box ;
   begin match box.bbox with
   | Some _ ->
-      let batch_writes = context.batch_writes || box.batch_writes in
       let Ui.{left; top; bottom; right} = Ui.get_box_sides ~box in
       let window_width_height = Sdl.sdl_gl_getdrawablesize () in
       let window_width_gl, window_height_gl =
@@ -800,14 +894,16 @@ let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
         left <= window_width_gl && right >= 0 && top <= window_height_gl
         && bottom >= 0
       then (
-        write_container_values_to_ui_buffer ~box ;
+        write_container_values_to_ui_buffer ~box ~parent:context.parent ;
         match box.content with
         | Some (Box b) ->
-            draw_box ~box:b ~context:{batch_writes}
+            draw_box ~box:b ~context:{parent= Some box}
         | Some (Boxes list) ->
-            List.iter (fun b -> draw_box ~box:b ~context:{batch_writes}) list
+            List.iter
+              (fun b -> draw_box ~box:b ~context:{parent= Some box})
+              list
         | Some (Text {string; _}) ->
-            draw_text ~s:string ~box
+            draw_text ~s:string ~box ~parent:context.parent
         | Some (Textarea {text; cursor_pos; highlight_pos; _}) ->
             let ~font_info, ~gl_texture_id =
               Ui.TextTextureInfo.get_or_add_font_size_text_texture
@@ -818,18 +914,14 @@ let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
             draw_textarea ~rope:text ~cursor_pos ~highlight:highlight_pos
               ~font_info ~box
         | Some (ScrollContainer {container; _}) ->
-            draw_box ~box:container ~context:{batch_writes}
+            draw_box ~box:container ~context:{parent= Some box}
         | Some (TextAreaWithLineNumbers {container; _}) ->
-            draw_box ~box:container ~context:{batch_writes}
+            draw_box ~box:container ~context:{parent= Some box}
         | None ->
             () )
   | None ->
       ()
-  end ;
-  if (not context.batch_writes) || box.batch_writes then begin
-    draw_to_gl_buffer () ; draw_to_gl_buffer_text ()
-  end ;
-  if box.clip_content then Opengl.gl_disable_scissor ()
+  end
 
 let handle_if_content_overflows_or_not ~(box : Ui.box)
     ~(context : Ui.ui_traversal_context) =
@@ -909,16 +1001,6 @@ let rec calculate_ui ~(box : Ui.box) ~context =
   | Some (Boxes list) ->
       ( match box.flow with
       | Some ((Horizontal | Vertical) as d) ->
-          begin match context.parent with
-          | Some parent ->
-              let parent_bbox = Option.get parent.bbox in
-              Option.iter
-                (fun bbox ->
-                  box.bbox <- Some {bbox with x= parent_bbox.x; y= parent_bbox.y} )
-                box.bbox
-          | None ->
-              ()
-          end ;
           let boxes_pos =
             ref (handle_list_of_boxes_initial_position ~d ~box ~list)
           in
@@ -989,5 +1071,7 @@ let draw ~(box : Ui.box) =
   validate ~box ;
   add_event_handlers ~box ;
   calculate_ui ~box ~context:{in_scrollcontainer= false; parent= None} ;
-  draw_box ~box ~context:{batch_writes= box.batch_writes} ;
+  draw_box ~box ~context:{parent= None} ;
+  draw_to_gl_buffer () ;
+  draw_to_gl_buffer_text () ;
   Sdl.sdl_gl_swapwindow Sdl.w

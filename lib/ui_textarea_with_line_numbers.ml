@@ -13,8 +13,7 @@ let create_textarea_with_line_numbers ?text ~textarea_width ~textarea_height ()
     ; background_color= (0.4, 0.4, 0.4, 1.)
     ; flow= Some Vertical
     ; height_constraint= Some Max
-    ; width_constraint= Some Min
-    ; batch_writes= true }
+    ; width_constraint= Some Min }
   in
   let textarea =
     match text with
@@ -96,12 +95,7 @@ let get_line_number_boxes ~rope ~box_containing_textarea =
            height_constraint= Some Min
          ; width_constraint= Some Min
          ; horizontal_align= Some Right
-         ; content=
-             Some
-               (Ui.Text
-                  { string= s
-                  ; string_width= Ui_utils.calculate_string_width ~s ~font_info
-                  } ) } )
+         ; content= Some (Ui.Text {string= s}) } )
        (stringified |> List.rev) )
 
 let adjust_textarea_with_line_numbers ~textarea_with_line_numbers =
@@ -114,8 +108,8 @@ let adjust_textarea_with_line_numbers ~textarea_with_line_numbers =
       | Some rope ->
           line_numbers.content <-
             Some (get_line_number_boxes ~rope ~box_containing_textarea:textarea) ;
-          line_numbers.scroll_y_offset <- textarea.scroll_y_offset ;
-          line_numbers.scroll_x_offset <- textarea.scroll_x_offset
+          (* should only be scrolling vertically for line numbers *)
+          line_numbers.scroll_y_offset <- textarea.scroll_y_offset
       | None ->
           ()
       end

@@ -35,8 +35,7 @@ type box =
   ; mutable on_event: event_handler_t option
   ; mutable scroll_x_offset: int
   ; mutable scroll_y_offset: int
-  ; mutable focusable: bool
-  ; mutable batch_writes: bool }
+  ; mutable focusable: bool }
 
 and event_handler_t = b:box option -> e:Sdl.event -> unit
 
@@ -57,7 +56,7 @@ and scrollcontainer_info =
 and box_content =
   | Box of box
   | Boxes of box list
-  | Text of {string: string; string_width: int}
+  | Text of {string: string}
   | Textarea of text_area_information
   | ScrollContainer of scrollcontainer_info
   | TextAreaWithLineNumbers of {line_numbers: box; textarea: box; container: box}
@@ -147,8 +146,7 @@ let default_box =
   ; on_event= None
   ; scroll_x_offset= 0
   ; scroll_y_offset= 0
-  ; focusable= false
-  ; batch_writes= false }
+  ; focusable= false }
 
 let get_glyph_info_from_glyph ~glyph ~font_info =
   font_info.Freetype.glyph_info_with_char.(Char.code glyph - 32)
@@ -196,6 +194,7 @@ end
 let create_textarea_box ?(text : Rope.rope option) () =
   { default_box with
     focusable= true
+  ; clip_content= true
   ; content=
       Some
         (Textarea
@@ -522,6 +521,15 @@ let handle_maximizing_of_inner_content_size ~(parent_box : box) =
   | None ->
       ()
 
+let calculate_string_width ~s ~font_info =
+  String.fold_left
+    (fun acc c ->
+      if c = '\n' || c = '\t' then acc
+      else
+        let gi = font_info.Freetype.glyph_info_with_char.(Char.code c - 32) in
+        acc + gi.Freetype.x_advance )
+    0 s
+
 let rec clamp_width_or_height_to_content_size ~(box : box)
     ~(measurement : [`Width | `Height]) =
   let bbox = Option.value box.bbox ~default:default_bbox in
@@ -597,11 +605,12 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
               () )
       | None ->
           () )
-  | Some (Text {string_width; _}) -> (
+  | Some (Text {string}) -> (
       let ~font_info, .. =
         TextTextureInfo.get_or_add_font_size_text_texture
           ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
       in
+      let string_width = calculate_string_width ~s:string ~font_info in
       (* this doesn't handle the case of text wrapping *)
       match measurement with
       | `Width
