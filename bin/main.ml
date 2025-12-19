@@ -49,10 +49,9 @@ let box =
     bbox= Some {x= 0; y= 0; width= 2000; height= 2000}
   ; content= Some textarea_with_line_numbers } *)
 
-(* let box =
+let box =
   { Ui.default_box with
-    clip_content= true
-  ; background_color= (0.8, 0.8, 0.8, 1.)
+    background_color= (0.8, 0.8, 0.8, 1.)
   ; bbox= Some {x= 10; y= 10; width= 200; height= 200}
   ; content= Some (Text {string= "HI THERE"})
   ; font_size= Some 37 }
@@ -62,7 +61,7 @@ let box =
     clip_content= true
   ; background_color= (1., 0.5, 0.5, 1.)
   ; bbox= Some {x= 0; y= 0; width= 300; height= 200}
-  ; content= Some (Box box) } *)
+  ; content= Some (Box box) }
 
 let rec loop () =
   let evt = Sdl.sdl_pollevent () in

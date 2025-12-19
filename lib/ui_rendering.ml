@@ -279,7 +279,7 @@ let write_container_values_to_ui_buffer ~(box : Ui.box) ~(parent : Ui.box option
   in
   let points =
     match parent with
-    | Some parent when box.clip_content ->
+    | Some parent when parent.clip_content ->
         get_potential_clipped_points ~parent ~points
     | _ ->
         points
@@ -796,7 +796,38 @@ let draw_cursor ~(font_info : Freetype.font_info) ~box ~(r : Rope.rope)
   | None ->
       ()
 
-let draw_text ~(s : string) ~(box : Ui.box) ~parent =
+type draw_context =
+  {parent: Ui.box option; previous_context: draw_context option}
+
+let find_closest_parent_that_clips ~(context : draw_context) ~bbox =
+  let rec loop context =
+    match context.parent with
+    | Some parent ->
+        let Ui.{left; right; top; bottom} = Ui.get_box_sides ~box:parent in
+        let bbox_left, bbox_right, bbox_top, bbox_bottom =
+          (bbox.Ui.x, bbox.x + bbox.width, bbox.y, bbox.y + bbox.height)
+        in
+        let out =
+          bbox_left > right || bbox_right < left || bbox_left < left
+          || bbox_right > right || bbox_top > bottom || bbox_bottom < top
+          || bbox_top < top || bbox_bottom > bottom
+        in
+        if (parent.clip_content && out) || not out then begin
+          Some parent
+        end
+        else begin
+          match context.previous_context with
+          | Some context ->
+              loop context
+          | None ->
+              None
+        end
+    | None ->
+        None
+  in
+  loop context
+
+let draw_text ~(s : string) ~(box : Ui.box) ~context =
   let ~font_info, ~gl_texture_id =
     Ui.TextTextureInfo.get_or_add_font_size_text_texture
       ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
@@ -807,10 +838,19 @@ let draw_text ~(s : string) ~(box : Ui.box) ~parent =
     get_horizontal_text_start ~box ~font_info ~s + box.scroll_x_offset
   in
   let horizontal_pos = ref start_x in
+  let string_length = Ui.calculate_string_width ~s ~font_info in
+  let parent =
+    find_closest_parent_that_clips ~context
+      ~bbox:
+        { x= start_x
+        ; y= start_y
+        ; width= string_length
+        ; height= font_info.font_height }
+  in
+  let parent = Option.value parent ~default:box in
   String.iter
     (fun c ->
       let glyph = font_info.glyph_info_with_char.(Char.code c - 32) in
-      let parent = Option.value parent ~default:box in
       write_to_text_buffer ~glyph_info:glyph ~x:!horizontal_pos ~y:start_y
         ~glyph:c ~font_info ~parent ;
       horizontal_pos := !horizontal_pos + glyph.x_advance )
@@ -863,29 +903,27 @@ let draw_text_textarea ~(font_info : Freetype.font_info) ~(box : Ui.box)
 let draw_textarea ~(font_info : Freetype.font_info) ~rope ~highlight ~cursor_pos
     ~(box : Ui.box) =
   match rope with
-  | Some r -> (
-      draw_text_textarea ~font_info ~rope:r ~box
-        ~scroll_y_offset:box.scroll_y_offset
-        ~scroll_x_offset:box.scroll_x_offset ~text_wrap:box.text_wrap ;
-      match !Ui.focused_element with
-      | Some b when b == box ->
-          draw_highlight ~r ~scroll_y_offset:box.scroll_y_offset
-            ~scroll_x_offset:box.scroll_x_offset ~highlight ~box ~font_info
-            ~text_wrap:box.text_wrap ;
-          draw_cursor ~r ~cursor_pos ~scroll_y_offset:box.scroll_y_offset
-            ~scroll_x_offset:box.scroll_x_offset ~font_info ~box
-            ~text_wrap:box.text_wrap
-      | _ ->
-          () )
+  | Some r -> begin
+    draw_text_textarea ~font_info ~rope:r ~box
+      ~scroll_y_offset:box.scroll_y_offset ~scroll_x_offset:box.scroll_x_offset
+      ~text_wrap:box.text_wrap ;
+    match !Ui.focused_element with
+    | Some b when b == box ->
+        draw_highlight ~r ~scroll_y_offset:box.scroll_y_offset
+          ~scroll_x_offset:box.scroll_x_offset ~highlight ~box ~font_info
+          ~text_wrap:box.text_wrap ;
+        draw_cursor ~r ~cursor_pos ~scroll_y_offset:box.scroll_y_offset
+          ~scroll_x_offset:box.scroll_x_offset ~font_info ~box
+          ~text_wrap:box.text_wrap
+    | _ ->
+        ()
+    end
   | None ->
       ()
 
-type draw_context =
-  {parent: Ui.box option; previous_context: draw_context option}
-
 let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
   begin match box.bbox with
-  | Some _ ->
+  | Some bbox ->
       let Ui.{left; top; bottom; right} = Ui.get_box_sides ~box in
       let window_width_height = Sdl.sdl_gl_getdrawablesize () in
       let window_width_gl, window_height_gl =
@@ -894,8 +932,9 @@ let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
       if
         left <= window_width_gl && right >= 0 && top <= window_height_gl
         && bottom >= 0
-      then (
-        write_container_values_to_ui_buffer ~box ~parent:context.parent ;
+      then begin
+        let parent = find_closest_parent_that_clips ~context ~bbox in
+        write_container_values_to_ui_buffer ~box ~parent ;
         match box.content with
         | Some (Box b) ->
             draw_box ~box:b
@@ -907,7 +946,8 @@ let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
                   ~context:{parent= Some box; previous_context= Some context} )
               list
         | Some (Text {string; _}) ->
-            draw_text ~s:string ~box ~parent:(Some box)
+            draw_text ~s:string ~box
+              ~context:{parent= Some box; previous_context= Some context}
         | Some (Textarea {text; cursor_pos; highlight_pos; _}) ->
             let ~font_info, ~gl_texture_id =
               Ui.TextTextureInfo.get_or_add_font_size_text_texture
@@ -924,7 +964,8 @@ let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
             draw_box ~box:container
               ~context:{parent= Some box; previous_context= Some context}
         | None ->
-            () )
+            ()
+      end
   | None ->
       ()
   end
@@ -1050,7 +1091,7 @@ let rec calculate_ui ~(box : Ui.box) ~context =
         ~content ~scroll ~orientation ;
       Ui_scrollcontainers.adjust_scrollbar_according_to_content_size ~content
         ~scroll ~orientation ;
-      ( match orientation with
+      begin match orientation with
       | Vertical ->
           let bbox = Option.get scroll.bbox in
           if bbox.height = 0 then
@@ -1060,7 +1101,8 @@ let rec calculate_ui ~(box : Ui.box) ~context =
           let bbox = Option.get scroll.bbox in
           if bbox.width = 0 then
             Ui_scrollcontainers.unwrap_scrollcontainer ~box
-              ~unwrap_orientation:orientation ) ;
+              ~unwrap_orientation:orientation
+      end ;
       calculate_ui ~box:container
         ~context:{in_scrollcontainer= true; parent= Some box}
   | Some
