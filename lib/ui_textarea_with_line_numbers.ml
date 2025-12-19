@@ -76,12 +76,6 @@ let get_line_nums rope textarea =
   line_nums
 
 let get_line_number_boxes ~rope ~box_containing_textarea =
-  let ~font_info, .. =
-    Ui.TextTextureInfo.get_or_add_font_size_text_texture
-      ~font_size:
-        (Option.value box_containing_textarea.Ui.font_size
-           ~default:Freetype.font_size )
-  in
   let line_nums = get_line_nums rope box_containing_textarea in
   let stringified =
     List.map

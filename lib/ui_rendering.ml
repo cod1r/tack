@@ -880,7 +880,8 @@ let draw_textarea ~(font_info : Freetype.font_info) ~rope ~highlight ~cursor_pos
   | None ->
       ()
 
-type draw_context = {parent: Ui.box option}
+type draw_context =
+  {parent: Ui.box option; previous_context: draw_context option}
 
 let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
   begin match box.bbox with
@@ -897,10 +898,13 @@ let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
         write_container_values_to_ui_buffer ~box ~parent:context.parent ;
         match box.content with
         | Some (Box b) ->
-            draw_box ~box:b ~context:{parent= Some box}
+            draw_box ~box:b
+              ~context:{parent= Some box; previous_context= Some context}
         | Some (Boxes list) ->
             List.iter
-              (fun b -> draw_box ~box:b ~context:{parent= Some box})
+              (fun b ->
+                draw_box ~box:b
+                  ~context:{parent= Some box; previous_context= Some context} )
               list
         | Some (Text {string; _}) ->
             draw_text ~s:string ~box ~parent:(Some box)
@@ -914,9 +918,11 @@ let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
             draw_textarea ~rope:text ~cursor_pos ~highlight:highlight_pos
               ~font_info ~box
         | Some (ScrollContainer {container; _}) ->
-            draw_box ~box:container ~context:{parent= Some box}
+            draw_box ~box:container
+              ~context:{parent= Some box; previous_context= Some context}
         | Some (TextAreaWithLineNumbers {container; _}) ->
-            draw_box ~box:container ~context:{parent= Some box}
+            draw_box ~box:container
+              ~context:{parent= Some box; previous_context= Some context}
         | None ->
             () )
   | None ->
@@ -1058,7 +1064,7 @@ let rec calculate_ui ~(box : Ui.box) ~context =
       calculate_ui ~box:container
         ~context:{in_scrollcontainer= true; parent= Some box}
   | Some
-      ( TextAreaWithLineNumbers {container; line_numbers; textarea} as
+      ( TextAreaWithLineNumbers {container; line_numbers= _; textarea= _} as
         textarea_with_line_numbers ) ->
       Ui_textarea_with_line_numbers.adjust_textarea_with_line_numbers
         ~textarea_with_line_numbers ;
@@ -1072,7 +1078,7 @@ let draw ~(box : Ui.box) =
   validate ~box ;
   add_event_handlers ~box ;
   calculate_ui ~box ~context:{in_scrollcontainer= false; parent= None} ;
-  draw_box ~box ~context:{parent= None} ;
+  draw_box ~box ~context:{parent= None; previous_context= None} ;
   draw_to_gl_buffer () ;
   draw_to_gl_buffer_text () ;
   Sdl.sdl_gl_swapwindow Sdl.w

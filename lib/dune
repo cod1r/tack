@@ -32,4 +32,4 @@
 (env
  (dev
   (flags
-   (:standard -warn-error -26-27-32-33-21-39))))
+   (:standard -warn-error -32-33-21))))
