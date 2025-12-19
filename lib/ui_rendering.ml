@@ -903,7 +903,7 @@ let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
               (fun b -> draw_box ~box:b ~context:{parent= Some box})
               list
         | Some (Text {string; _}) ->
-            draw_text ~s:string ~box ~parent:context.parent
+            draw_text ~s:string ~box ~parent:(Some box)
         | Some (Textarea {text; cursor_pos; highlight_pos; _}) ->
             let ~font_info, ~gl_texture_id =
               Ui.TextTextureInfo.get_or_add_font_size_text_texture
@@ -1013,11 +1013,12 @@ let rec calculate_ui ~(box : Ui.box) ~context =
                 let bbbox_used_width, bbbox_used_height =
                   (bbbox.width, bbbox.height)
                 in
-                if Sys.getenv_opt "DEBUG" |> Option.is_some then (
+                if Sys.getenv_opt "DEBUG" |> Option.is_some then begin
                   if bbbox_used_width = 0 && d = Horizontal then
                     Printf.eprintf "flow is horizontal but width is 0\n" ;
                   if bbbox_used_height = 0 && d = Vertical then
-                    Printf.eprintf "flow is vertical but height is 0\n" ) ;
+                    Printf.eprintf "flow is vertical but height is 0\n"
+                end ;
                 boxes_pos :=
                   let x, y = !boxes_pos in
                   match d with
