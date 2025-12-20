@@ -972,70 +972,34 @@ let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
 
 let handle_if_content_overflows_or_not ~(box : Ui.box)
     ~(context : Ui.ui_traversal_context) =
-  match box.content with
-  | Some
-      (ScrollContainer
-         {content; container; orientation; other_scrollcontainer; _} ) ->
-      (* this case is for wrapped scrollcontainers. i dont like having the ui_traversal_context but it's the only way to
-know if the current box is in a scroll container due to there not being a parent reference.
-I need the context to not infinitely wrap scrollcontainers and know when to stop *)
-      let Ui.
-            { left= content_left
-            ; right= content_right
-            ; top= content_top
-            ; bottom= content_bottom } =
-        Ui.calculate_content_boundaries ~box:content
-      in
-      let Ui.{width; height; _} =
-        Option.value container.bbox ~default:Ui.default_bbox
-      in
-      if not context.in_scrollcontainer then
-        if
-          content_right - content_left > width
-          && box.allow_horizontal_scroll && orientation = Vertical
-          && other_scrollcontainer = None
-          && Option.is_some context.parent
-        then (
-          let parent = Option.get context.parent in
-          Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~parent ~box
-            ~orientation:Horizontal ;
-          if
-            content_bottom - content_top > height
-            && box.allow_vertical_scroll && orientation = Horizontal
-            && other_scrollcontainer = None
-            && Option.is_some context.parent
-          then
-            let parent = Option.get context.parent in
-            Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~parent
-              ~box ~orientation:Vertical )
-  | _ ->
-      let Ui.
-            { left= content_left
-            ; right= content_right
-            ; top= content_top
-            ; bottom= content_bottom } =
-        Ui.calculate_content_boundaries ~box
-      in
-      let Ui.{width; height; _} =
-        Option.value box.bbox ~default:Ui.default_bbox
-      in
-      if not context.in_scrollcontainer then (
-        ( if
-            content_right - content_left > width
-            && box.allow_horizontal_scroll
-            && Option.is_some context.parent
-          then
-            let parent = Option.get context.parent in
-            Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~parent
-              ~box ~orientation:Horizontal ) ;
-        if
-          content_bottom - content_top > height
-          && box.allow_vertical_scroll
-          && Option.is_some context.parent
-        then
-          let parent = Option.get context.parent in
-          Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~parent ~box
-            ~orientation:Vertical )
+  let Ui.
+        { left= content_left
+        ; right= content_right
+        ; top= content_top
+        ; bottom= content_bottom } =
+    Ui.calculate_content_boundaries ~box
+  in
+  let Ui.{width; height; _} = Option.value box.bbox ~default:Ui.default_bbox in
+  if not context.in_scrollcontainer then begin
+    if
+      content_right - content_left > width
+      && box.allow_horizontal_scroll
+      && Option.is_some context.parent
+    then begin
+      let parent = Option.get context.parent in
+      Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~parent ~box
+        ~orientation:Horizontal
+    end ;
+    if
+      content_bottom - content_top > height
+      && box.allow_vertical_scroll
+      && Option.is_some context.parent
+    then begin
+      let parent = Option.get context.parent in
+      Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer ~parent ~box
+        ~orientation:Vertical
+    end
+  end
 
 let rec calculate_ui ~(box : Ui.box) ~context =
   Ui.constrain_width_height ~box ;

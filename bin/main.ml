@@ -6,7 +6,7 @@ let rendering_content = Editor.open_file "lib/ui_rendering.ml"
 
 let textarea_with_line_numbers =
   Ui_textarea_with_line_numbers.create_textarea_with_line_numbers
-    ~text:rendering_content ~textarea_width:1000 ~textarea_height:1000 ()
+    ~text:rendering_content ~textarea_width:800 ~textarea_height:1000 ()
 
 let file_explorer =
   { Ui.default_box with
@@ -44,12 +44,12 @@ let box =
                 ; flow= Some Vertical } ) ) )
   ; flow= Some Horizontal }
 
-(* let box =
+let box =
   { Ui.default_box with
     bbox= Some {x= 0; y= 0; width= 2000; height= 2000}
-  ; content= Some textarea_with_line_numbers } *)
+  ; content= Some textarea_with_line_numbers }
 
-let box =
+(* let box =
   { Ui.default_box with
     background_color= (0.8, 0.8, 0.8, 1.)
   ; bbox= Some {x= 10; y= 10; width= 200; height= 200}
@@ -61,7 +61,7 @@ let box =
     clip_content= true
   ; background_color= (1., 0.5, 0.5, 1.)
   ; bbox= Some {x= 0; y= 0; width= 300; height= 200}
-  ; content= Some (Box box) }
+  ; content= Some (Box box) } *)
 
 let rec loop () =
   let evt = Sdl.sdl_pollevent () in

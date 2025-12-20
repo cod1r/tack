@@ -95,7 +95,8 @@ let create_scrollbar_container ~content ~orientation =
     | Ui.Vertical ->
         Ui.
           { default_box with
-            height_constraint= Some Max
+            name= Some "V_SCROLLBAR_CONTAINER"
+          ; height_constraint= Some Max
           ; bbox=
               Some
                 {content_bbox with width= scrollbar_container_width; height= 0}
@@ -105,7 +106,8 @@ let create_scrollbar_container ~content ~orientation =
     | Ui.Horizontal ->
         Ui.
           { default_box with
-            width_constraint= Some Max
+            name= Some "H_SCROLLBAR_CONTAINER"
+          ; width_constraint= Some Max
           ; bbox=
               Some
                 {content_bbox with width= 0; height= scrollbar_container_width}
@@ -153,6 +155,12 @@ let create_scrollcontainer ~content ~orientation ~other_scrollcontainer =
                     Vertical ) } }
   in
   Ui.scrollcontainers := scrollcontainer :: !Ui.scrollcontainers ;
+  begin match scrollcontainer with
+  | Ui.ScrollContainer {container; _} ->
+      Ui.constrain_width_height ~box:container
+  | _ ->
+      failwith ("IMPOSSIBLE" ^ __LOC__)
+  end ;
   scrollcontainer
 
 (* the code in this function reveals how fragile the design of the ui lib is.
@@ -162,73 +170,76 @@ So many edge cases. *)
 let wrap_box_contents_in_scrollcontainer ~(parent : Ui.box) ~(box : Ui.box)
     ~orientation =
   match box.content with
-  (* todo: we might not need this branch *)
-  | Some (ScrollContainer ({content; _} as scrollinfo)) -> (
-      let scrollcontainer =
-        create_scrollcontainer ~content ~orientation
-          ~other_scrollcontainer:(Some scrollinfo)
-      in
-      match scrollcontainer with
-      | ScrollContainer {container; _} ->
-          Ui.constrain_width_height ~box:container ;
-          Option.iter
-            (fun bbox ->
-              match orientation with
-              | Ui.Vertical ->
-                  container.bbox <-
-                    Some
-                      { bbox with
-                        width= bbox.Ui.width - Ui.scrollbar_container_width }
-              | Horizontal ->
-                  container.bbox <-
-                    Some
-                      { bbox with
-                        height= bbox.Ui.height - Ui.scrollbar_container_width } )
-            container.bbox ;
-          box.content <- Some scrollcontainer
-      | _ ->
-          () )
-  | Some (Box _ | Boxes _ | Textarea _ | Text _ | TextAreaWithLineNumbers _)
-    -> (
-      Option.iter
-        (fun bbox ->
-          match orientation with
-          | Ui.Vertical ->
-              box.bbox <-
-                Some
-                  {bbox with width= bbox.Ui.width - Ui.scrollbar_container_width}
-          | Horizontal ->
-              box.bbox <-
-                Some
-                  { bbox with
-                    height= bbox.Ui.height - Ui.scrollbar_container_width } )
-        box.bbox ;
-      let scrollcontainer =
-        create_scrollcontainer ~content:box ~orientation
-          ~other_scrollcontainer:None
-      in
-      match scrollcontainer with
-      | ScrollContainer {container; _} -> (
-          Ui.constrain_width_height ~box:container ;
-          match parent.content with
-          | Some (Boxes list) ->
-              let new_list =
-                List.map
-                  (fun b ->
-                    if b == box then
-                      { Ui.default_box with
-                        bbox= box.bbox
-                      ; content= Some scrollcontainer }
-                    else b )
-                  list
+  | Some (Box _ | Boxes _ | Textarea _ | Text _ | TextAreaWithLineNumbers _) ->
+  begin
+    Option.iter
+      (fun bbox ->
+        match orientation with
+        | Ui.Vertical ->
+            box.bbox <-
+              Some
+                {bbox with width= bbox.Ui.width - Ui.scrollbar_container_width}
+        | Horizontal ->
+            box.bbox <-
+              Some
+                {bbox with height= bbox.Ui.height - Ui.scrollbar_container_width} )
+      box.bbox ;
+    match parent.content with
+    | Some (Boxes list) ->
+        let other_scrollcontainer =
+          List.find_map
+            (fun (b : Ui.box) ->
+              match b.content with
+              | Some (ScrollContainer ({content; _} as scrollcontainer_info)) ->
+                  if content == box then Some scrollcontainer_info else None
+              | _ ->
+                  None )
+            list
+        in
+        if Option.is_some other_scrollcontainer then begin
+          Ui.scrollcontainers :=
+            List.filter
+              (function
+                | Ui.ScrollContainer {content; _} ->
+                    content != box
+                | _ ->
+                    failwith "impossible" )
+              !Ui.scrollcontainers
+        end ;
+        let scrollcontainer =
+          create_scrollcontainer ~content:box ~orientation
+            ~other_scrollcontainer
+        in
+        let new_list =
+          List.map
+            (fun (b : Ui.box) ->
+              let is_nested =
+                match b.content with
+                | Some (ScrollContainer {content; _}) ->
+                    content == box
+                | _ ->
+                    false
               in
-              parent.content <- Some (Boxes new_list)
-          | _ ->
-              parent.content <- Some scrollcontainer )
-      | _ ->
-          () )
+              if b == box || is_nested then
+                { Ui.default_box with
+                  bbox= box.bbox
+                ; content= Some scrollcontainer }
+              else b )
+            list
+        in
+        parent.content <- Some (Boxes new_list)
+    | _ ->
+        (* TODO: handle other_scrollcontainer case *)
+        let scrollcontainer =
+          create_scrollcontainer ~content:box ~orientation
+            ~other_scrollcontainer:None
+        in
+        parent.content <- Some scrollcontainer
+    end
   | None ->
       failwith "cannot wrap box with no contents"
+  | _ ->
+      failwith ("TODO: " ^ __LOC__)
 
 let unwrap_scrollcontainer ~(box : Ui.box) ~unwrap_orientation =
   match box.content with
@@ -274,7 +285,7 @@ let unwrap_scrollcontainer ~(box : Ui.box) ~unwrap_orientation =
             | Horizontal ->
                 scroll_bbox.width
           in
-          if measurement = 0 then (
+          if measurement = 0 then begin
             box.content <-
               Some
                 (ScrollContainer
@@ -291,7 +302,8 @@ let unwrap_scrollcontainer ~(box : Ui.box) ~unwrap_orientation =
                         { bbox with
                           height= bbox.Ui.height + Ui.scrollbar_container_width
                         } ) )
-              content.bbox )
+              content.bbox
+          end
       | _ ->
           () )
   | _ ->

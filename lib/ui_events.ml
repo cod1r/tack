@@ -53,7 +53,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
             ()
         end
       | Sdl.MouseMotionEvt {x; y; _}
-        when Ui.is_within_box ~x ~y ~from_sdl_evt:true ~box:b -> (
+        when Ui.is_within_box ~x ~y ~from_sdl_evt:true ~box:b -> begin
         match b.bbox with
         | Some bbox ->
             let ~font_info, .. =
@@ -68,9 +68,10 @@ let pass_evt_to_focused ~(e : Sdl.event) =
             in
             b.content <- Some (Textarea new_info)
         | None ->
-            () )
+            ()
+        end
       | Sdl.MouseButtonEvt {mouse_evt_type; x; y; _}
-        when Ui.is_within_box ~x ~y ~from_sdl_evt:true ~box:b -> (
+        when Ui.is_within_box ~x ~y ~from_sdl_evt:true ~box:b -> begin
         match b.bbox with
         | Some bbox -> (
             let ~font_info, .. =
@@ -104,9 +105,11 @@ let pass_evt_to_focused ~(e : Sdl.event) =
             | None ->
                 () )
         | None ->
-            () )
+            ()
+        end
       | Sdl.MouseWheelEvt {x; y; mouseX; mouseY}
-        when Ui.is_within_box ~x:mouseX ~y:mouseY ~box:b ~from_sdl_evt:true -> (
+        when Ui.is_within_box ~x:mouseX ~y:mouseY ~box:b ~from_sdl_evt:true ->
+      begin
         match
           List.find_opt
             (function
@@ -122,53 +125,55 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                ; orientation
                ; other_scrollcontainer
                ; scrollbar_container
-               ; _ } ) -> (
-            let adjust_scroll ~scroll = function
-              | Ui.Vertical ->
-                  Option.iter
-                    (fun bbox ->
-                      let Ui.
-                            { y= scrollbar_container_y
-                            ; height= scrollbar_container_height
-                            ; _ } =
-                        Option.get scrollbar_container.bbox
-                      in
-                      scroll.Ui.bbox <-
-                        Some
-                          { bbox with
-                            y=
-                              min
-                                ( scrollbar_container_y
-                                + scrollbar_container_height - bbox.Ui.height )
-                                (max scrollbar_container_y (bbox.Ui.y + -y)) } )
-                    scroll.bbox
-              | Horizontal ->
-                  Option.iter
-                    (fun bbox ->
-                      let Ui.
-                            { x= scrollbar_container_x
-                            ; width= scrollbar_container_width
-                            ; _ } =
-                        Option.get scrollbar_container.bbox
-                      in
-                      scroll.bbox <-
-                        Some
-                          { bbox with
-                            x=
-                              min
-                                ( scrollbar_container_x
-                                + scrollbar_container_width - bbox.Ui.width )
-                                (max scrollbar_container_x (bbox.Ui.x + -x)) } )
-                    scroll.bbox
-            in
-            adjust_scroll ~scroll orientation ;
-            match other_scrollcontainer with
-            | Some {scroll; orientation; _} ->
-                adjust_scroll ~scroll orientation
-            | _ ->
-                () )
+               ; _ } ) -> begin
+          let adjust_scroll ~scroll ~scrollbar_container = function
+            | Ui.Vertical ->
+                Option.iter
+                  (fun bbox ->
+                    let Ui.
+                          { y= scrollbar_container_y
+                          ; height= scrollbar_container_height
+                          ; _ } =
+                      Option.get scrollbar_container.Ui.bbox
+                    in
+                    scroll.Ui.bbox <-
+                      Some
+                        { bbox with
+                          y=
+                            min
+                              ( scrollbar_container_y
+                              + scrollbar_container_height - bbox.Ui.height )
+                              (max scrollbar_container_y (bbox.Ui.y + -y)) } )
+                  scroll.bbox
+            | Horizontal ->
+                Option.iter
+                  (fun bbox ->
+                    let Ui.
+                          { x= scrollbar_container_x
+                          ; width= scrollbar_container_width
+                          ; _ } =
+                      Option.get scrollbar_container.Ui.bbox
+                    in
+                    scroll.bbox <-
+                      Some
+                        { bbox with
+                          x=
+                            min
+                              ( scrollbar_container_x
+                              + scrollbar_container_width - bbox.Ui.width )
+                              (max scrollbar_container_x (bbox.Ui.x + x)) } )
+                  scroll.bbox
+          in
+          adjust_scroll ~scroll ~scrollbar_container orientation ;
+          match other_scrollcontainer with
+          | Some {scroll; orientation; scrollbar_container; _} ->
+              adjust_scroll ~scroll ~scrollbar_container orientation
+          | _ ->
+              ()
+          end
         | _ ->
-            () )
+            ()
+        end
       | Sdl.TextInputEvt {text; _} ->
           let new_text_area_information =
             Ui_textarea.handle_txt_evt ~text_area_information:info ~text
