@@ -372,50 +372,53 @@ let adjust_scrollbar_according_to_textarea_text_caret ~text_area_info ~scroll
       ~font_size:(Option.value content.font_size ~default:Freetype.font_size)
   in
   match get_xy_pos_of_text_caret ~text_area_info ~box:content with
-  | Some (~x, ~y) ->
-      Option.iter
-        (fun bbox ->
-          match orientation with
-          | Horizontal ->
-              if x + text_caret_width > right then
-                scroll.bbox <-
-                  Some
-                    { bbox with
-                      x=
-                        bbox.x
-                        + (right - left)
-                          * (x + text_caret_width - right)
-                          / (content_right - content_left) } ;
-              if x < left then
-                scroll.bbox <-
-                  Some
-                    { bbox with
-                      x=
-                        bbox.x
-                        + (right - left)
-                          * (x - text_caret_width - left)
-                          / (content_right - content_left) }
-          | Vertical ->
-              if y < top then
-                scroll.bbox <-
-                  Some
-                    { bbox with
-                      y=
-                        bbox.y
-                        + (bottom - top)
-                          * (y - (top + font_info.font_height))
-                          / (content_bottom - content_top) } ;
-              if y + font_info.font_height > bottom then
-                scroll.bbox <-
-                  Some
-                    { bbox with
-                      y=
-                        bbox.y
-                        + (bottom - top)
-                          * ( y + font_info.font_height
-                            - (bottom - font_info.font_height) )
-                          / (content_bottom - content_top) } )
-        scroll.bbox
+  | Some (~x, ~y) -> begin
+    match scroll.bbox with
+    | Some bbox -> begin
+      match orientation with
+      | Horizontal ->
+          if x + text_caret_width > right then
+            scroll.bbox <-
+              Some
+                { bbox with
+                  x=
+                    bbox.x
+                    + (right - left)
+                      * (x + text_caret_width - right)
+                      / (content_right - content_left) } ;
+          if x < left then
+            scroll.bbox <-
+              Some
+                { bbox with
+                  x=
+                    bbox.x
+                    + (right - left)
+                      * (x - text_caret_width - left)
+                      / (content_right - content_left) }
+      | Vertical ->
+          if y < top then
+            scroll.bbox <-
+              Some
+                { bbox with
+                  y=
+                    bbox.y
+                    + (bottom - top)
+                      * (y - (top + font_info.font_height))
+                      / (content_bottom - content_top) } ;
+          if y + font_info.font_height > bottom then
+            scroll.bbox <-
+              Some
+                { bbox with
+                  y=
+                    bbox.y
+                    + (bottom - top)
+                      * ( y + font_info.font_height
+                        - (bottom - font_info.font_height) )
+                      / (content_bottom - content_top) }
+      end
+    | None ->
+        failwith ("SHOULD HAVE BBOX FOR scroll.bbox" ^ __LOC__)
+    end
   | None ->
       ()
 

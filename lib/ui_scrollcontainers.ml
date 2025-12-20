@@ -1,30 +1,32 @@
 let handle_vertical_scroll_on_evt ~y ~content ~scrollbar_box
     ~diff_from_initial_mousedown_to_start_of_bar =
   let Ui.{top; bottom; _} = Ui.get_box_sides ~box:content in
-  Option.iter
-    (fun bbox ->
+  match scrollbar_box.Ui.bbox with
+  | Some bbox ->
       scrollbar_box.Ui.bbox <-
         Some
           { bbox with
             y=
               max top
                 (min (bottom - bbox.Ui.height)
-                   (y - diff_from_initial_mousedown_to_start_of_bar) ) } )
-    scrollbar_box.bbox
+                   (y - diff_from_initial_mousedown_to_start_of_bar) ) }
+  | None ->
+      failwith "SHOULD HAVE BBOX FOR scrollbar_box.bbox"
 
 let handle_horizontal_scroll_on_evt ~x ~content ~scrollbar_box
     ~diff_from_initial_mousedown_to_start_of_bar =
   let Ui.{left; right; _} = Ui.get_box_sides ~box:content in
-  Option.iter
-    (fun bbox ->
+  match scrollbar_box.Ui.bbox with
+  | Some bbox ->
       scrollbar_box.Ui.bbox <-
         Some
           { bbox with
             x=
               max left
                 (min (right - bbox.Ui.width)
-                   (x - diff_from_initial_mousedown_to_start_of_bar) ) } )
-    scrollbar_box.bbox
+                   (x - diff_from_initial_mousedown_to_start_of_bar) ) }
+  | None ->
+      failwith "SHOULD HAVE BBOX FOR scrollbar_box.bbox"
 
 let get_scrollbar_event_logic ~content ~orientation =
   let original_mousedown_pos_was_within = ref false in
@@ -172,18 +174,20 @@ let wrap_box_contents_in_scrollcontainer ~(parent : Ui.box) ~(box : Ui.box)
   match box.content with
   | Some (Box _ | Boxes _ | Textarea _ | Text _ | TextAreaWithLineNumbers _) ->
   begin
-    Option.iter
-      (fun bbox ->
-        match orientation with
-        | Ui.Vertical ->
-            box.bbox <-
-              Some
-                {bbox with width= bbox.Ui.width - Ui.scrollbar_container_width}
-        | Horizontal ->
-            box.bbox <-
-              Some
-                {bbox with height= bbox.Ui.height - Ui.scrollbar_container_width} )
-      box.bbox ;
+    begin match box.bbox with
+    | Some bbox -> begin
+      match orientation with
+      | Ui.Vertical ->
+          box.bbox <-
+            Some {bbox with width= bbox.Ui.width - Ui.scrollbar_container_width}
+      | Horizontal ->
+          box.bbox <-
+            Some
+              {bbox with height= bbox.Ui.height - Ui.scrollbar_container_width}
+      end
+    | None ->
+        failwith "SHOULD HAVE BBOX FOR box.bbox"
+    end ;
     match parent.content with
     | Some (Boxes list) ->
         let other_scrollcontainer =
@@ -255,26 +259,27 @@ let unwrap_scrollcontainer ~(box : Ui.box) ~unwrap_orientation =
         | Horizontal ->
             scroll_bbox.width
       in
-      ( if unwrap_orientation = orientation && measurement = 0 then
-          match other_scrollcontainer with
-          | Some inner_scrollcontainer ->
-              box.content <- Some (ScrollContainer inner_scrollcontainer)
-          | None ->
-              box.content <- Some (Box content) ;
-              Option.iter
-                (fun bbox ->
-                  content.bbox <-
-                    Some
-                      ( match orientation with
-                      | Vertical ->
-                          { bbox with
-                            width= bbox.Ui.width + Ui.scrollbar_container_width
-                          }
-                      | Horizontal ->
-                          { bbox with
-                            height=
-                              bbox.Ui.height + Ui.scrollbar_container_width } ) )
-                content.bbox ) ;
+      begin if unwrap_orientation = orientation && measurement = 0 then
+        match other_scrollcontainer with
+        | Some inner_scrollcontainer ->
+            box.content <- Some (ScrollContainer inner_scrollcontainer)
+        | None -> (
+            box.content <- Some (Box content) ;
+            match content.bbox with
+            | Some bbox ->
+                content.bbox <-
+                  Some
+                    ( match orientation with
+                    | Vertical ->
+                        { bbox with
+                          width= bbox.Ui.width + Ui.scrollbar_container_width }
+                    | Horizontal ->
+                        { bbox with
+                          height= bbox.Ui.height + Ui.scrollbar_container_width
+                        } )
+            | None ->
+                failwith "SHOULD HAVE BBOX for content.bbox" )
+      end ;
       match other_scrollcontainer with
       | Some {orientation; _} when unwrap_orientation = orientation ->
           let scroll_bbox = Option.get scroll.bbox in
@@ -290,8 +295,8 @@ let unwrap_scrollcontainer ~(box : Ui.box) ~unwrap_orientation =
               Some
                 (ScrollContainer
                    {scrollcontainer_info with other_scrollcontainer= None} ) ;
-            Option.iter
-              (fun bbox ->
+            match content.bbox with
+            | Some bbox ->
                 content.bbox <-
                   Some
                     ( match orientation with
@@ -301,8 +306,9 @@ let unwrap_scrollcontainer ~(box : Ui.box) ~unwrap_orientation =
                     | Horizontal ->
                         { bbox with
                           height= bbox.Ui.height + Ui.scrollbar_container_width
-                        } ) )
-              content.bbox
+                        } )
+            | None ->
+                failwith "SHOULD HAVE bbox for content.bbox"
           end
       | _ ->
           () )
@@ -311,65 +317,74 @@ let unwrap_scrollcontainer ~(box : Ui.box) ~unwrap_orientation =
 
 let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
   match content.Ui.bbox with
-  | Some _ -> (
-      let Ui.{left; right; top; bottom} = Ui.get_box_sides ~box:content in
-      let Ui.
-            { bottom= content_bottom
-            ; right= content_right
-            ; left= content_left
-            ; top= content_top } =
-        Ui.calculate_content_boundaries ~box:content
-      in
-      match orientation with
-      | Ui.Vertical -> (
-          let content_height = content_bottom - content_top
-          and parent_height = bottom - top in
-          match content_height > parent_height with
-          | true ->
-              Option.iter
-                (fun bbox ->
-                  let new_scrollbar_height =
-                    parent_height * parent_height / content_height
-                  in
-                  if bbox.Ui.y + new_scrollbar_height > bottom then
-                    scroll.Ui.bbox <-
-                      Some
-                        { bbox with
-                          y= bottom - new_scrollbar_height
-                        ; height= new_scrollbar_height }
-                  else
-                    scroll.bbox <- Some {bbox with height= new_scrollbar_height} )
-                scroll.Ui.bbox
-          | false ->
-              Option.iter
-                (fun bbox ->
-                  scroll.bbox <- Some {bbox with y= top; height= 0} ;
-                  content.scroll_y_offset <- 0 )
-                scroll.bbox )
-      | Horizontal -> (
-          let content_width = content_right - content_left
-          and parent_width = right - left in
-          match content_width > parent_width with
-          | true ->
-              Option.iter
-                (fun bbox ->
-                  let new_scrollbar_width =
-                    parent_width * parent_width / content_width
-                  in
-                  if bbox.Ui.x + new_scrollbar_width > right then
-                    scroll.Ui.bbox <-
-                      Some
-                        { bbox with
-                          x= right - new_scrollbar_width
-                        ; width= new_scrollbar_width }
-                  else scroll.bbox <- Some {bbox with width= new_scrollbar_width} )
-                scroll.bbox
-          | false ->
-              Option.iter
-                (fun bbox ->
-                  scroll.bbox <- Some {bbox with x= left; width= 0} ;
-                  content.scroll_x_offset <- 0 )
-                scroll.bbox ) )
+  | Some _ -> begin
+    let Ui.{left; right; top; bottom} = Ui.get_box_sides ~box:content in
+    let Ui.
+          { bottom= content_bottom
+          ; right= content_right
+          ; left= content_left
+          ; top= content_top } =
+      Ui.calculate_content_boundaries ~box:content
+    in
+    match orientation with
+    | Ui.Vertical -> begin
+      let content_height = content_bottom - content_top
+      and parent_height = bottom - top in
+      match content_height > parent_height with
+      | true -> begin
+        match scroll.Ui.bbox with
+        | Some bbox ->
+            let new_scrollbar_height =
+              parent_height * parent_height / content_height
+            in
+            if bbox.Ui.y + new_scrollbar_height > bottom then
+              scroll.Ui.bbox <-
+                Some
+                  { bbox with
+                    y= bottom - new_scrollbar_height
+                  ; height= new_scrollbar_height }
+            else scroll.bbox <- Some {bbox with height= new_scrollbar_height}
+        | None ->
+            failwith "SHOULD HAVE BBOX for scroll.Ui.bbox"
+        end
+      | false -> begin
+        match scroll.bbox with
+        | Some bbox ->
+            scroll.bbox <- Some {bbox with y= top; height= 0} ;
+            content.scroll_y_offset <- 0
+        | None ->
+            failwith ("SHOULD HAVE BBOX for scroll.bbox" ^ __LOC__)
+        end
+      end
+    | Horizontal -> begin
+      let content_width = content_right - content_left
+      and parent_width = right - left in
+      match content_width > parent_width with
+      | true -> begin
+        match scroll.bbox with
+        | Some bbox ->
+            let new_scrollbar_width =
+              parent_width * parent_width / content_width
+            in
+            if bbox.Ui.x + new_scrollbar_width > right then
+              scroll.Ui.bbox <-
+                Some
+                  { bbox with
+                    x= right - new_scrollbar_width
+                  ; width= new_scrollbar_width }
+            else scroll.bbox <- Some {bbox with width= new_scrollbar_width}
+        | None ->
+            failwith ("SHOULD HAVE BBOX FOR SCROLL.BBOX" ^ __LOC__)
+        end
+      | false -> (
+        match scroll.bbox with
+        | Some bbox ->
+            scroll.bbox <- Some {bbox with x= left; width= 0} ;
+            content.scroll_x_offset <- 0
+        | None ->
+            failwith "SHOULD'VE HAD BBOX" )
+      end
+    end
   | None ->
       ()
 

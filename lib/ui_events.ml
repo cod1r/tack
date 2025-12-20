@@ -127,42 +127,46 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                ; scrollbar_container
                ; _ } ) -> begin
           let adjust_scroll ~scroll ~scrollbar_container = function
-            | Ui.Vertical ->
-                Option.iter
-                  (fun bbox ->
-                    let Ui.
-                          { y= scrollbar_container_y
-                          ; height= scrollbar_container_height
-                          ; _ } =
-                      Option.get scrollbar_container.Ui.bbox
-                    in
-                    scroll.Ui.bbox <-
-                      Some
-                        { bbox with
-                          y=
-                            min
-                              ( scrollbar_container_y
-                              + scrollbar_container_height - bbox.Ui.height )
-                              (max scrollbar_container_y (bbox.Ui.y + -y)) } )
-                  scroll.bbox
-            | Horizontal ->
-                Option.iter
-                  (fun bbox ->
-                    let Ui.
-                          { x= scrollbar_container_x
-                          ; width= scrollbar_container_width
-                          ; _ } =
-                      Option.get scrollbar_container.Ui.bbox
-                    in
-                    scroll.bbox <-
-                      Some
-                        { bbox with
-                          x=
-                            min
-                              ( scrollbar_container_x
-                              + scrollbar_container_width - bbox.Ui.width )
-                              (max scrollbar_container_x (bbox.Ui.x + x)) } )
-                  scroll.bbox
+            | Ui.Vertical -> begin
+              match scroll.Ui.bbox with
+              | Some bbox ->
+                  let Ui.
+                        { y= scrollbar_container_y
+                        ; height= scrollbar_container_height
+                        ; _ } =
+                    Option.get scrollbar_container.Ui.bbox
+                  in
+                  scroll.Ui.bbox <-
+                    Some
+                      { bbox with
+                        y=
+                          min
+                            ( scrollbar_container_y + scrollbar_container_height
+                            - bbox.Ui.height )
+                            (max scrollbar_container_y (bbox.Ui.y + -y)) }
+              | None ->
+                  failwith "SHOULD HAVE BBOX FOR SCROLL"
+              end
+            | Horizontal -> begin
+              match scroll.bbox with
+              | Some bbox ->
+                  let Ui.
+                        { x= scrollbar_container_x
+                        ; width= scrollbar_container_width
+                        ; _ } =
+                    Option.get scrollbar_container.Ui.bbox
+                  in
+                  scroll.bbox <-
+                    Some
+                      { bbox with
+                        x=
+                          min
+                            ( scrollbar_container_x + scrollbar_container_width
+                            - bbox.Ui.width )
+                            (max scrollbar_container_x (bbox.Ui.x + x)) }
+              | None ->
+                  failwith "SHOULD HAVE BBOX FOR SCROLL"
+              end
           in
           adjust_scroll ~scroll ~scrollbar_container orientation ;
           match other_scrollcontainer with
