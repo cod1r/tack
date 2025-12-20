@@ -247,8 +247,7 @@ let get_potential_clipped_points ~parent ~points =
     , Float.of_int top
     , Float.of_int bottom )
   in
-  let clipped_points : floatarray = [|0.; 0.; 0.; 0.; 0.; 0.; 0.; 0.|] in
-  assert (Float.Array.length clipped_points = Float.Array.length points) ;
+  let clipped_points = Float.Array.copy points in
   let points_arr_length = Float.Array.length points in
   let idx = ref 0 in
   while !idx < points_arr_length do
@@ -516,26 +515,44 @@ let get_horizontal_text_start ~(box : Ui.box) ~(font_info : Freetype.font_info)
         bbox.x + bbox.width - width_of_string
   with Invalid_argument e -> failwith ("alignment requires a bbox;" ^ e)
 
-let write_highlight_to_ui_buffer ~(points : (int * int) list) =
-  let start = ui_buffer.length in
-  List.iteri
-    (fun i (x, y) ->
-      let x, y = (Float.of_int x, Float.of_int y) in
-      let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
-      let idx = (i * 6) + start in
-      ui_buffer.buffer.{idx} <- x ;
-      ui_buffer.buffer.{idx + 1} <- y ;
-      ui_buffer.buffer.{idx + 2} <- 0. ;
-      ui_buffer.buffer.{idx + 3} <- 0. ;
-      ui_buffer.buffer.{idx + 4} <- 1. ;
-      ui_buffer.buffer.{idx + 5} <- 0.5 )
-    points ;
-  ui_buffer.length <- start + (List.length points * _EACH_POINT_FLOAT_AMOUNT)
+let write_highlight_to_ui_buffer ~(points : (int * int) list) ~parent =
+  let _parent = parent in
+  let points =
+    List.fold_left
+      (fun acc (x, y) -> acc @ [Float.of_int x] @ [Float.of_int y])
+      [] points
+    |> Float.Array.of_list
+  in
+  let points =
+    match parent with
+    | Some parent ->
+        get_potential_clipped_points ~parent ~points
+    | None ->
+        points
+  in
+  let idx = ref 0 in
+  let ui_buffer_idx = ref ui_buffer.length in
+  while !idx < Float.Array.length points do
+    let x, y =
+      (Float.Array.get points !idx, Float.Array.get points (!idx + 1))
+    in
+    let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
+    ui_buffer.buffer.{!ui_buffer_idx} <- x ;
+    ui_buffer.buffer.{!ui_buffer_idx + 1} <- y ;
+    ui_buffer.buffer.{!ui_buffer_idx + 2} <- 0. ;
+    ui_buffer.buffer.{!ui_buffer_idx + 3} <- 0. ;
+    ui_buffer.buffer.{!ui_buffer_idx + 4} <- 1. ;
+    ui_buffer.buffer.{!ui_buffer_idx + 5} <- 0.5 ;
+    idx := !idx + 2 ;
+    ui_buffer_idx := !ui_buffer_idx + _EACH_POINT_FLOAT_AMOUNT
+  done ;
+  ui_buffer.length <- !ui_buffer_idx
 
 let draw_highlight ~(box : Ui.box) ~(font_info : Freetype.font_info)
     ~(r : Rope.rope) ~(highlight : int option * int option) ~scroll_y_offset
     ~scroll_x_offset ~text_wrap =
   let bbox = Option.value box.bbox ~default:Ui.default_bbox in
+  let start_x = bbox.x + scroll_x_offset in
   let entire_points_of_highlight_quads = ref [] in
   match highlight with
   | Some highlight_start, Some highlight_end ->
@@ -544,7 +561,7 @@ let draw_highlight ~(box : Ui.box) ~(font_info : Freetype.font_info)
         match c with
         | '\n' ->
             Rope.Rope_Traversal_Info
-              { x= bbox.x
+              { x= start_x
               ; y= acc.y + font_info.font_height
               ; rope_pos= acc.rope_pos + 1 }
         | _ ->
@@ -558,13 +575,13 @@ let draw_highlight ~(box : Ui.box) ~(font_info : Freetype.font_info)
             ( if acc.rope_pos >= highlight_start && acc.rope_pos < highlight_end
               then
                 let points =
-                  [ ( (if wraps then bbox.x else acc.x)
+                  [ ( (if wraps then start_x else acc.x)
                     , next_y + if wraps then font_info.font_height else 0 )
-                  ; ( (if wraps then bbox.x else acc.x)
+                  ; ( (if wraps then start_x else acc.x)
                     , acc.y + if wraps then font_info.font_height else 0 )
-                  ; ( (if wraps then bbox.x else acc.x) + x_advance
+                  ; ( (if wraps then start_x else acc.x) + x_advance
                     , acc.y + if wraps then font_info.font_height else 0 )
-                  ; ( (if wraps then bbox.x else acc.x) + x_advance
+                  ; ( (if wraps then start_x else acc.x) + x_advance
                     , next_y + if wraps then font_info.font_height else 0 ) ]
                 in
                 entire_points_of_highlight_quads :=
@@ -575,10 +592,10 @@ let draw_highlight ~(box : Ui.box) ~(font_info : Freetype.font_info)
         (Rope.traverse_rope ~rope:r ~handle_result:fold_fn_for_draw_highlight
            ~result:
              (Rope.Rope_Traversal_Info
-                { x= bbox.x + scroll_x_offset
-                ; y= bbox.y + scroll_y_offset
-                ; rope_pos= 0 } ) ) ;
-      write_highlight_to_ui_buffer ~points:!entire_points_of_highlight_quads
+                {x= start_x; y= bbox.y + scroll_y_offset; rope_pos= 0} ) ) ;
+      write_highlight_to_ui_buffer
+        ~points:!entire_points_of_highlight_quads
+        ~parent:(Some box)
   | _ ->
       ()
 

@@ -43,8 +43,8 @@ let pass_evt_to_focused ~(e : Sdl.event) =
               Ui_textarea.handle_kbd_evt
                 ~bbox:(Option.value b.bbox ~default:Ui.default_bbox)
                 ~font_info ~char_code ~keysym ~kbd_evt_type
-                ~text_area_information:info ~scroll_y_offset:b.scroll_y_offset
-                ~text_wrap:b.text_wrap
+                ~scroll_x_offset:b.scroll_x_offset ~text_area_information:info
+                ~scroll_y_offset:b.scroll_y_offset ~text_wrap:b.text_wrap
             in
             adjust_scroll_container_for_focused_element b
               new_text_area_information ;
@@ -65,6 +65,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
               Ui_textarea.handle_mouse_motion_evt ~x ~y ~bbox ~font_info
                 ~rope:info.text ~text_area_information:info
                 ~text_wrap:b.text_wrap ~scroll_y_offset:b.scroll_y_offset
+                ~scroll_x_offset:b.scroll_x_offset
             in
             b.content <- Some (Textarea new_info)
         | None ->
@@ -85,6 +86,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                   Ui_textarea.find_closest_rope_pos_for_cursor_on_coords
                     ~text_wrap:b.text_wrap ~bbox ~font_info ~x ~y ~rope:r
                     ~scroll_y_offset:b.scroll_y_offset
+                    ~scroll_x_offset:b.scroll_x_offset
                 in
                 match mouse_evt_type with
                 | Mousedown ->
