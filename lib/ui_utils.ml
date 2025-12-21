@@ -1,10 +1,10 @@
-let clone_box ~(box : Ui.box) =
+let clone_box ~(box : Ui_types.box) =
   let visited = ref [] in
   let rec clone_box' box =
     if List.exists (fun b -> b == box) !visited then
       failwith "Recursive structure detected"
     else visited := box :: !visited ;
-    Ui.
+    Ui_types.
       { name= box.name
       ; content=
           ( match box.content with
@@ -13,12 +13,21 @@ let clone_box ~(box : Ui.box) =
           | Some (Boxes list) ->
               Some (Boxes (List.map (fun b -> clone_box' b) list))
           | Some
-              (ScrollContainer {content; orientation; other_scrollcontainer; _})
-            ->
-              let content = clone_box' content in
+              (ScrollContainer
+                 { content
+                 ; orientation
+                 ; other_scrollcontainer
+                 ; scroll
+                 ; scrollbar_container
+                 ; container } ) ->
               Some
-                (Ui_scrollcontainers.create_scrollcontainer ~content
-                   ~orientation ~other_scrollcontainer )
+                (ScrollContainer
+                   { content= clone_box' content
+                   ; orientation
+                   ; other_scrollcontainer
+                   ; scroll= clone_box' scroll
+                   ; scrollbar_container= clone_box' scrollbar_container
+                   ; container= clone_box' container } )
           | Some (Text _)
           | Some (Textarea _)
           | Some (TextAreaWithLineNumbers _)
@@ -45,9 +54,25 @@ let clone_box ~(box : Ui.box) =
   in
   clone_box' box
 
-let direction_to_string ~(orientation : Ui.direction) =
+let direction_to_string ~(orientation : Ui_types.direction) =
   match orientation with
-  | Ui.Vertical ->
+  | Ui_types.Vertical ->
       "Vertical"
-  | Ui.Horizontal ->
+  | Horizontal ->
       "Horizontal"
+
+let get_text_wrap_info ~(box : Ui_types.box) ~glyph ~x ~y ~font_info ~text_wrap
+    =
+  let bbox =
+    match box.bbox with
+    | Some bbox ->
+        bbox
+    | None ->
+        failwith ("EXPECTED BBOX;" ^ __LOC__)
+  in
+  let glyph_info = Freetype.get_glyph_info_from_glyph ~glyph ~font_info in
+  if x + glyph_info.x_advance > bbox.x + bbox.width && text_wrap then
+    ( ~new_x:(bbox.x + glyph_info.x_advance)
+    , ~new_y:(y + font_info.font_height)
+    , ~wraps:true )
+  else (~new_x:(x + glyph_info.x_advance), ~new_y:y, ~wraps:false)

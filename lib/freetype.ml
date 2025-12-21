@@ -116,3 +116,6 @@ let get_new_font_info_with_font_size ~(font_size : int) ~(face : ft_face) =
   ; font_height
   ; ascender
   ; descender }
+
+let get_glyph_info_from_glyph ~glyph ~font_info =
+  font_info.glyph_info_with_char.(Char.code glyph - 32)

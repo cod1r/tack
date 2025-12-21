@@ -1,5 +1,5 @@
 type file =
-  { rope: Rope.rope option
+  { rope: Rope_types.rope option
   ; cursor_pos: int
   ; file_name: string
   ; scroll_y_offset: int
@@ -10,7 +10,7 @@ type editor =
   { ropes: file list
   ; holding_ctrl: bool
   ; current_rope_idx: int option
-  ; bounds: Ui.bounding_box }
+  ; bounds: Ui_types.bounding_box }
 
 let open_file file_name =
   Printf.printf "Trying to open %s" file_name ;

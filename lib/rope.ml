@@ -1,4 +1,5 @@
-type rope = Leaf of string | Node of {left: rope; right: rope; weight: int}
+open Ui_types
+open Rope_types
 
 let fib =
   [| 1
@@ -157,32 +158,151 @@ let delete r ~start ~len =
   in
   concat before after
 
-type rope_traversal_info = {x: int; y: int; rope_pos: int}
+let get_pair_col_and_rope_pos
+    ~(rope_traversal_info : Rope_types.rope_traversal_info) ~closest_info ~x =
+  match closest_info.closest_vertical_range with
+  | Some (s, e) ->
+      if rope_traversal_info.y = s && closest_info.upper_y = e then
+        match closest_info.closest_col with
+        | Some closest_col ->
+            if abs (closest_col - x) < abs (rope_traversal_info.x - x) then
+              (closest_info.closest_col, closest_info.closest_rope)
+            else (Some rope_traversal_info.x, Some rope_traversal_info.rope_pos)
+        | None ->
+            (Some rope_traversal_info.x, Some rope_traversal_info.rope_pos)
+      else (closest_info.closest_col, closest_info.closest_rope)
+  | None ->
+      (None, None)
 
-type closest_information =
-  { closest_col: int option
-  ; upper_y: int
-  ; closest_vertical_range: (int * int) option
-  ; closest_rope: int option }
+let fold_rope_traversal_info (box : Ui_types.box)
+    (font_info : Freetype.font_info)
+    (rope_traversal_info : rope_traversal_info traverse_info) c =
+  let bbox =
+    match box.bbox with
+    | Some bbox ->
+        bbox
+    | None ->
+        failwith "EXPECTED BOX to have BBOX"
+  in
+  let start_x = bbox.x + box.scroll_x_offset in
+  let (Rope_Traversal_Info acc) = rope_traversal_info in
+  match c with
+  | '\n' -> begin
+    Rope_Traversal_Info
+      {x= start_x; y= acc.y + font_info.font_height; rope_pos= acc.rope_pos + 1}
+    end
+  | _ -> begin
+    let ~new_x, ~new_y, ~wraps =
+      Ui_utils.get_text_wrap_info ~box ~glyph:c ~x:acc.x ~y:acc.y ~font_info
+        ~text_wrap:box.Ui_types.text_wrap
+    in
+    Rope_Traversal_Info
+      { x= (if wraps then start_x else new_x)
+      ; y= new_y
+      ; rope_pos= acc.rope_pos + 1 }
+    end
 
-type _ traverse_info =
-  | Rope_Traversal_Info :
-      rope_traversal_info
-      -> rope_traversal_info traverse_info
-  | Line_Numbers :
-      (rope_traversal_info * int option list)
-      -> (rope_traversal_info * int option list) traverse_info
-  | Finding_Cursor :
-      (rope_traversal_info * closest_information)
-      -> (rope_traversal_info * closest_information) traverse_info
+let fold_line_numbers (box : Ui_types.box) (font_info : Freetype.font_info)
+    (acc : line_number_info traverse_info) c =
+  let bbox =
+    match box.bbox with
+    | Some bbox ->
+        bbox
+    | None ->
+        failwith "EXPECTED BOX to have BBOX"
+  in
+  let start_x = bbox.x + box.scroll_x_offset in
+  let (Line_Numbers (rope_traversal_info, list)) = acc in
+  match c with
+  | '\n' -> begin
+    Line_Numbers
+      ( { x= start_x
+        ; y= rope_traversal_info.y + font_info.font_height
+        ; rope_pos= rope_traversal_info.rope_pos + 1 }
+      , let most_recent_line_number =
+          List.find_opt (fun ln -> Option.is_some ln) list
+        in
+        match most_recent_line_number with
+        | Some hd ->
+            Some (Option.get hd + 1) :: list
+        | None ->
+            [Some 1] )
+    end
+  | _ -> begin
+    let ~new_x, ~new_y, ~wraps =
+      Ui_utils.get_text_wrap_info ~box ~glyph:c ~x:rope_traversal_info.x
+        ~y:rope_traversal_info.y ~font_info ~text_wrap:box.Ui_types.text_wrap
+    in
+    Line_Numbers
+      ( { x= (if wraps then start_x else new_x)
+        ; y= new_y
+        ; rope_pos= rope_traversal_info.rope_pos + 1 }
+      , let most_recent_line_number =
+          List.find_opt (fun ln -> Option.is_some ln) list
+        in
+        match most_recent_line_number with
+        | Some _ ->
+            if wraps then None :: list else list
+        | None ->
+            [Some 1] )
+    end
+
+let fold_finding_cursor (box : Ui_types.box) (font_info : Freetype.font_info)
+    (acc : find_cursor_info traverse_info) c =
+  let bbox =
+    match box.bbox with
+    | Some bbox ->
+        bbox
+    | None ->
+        failwith "EXPECTED BOX to have BBOX"
+  in
+  let start_x = bbox.x + box.scroll_x_offset in
+  let (Finding_Cursor (rope_traversal_info, closest_info)) = acc in
+  let closest_info =
+    match closest_info.original_pos with
+    | X x ->
+        let closest_col, closest_rope =
+          get_pair_col_and_rope_pos ~rope_traversal_info ~closest_info ~x
+        in
+        {closest_info with closest_col; closest_rope}
+    | Y y ->
+        let closest_vertical_range =
+          if y >= rope_traversal_info.y && y <= closest_info.upper_y then
+            Some (rope_traversal_info.y, closest_info.upper_y)
+          else closest_info.closest_vertical_range
+        in
+        {closest_info with closest_vertical_range}
+  in
+  match c with
+  | '\n' -> begin
+    Finding_Cursor
+      ( { x= start_x
+        ; y= rope_traversal_info.y + font_info.font_height
+        ; rope_pos= rope_traversal_info.rope_pos + 1 }
+      , {closest_info with upper_y= closest_info.upper_y + font_info.font_height}
+      )
+    end
+  | _ -> begin
+    let ~new_x, ~new_y, ~wraps =
+      Ui_utils.get_text_wrap_info ~box ~glyph:c ~x:rope_traversal_info.x
+        ~y:rope_traversal_info.y ~font_info ~text_wrap:box.Ui_types.text_wrap
+    in
+    Finding_Cursor
+      ( { x= (if wraps then start_x else new_x)
+        ; y= new_y
+        ; rope_pos= rope_traversal_info.rope_pos + 1 }
+      , {closest_info with upper_y= new_y + font_info.font_height} )
+    end
 
 let rec traverse_rope : type a.
-       rope:rope
-    -> handle_result:(a traverse_info -> char -> a traverse_info)
+       box:Ui_types.box
+    -> font_info:Freetype.font_info
+    -> rope:rope
+    -> handle_result:(a traverse_info -> char -> unit) option
     -> result:a traverse_info
     -> a =
- fun ~(rope : rope)
-     ~(handle_result : a traverse_info -> char -> a traverse_info)
+ fun ~box ~font_info ~(rope : rope)
+     ~(handle_result : (a traverse_info -> char -> unit) option)
      ~(result : a traverse_info) ->
   match rope with
   | Leaf l -> (
@@ -192,8 +312,15 @@ let rec traverse_rope : type a.
         let len = String.length l in
         for i = 0 to len - 1 do
           let (Rope_Traversal_Info temp) =
-            handle_result (Rope_Traversal_Info !acc) l.[i]
+            fold_rope_traversal_info box font_info (Rope_Traversal_Info !acc)
+              l.[i]
           in
+          begin match handle_result with
+          | Some handle_result ->
+              handle_result (Rope_Traversal_Info !acc) l.[i]
+          | None ->
+              ()
+          end ;
           acc := temp
         done ;
         !acc
@@ -201,7 +328,15 @@ let rec traverse_rope : type a.
         let acc = ref r in
         let len = String.length l in
         for i = 0 to len - 1 do
-          let (Line_Numbers temp) = handle_result (Line_Numbers !acc) l.[i] in
+          let (Line_Numbers temp) =
+            fold_line_numbers box font_info (Line_Numbers !acc) l.[i]
+          in
+          begin match handle_result with
+          | Some handle_result ->
+              handle_result (Line_Numbers !acc) l.[i]
+          | None ->
+              ()
+          end ;
           acc := temp
         done ;
         !acc
@@ -210,15 +345,23 @@ let rec traverse_rope : type a.
         let len = String.length l in
         for i = 0 to len - 1 do
           let (Finding_Cursor temp) =
-            handle_result (Finding_Cursor !acc) l.[i]
+            fold_finding_cursor box font_info (Finding_Cursor !acc) l.[i]
           in
+          begin match handle_result with
+          | Some handle_result ->
+              handle_result (Finding_Cursor !acc) l.[i]
+          | None ->
+              ()
+          end ;
           acc := temp
         done ;
         !acc )
   | Node {left; right; _} ->
-      let left_result = traverse_rope ~rope:left ~handle_result ~result in
+      let left_result =
+        traverse_rope ~box ~font_info ~rope:left ~handle_result ~result
+      in
       let right_result =
-        traverse_rope ~rope:right ~handle_result
+        traverse_rope ~box ~font_info ~rope:right ~handle_result
           ~result:
             ( match result with
             | Rope_Traversal_Info _ ->

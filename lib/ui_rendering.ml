@@ -237,7 +237,7 @@ let () =
     ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
 
 let get_potential_clipped_points ~parent ~points =
-  let Ui.{left; right; top; bottom} =
+  let Ui_types.{left; right; top; bottom} =
     try Ui.get_box_sides ~box:parent
     with Invalid_argument e -> failwith (e ^ __LOC__)
   in
@@ -261,9 +261,9 @@ let get_potential_clipped_points ~parent ~points =
   done ;
   clipped_points
 
-let write_container_values_to_ui_buffer ~(box : Ui.box) ~(parent : Ui.box option)
-    =
-  let Ui.{width; height; x; y; _} =
+let write_container_values_to_ui_buffer ~(box : Ui_types.box)
+    ~(parent : Ui_types.box option) =
+  let Ui_types.{width; height; x; y; _} =
     Option.value box.bbox ~default:Ui.default_bbox
   and r, g, b, alpha = box.background_color in
   let points : floatarray =
@@ -352,7 +352,7 @@ let write_to_text_buffer ~(glyph_info : Freetype.glyph_info_) ~x ~y
     right bottom x;
     right bottom y;
     *)
-  let Ui.{left; right; top; bottom} = Ui.get_box_sides ~box:parent in
+  let Ui_types.{left; right; top; bottom} = Ui.get_box_sides ~box:parent in
   let glyph_left, glyph_right, glyph_top, glyph_bottom =
     ( x + glyph_info.horiBearingX
     , x + glyph_info.width + glyph_info.horiBearingX
@@ -377,7 +377,7 @@ let write_to_text_buffer ~(glyph_info : Freetype.glyph_info_) ~x ~y
     in
     let clipped_points =
       if
-        parent.Ui.clip_content
+        parent.clip_content
         && ( glyph_right > right || glyph_left < left || glyph_top < top
            || glyph_bottom > bottom )
       then get_potential_clipped_points ~parent ~points
@@ -477,7 +477,8 @@ let draw_to_gl_buffer () =
   Opengl.gl_draw_arrays_with_quads (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT) ;
   ui_buffer.length <- 0
 
-let get_vertical_text_start ~(box : Ui.box) ~(font_info : Freetype.font_info) =
+let get_vertical_text_start ~(box : Ui_types.box)
+    ~(font_info : Freetype.font_info) =
   try
     let bbox = Option.get box.bbox in
     let start_of_vertical =
@@ -493,10 +494,11 @@ let get_vertical_text_start ~(box : Ui.box) ~(font_info : Freetype.font_info) =
           bbox.y + bbox.height - font_info.font_height
     in
     start_of_vertical + font_info.ascender
-  with Invalid_argument e -> failwith ("alignment requires a bbox;" ^ e)
+  with Invalid_argument e ->
+    failwith ("alignment requires a bbox;" ^ e ^ __LOC__)
 
-let get_horizontal_text_start ~(box : Ui.box) ~(font_info : Freetype.font_info)
-    ~(s : string) =
+let get_horizontal_text_start ~(box : Ui_types.box)
+    ~(font_info : Freetype.font_info) ~(s : string) =
   let width_of_string =
     String.fold_left
       (fun acc c ->
@@ -513,7 +515,8 @@ let get_horizontal_text_start ~(box : Ui.box) ~(font_info : Freetype.font_info)
         bbox.x + (bbox.width / 2) - (width_of_string / 2)
     | Some Right ->
         bbox.x + bbox.width - width_of_string
-  with Invalid_argument e -> failwith ("alignment requires a bbox;" ^ e)
+  with Invalid_argument e ->
+    failwith ("alignment requires a bbox;" ^ e ^ __LOC__)
 
 let write_highlight_to_ui_buffer ~(points : (int * int) list) ~parent =
   let _parent = parent in
@@ -548,50 +551,47 @@ let write_highlight_to_ui_buffer ~(points : (int * int) list) ~parent =
   done ;
   ui_buffer.length <- !ui_buffer_idx
 
-let draw_highlight ~(box : Ui.box) ~(font_info : Freetype.font_info)
-    ~(r : Rope.rope) ~(highlight : int option * int option) ~scroll_y_offset
-    ~scroll_x_offset ~text_wrap =
+let draw_highlight ~(box : Ui_types.box) ~(font_info : Freetype.font_info)
+    ~(r : Rope_types.rope) ~(highlight : int option * int option)
+    ~scroll_y_offset ~scroll_x_offset ~text_wrap =
   let bbox = Option.value box.bbox ~default:Ui.default_bbox in
   let start_x = bbox.x + scroll_x_offset in
   let entire_points_of_highlight_quads = ref [] in
   match highlight with
   | Some highlight_start, Some highlight_end ->
-      let fold_fn_for_draw_highlight acc c =
-        let (Rope.Rope_Traversal_Info acc) = acc in
+      let fn_for_draw_highlight acc c =
+        let (Rope_types.Rope_Traversal_Info acc) = acc in
         match c with
         | '\n' ->
-            Rope.Rope_Traversal_Info
-              { x= start_x
-              ; y= acc.y + font_info.font_height
-              ; rope_pos= acc.rope_pos + 1 }
+            ()
         | _ ->
-            let gi = Ui.get_glyph_info_from_glyph ~glyph:c ~font_info in
+            let gi = Freetype.get_glyph_info_from_glyph ~glyph:c ~font_info in
             let x_advance = gi.x_advance in
             let next_y = acc.y + font_info.font_height in
-            let ~new_x, ~new_y, ~wraps =
-              Ui.get_text_wrap_info ~bbox ~glyph:c ~x:acc.x ~y:acc.y ~font_info
-                ~text_wrap
+            let ~wraps, .. =
+              Ui_utils.get_text_wrap_info ~box ~glyph:c ~x:acc.x ~y:acc.y
+                ~font_info ~text_wrap
             in
-            ( if acc.rope_pos >= highlight_start && acc.rope_pos < highlight_end
-              then
-                let points =
-                  [ ( (if wraps then start_x else acc.x)
-                    , next_y + if wraps then font_info.font_height else 0 )
-                  ; ( (if wraps then start_x else acc.x)
-                    , acc.y + if wraps then font_info.font_height else 0 )
-                  ; ( (if wraps then start_x else acc.x) + x_advance
-                    , acc.y + if wraps then font_info.font_height else 0 )
-                  ; ( (if wraps then start_x else acc.x) + x_advance
-                    , next_y + if wraps then font_info.font_height else 0 ) ]
-                in
-                entire_points_of_highlight_quads :=
-                  List.append points !entire_points_of_highlight_quads ) ;
-            Rope_Traversal_Info {x= new_x; y= new_y; rope_pos= acc.rope_pos + 1}
+            if acc.rope_pos >= highlight_start && acc.rope_pos < highlight_end
+            then
+              let points =
+                [ ( (if wraps then start_x else acc.x)
+                  , next_y + if wraps then font_info.font_height else 0 )
+                ; ( (if wraps then start_x else acc.x)
+                  , acc.y + if wraps then font_info.font_height else 0 )
+                ; ( (if wraps then start_x else acc.x) + x_advance
+                  , acc.y + if wraps then font_info.font_height else 0 )
+                ; ( (if wraps then start_x else acc.x) + x_advance
+                  , next_y + if wraps then font_info.font_height else 0 ) ]
+              in
+              entire_points_of_highlight_quads :=
+                List.append points !entire_points_of_highlight_quads
       in
       ignore
-        (Rope.traverse_rope ~rope:r ~handle_result:fold_fn_for_draw_highlight
+        (Rope.traverse_rope ~box ~font_info ~rope:r
+           ~handle_result:(Some fn_for_draw_highlight)
            ~result:
-             (Rope.Rope_Traversal_Info
+             (Rope_types.Rope_Traversal_Info
                 {x= start_x; y= bbox.y + scroll_y_offset; rope_pos= 0} ) ) ;
       write_highlight_to_ui_buffer
         ~points:!entire_points_of_highlight_quads
@@ -624,13 +624,13 @@ let write_cursor_to_ui_buffer ~x ~y ~font_height =
     values ;
   ui_buffer.length <- ui_buffer.length + Float.Array.length values
 
-let validate ~(box : Ui.box) =
-  let rec validate' (box : Ui.box) visited =
+let validate ~(box : Ui_types.box) =
+  let rec validate' (box : Ui_types.box) visited =
     if List.exists (fun b -> b == box) visited then
       failwith "Recursive box structure detected"
     else
-      match box.Ui.content with
-      | Some (Ui.Box b) ->
+      match box.content with
+      | Some (Box b) ->
           validate' b (box :: visited)
       | Some (Boxes list) ->
           let visited = box :: visited in
@@ -648,15 +648,15 @@ let validate ~(box : Ui.box) =
   in
   validate' box []
 
-let add_event_handlers ~(box : Ui.box) =
-  let rec add_event_handlers' (box : Ui.box) =
+let add_event_handlers ~(box : Ui_types.box) =
+  let rec add_event_handlers' (box : Ui_types.box) =
     ( match box.on_event with
     | Some oc ->
         Ui_events.add_event_handler ~box:(Some box) ~event_handler:oc
     | None ->
         Ui_events.remove_event_handler ~box ) ;
     match box.content with
-    | Some (Ui.Box b) ->
+    | Some (Box b) ->
         add_event_handlers' b
     | Some (Boxes list) ->
         List.iter (fun b -> add_event_handlers' b) list
@@ -669,13 +669,13 @@ let add_event_handlers ~(box : Ui.box) =
   in
   add_event_handlers' box
 
-let handle_list_of_boxes_initial_position ~(box : Ui.box) ~(d : Ui.direction)
-    ~(list : Ui.box list) =
+let handle_list_of_boxes_initial_position ~(box : Ui_types.box)
+    ~(d : Ui_types.direction) ~(list : Ui_types.box list) =
   let box_bbox = Option.value box.bbox ~default:Ui.default_bbox in
   let acc_width, acc_height =
     List.fold_left
       (fun (acc_w, acc_h) b ->
-        let bbox = Option.value b.Ui.bbox ~default:Ui.default_bbox in
+        let bbox = Option.value b.Ui_types.bbox ~default:Ui.default_bbox in
         match d with
         | Horizontal ->
             (acc_w + bbox.width, bbox.height)
@@ -706,7 +706,8 @@ let handle_list_of_boxes_initial_position ~(box : Ui.box) ~(d : Ui.direction)
   in
   (x_pos + box.scroll_x_offset, y_pos + box.scroll_y_offset)
 
-let align_inner_box_vertically ~(box : Ui.box) ~(inner_box : Ui.box) =
+let align_inner_box_vertically ~(box : Ui_types.box) ~(inner_box : Ui_types.box)
+    =
   match box.bbox with
   | Some bbox -> (
       let inner_box_bbox =
@@ -737,7 +738,8 @@ let align_inner_box_vertically ~(box : Ui.box) ~(inner_box : Ui.box) =
   | None ->
       ()
 
-let align_inner_box_horizontally ~(box : Ui.box) ~(inner_box : Ui.box) =
+let align_inner_box_horizontally ~(box : Ui_types.box)
+    ~(inner_box : Ui_types.box) =
   match box.bbox with
   | Some bbox -> (
       let inner_box_bbox =
@@ -767,14 +769,20 @@ let align_inner_box_horizontally ~(box : Ui.box) ~(inner_box : Ui.box) =
   | None ->
       ()
 
-let draw_cursor ~(font_info : Freetype.font_info) ~box ~(r : Rope.rope)
-    ~cursor_pos ~scroll_y_offset ~scroll_x_offset ~text_wrap =
-  let bbox = Option.value box.Ui.bbox ~default:Ui.default_bbox in
+let draw_cursor ~(font_info : Freetype.font_info) ~(box : Ui_types.box)
+    ~(r : Rope_types.rope) ~cursor_pos ~scroll_y_offset ~scroll_x_offset =
+  let bbox =
+    match box.bbox with
+    | Some bbox ->
+        bbox
+    | None ->
+        failwith ("SHOULD HAVE BBOX;" ^ __LOC__)
+  in
   let start_x = bbox.x + scroll_x_offset in
   match cursor_pos with
   | Some cursor_pos ->
-      let fold_fn_draw_cursor acc c =
-        let (Rope.Rope_Traversal_Info acc) = acc in
+      let fn_draw_cursor acc _c =
+        let (Rope_types.Rope_Traversal_Info acc) = acc in
         let y_pos = acc.y in
         if
           acc.rope_pos = cursor_pos && y_pos >= bbox.y
@@ -783,28 +791,13 @@ let draw_cursor ~(font_info : Freetype.font_info) ~box ~(r : Rope.rope)
           && acc.x <= bbox.x + bbox.width
         then
           write_cursor_to_ui_buffer ~x:acc.x ~y:acc.y
-            ~font_height:font_info.font_height ;
-        match c with
-        | '\n' ->
-            Rope.Rope_Traversal_Info
-              { x= start_x
-              ; y= acc.y + font_info.font_height
-              ; rope_pos= acc.rope_pos + 1 }
-        | _ ->
-            let gi = Ui.get_glyph_info_from_glyph ~glyph:c ~font_info in
-            let ~new_x, ~new_y, ~wraps =
-              Ui.get_text_wrap_info ~bbox ~glyph:c ~x:acc.x ~y:acc.y ~font_info
-                ~text_wrap
-            in
-            Rope_Traversal_Info
-              { x= (if wraps then start_x + gi.x_advance else new_x)
-              ; y= new_y
-              ; rope_pos= acc.rope_pos + 1 }
+            ~font_height:font_info.font_height
       in
       let res =
-        Rope.traverse_rope ~rope:r ~handle_result:fold_fn_draw_cursor
+        Rope.traverse_rope ~box ~font_info ~rope:r
+          ~handle_result:(Some fn_draw_cursor)
           ~result:
-            (Rope.Rope_Traversal_Info
+            (Rope_types.Rope_Traversal_Info
                {x= start_x; y= bbox.y + scroll_y_offset; rope_pos= 0} )
       in
       if res.rope_pos = cursor_pos then
@@ -814,15 +807,17 @@ let draw_cursor ~(font_info : Freetype.font_info) ~box ~(r : Rope.rope)
       ()
 
 type draw_context =
-  {parent: Ui.box option; previous_context: draw_context option}
+  {parent: Ui_types.box option; previous_context: draw_context option}
 
 let find_closest_parent_that_clips ~(context : draw_context) ~bbox =
   let rec loop context =
     match context.parent with
     | Some parent ->
-        let Ui.{left; right; top; bottom} = Ui.get_box_sides ~box:parent in
+        let Ui_types.{left; right; top; bottom} =
+          Ui.get_box_sides ~box:parent
+        in
         let bbox_left, bbox_right, bbox_top, bbox_bottom =
-          (bbox.Ui.x, bbox.x + bbox.width, bbox.y, bbox.y + bbox.height)
+          (bbox.Ui_types.x, bbox.x + bbox.width, bbox.y, bbox.y + bbox.height)
         in
         let out =
           bbox_left > right || bbox_right < left || bbox_left < left
@@ -844,7 +839,7 @@ let find_closest_parent_that_clips ~(context : draw_context) ~bbox =
   in
   loop context
 
-let draw_text ~(s : string) ~(box : Ui.box) ~context =
+let draw_text ~(s : string) ~(box : Ui_types.box) ~context =
   let ~font_info, ~gl_texture_id =
     Ui.TextTextureInfo.get_or_add_font_size_text_texture
       ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
@@ -873,21 +868,16 @@ let draw_text ~(s : string) ~(box : Ui.box) ~context =
       horizontal_pos := !horizontal_pos + glyph.x_advance )
     s
 
-let draw_text_textarea ~(font_info : Freetype.font_info) ~(box : Ui.box)
-    ~(rope : Rope.rope) ~scroll_y_offset ~scroll_x_offset ~text_wrap =
+let draw_text_textarea ~(font_info : Freetype.font_info) ~(box : Ui_types.box)
+    ~(rope : Rope_types.rope) ~scroll_y_offset ~scroll_x_offset ~text_wrap =
   let bbox = Option.value box.bbox ~default:Ui.default_bbox in
   let start_x = bbox.x + scroll_x_offset in
-  let fold_fn_for_drawing_text acc c =
-    let (Rope.Rope_Traversal_Info acc) = acc in
-    if c = '\n' then
-      Rope.Rope_Traversal_Info
-        { x= start_x
-        ; y= acc.y + font_info.font_height
-        ; rope_pos= acc.rope_pos + 1 }
-    else
-      let gi = Ui.get_glyph_info_from_glyph ~glyph:c ~font_info in
-      let ~new_x, ~new_y, ~wraps =
-        Ui.get_text_wrap_info ~bbox ~glyph:c ~x:acc.x ~y:acc.y ~font_info
+  let fn_for_drawing_text acc c =
+    let (Rope_types.Rope_Traversal_Info acc) = acc in
+    if c <> '\n' then
+      let gi = Freetype.get_glyph_info_from_glyph ~glyph:c ~font_info in
+      let ~wraps, .. =
+        Ui_utils.get_text_wrap_info ~box ~glyph:c ~x:acc.x ~y:acc.y ~font_info
           ~text_wrap
       in
       (* descender is a negative value *)
@@ -902,13 +892,13 @@ let draw_text_textarea ~(font_info : Freetype.font_info) ~(box : Ui.box)
       then
         write_to_text_buffer
           ~x:(if wraps then start_x else acc.x)
-          ~y:y_pos_start ~glyph_info:gi ~glyph:c ~font_info ~parent:box ;
-      Rope.Rope_Traversal_Info {rope_pos= acc.rope_pos + 1; x= new_x; y= new_y}
+          ~y:y_pos_start ~glyph_info:gi ~glyph:c ~font_info ~parent:box
   in
   ignore
-    (Rope.traverse_rope ~rope ~handle_result:fold_fn_for_drawing_text
+    (Rope.traverse_rope ~box ~font_info ~rope
+       ~handle_result:(Some fn_for_drawing_text)
        ~result:
-         (Rope.Rope_Traversal_Info
+         (Rope_types.Rope_Traversal_Info
             { rope_pos= 0
             ; x= start_x
             ; y= bbox.y + font_info.font_height + scroll_y_offset } ) )
@@ -918,7 +908,7 @@ let draw_text_textarea ~(font_info : Freetype.font_info) ~(box : Ui.box)
   an abstraction for that specific wrapping behavior, but let's consider that later.
 *)
 let draw_textarea ~(font_info : Freetype.font_info) ~rope ~highlight ~cursor_pos
-    ~(box : Ui.box) =
+    ~(box : Ui_types.box) =
   match rope with
   | Some r -> begin
     draw_text_textarea ~font_info ~rope:r ~box
@@ -931,17 +921,16 @@ let draw_textarea ~(font_info : Freetype.font_info) ~rope ~highlight ~cursor_pos
           ~text_wrap:box.text_wrap ;
         draw_cursor ~r ~cursor_pos ~scroll_y_offset:box.scroll_y_offset
           ~scroll_x_offset:box.scroll_x_offset ~font_info ~box
-          ~text_wrap:box.text_wrap
     | _ ->
         ()
     end
   | None ->
       ()
 
-let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
+let rec draw_box ~(box : Ui_types.box) ~(context : draw_context) =
   begin match box.bbox with
   | Some bbox ->
-      let Ui.{left; top; bottom; right} = Ui.get_box_sides ~box in
+      let Ui_types.{left; top; bottom; right} = Ui.get_box_sides ~box in
       let window_width_height = Sdl.sdl_gl_getdrawablesize () in
       let window_width_gl, window_height_gl =
         (window_width_height lsr 32, window_width_height land ((1 lsl 32) - 1))
@@ -987,16 +976,22 @@ let rec draw_box ~(box : Ui.box) ~(context : draw_context) =
       ()
   end
 
-let handle_if_content_overflows_or_not ~(box : Ui.box)
-    ~(context : Ui.ui_traversal_context) =
-  let Ui.
+let handle_if_content_overflows_or_not ~(box : Ui_types.box)
+    ~(context : Ui_types.ui_traversal_context) =
+  let Ui_types.
         { left= content_left
         ; right= content_right
         ; top= content_top
         ; bottom= content_bottom } =
     Ui.calculate_content_boundaries ~box
   in
-  let Ui.{width; height; _} = Option.value box.bbox ~default:Ui.default_bbox in
+  let Ui_types.{width; height; _} =
+    match box.bbox with
+    | Some bbox ->
+        bbox
+    | None ->
+        failwith ("SHOULD HAVE BBOX;" ^ __LOC__)
+  in
   if not context.in_scrollcontainer then begin
     if
       content_right - content_left > width
@@ -1018,7 +1013,7 @@ let handle_if_content_overflows_or_not ~(box : Ui.box)
     end
   end
 
-let rec calculate_ui ~(box : Ui.box) ~context =
+let rec calculate_ui ~(box : Ui_types.box) ~context =
   Ui.constrain_width_height ~box ;
   handle_if_content_overflows_or_not ~box ~context ;
   match box.content with
@@ -1034,7 +1029,7 @@ let rec calculate_ui ~(box : Ui.box) ~context =
           in
           List.iter
             (fun b ->
-              match b.Ui.bbox with
+              match b.Ui_types.bbox with
               | Some bbbox -> begin
                 bbbox.x <- fst !boxes_pos ;
                 bbbox.y <- snd !boxes_pos ;
@@ -1095,7 +1090,7 @@ let rec calculate_ui ~(box : Ui.box) ~context =
   | None ->
       ()
 
-let draw ~(box : Ui.box) =
+let draw ~(box : Ui_types.box) =
   Opengl.gl_clear_color 1. 1. 1. 1. ;
   Opengl.gl_clear () ;
   validate ~box ;

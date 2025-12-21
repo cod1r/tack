@@ -68,7 +68,7 @@ let timing_test_traverse_rope _ =
   () ;
   let rec traverse_rope r =
     match r with
-    | Tack.Rope.Leaf _ ->
+    | Tack.Rope_types.Leaf _ ->
         ()
     | Node {left; right; _} ->
         traverse_rope left ; traverse_rope right

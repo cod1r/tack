@@ -1,69 +1,8 @@
-type bounding_box =
-  {mutable width: int; mutable height: int; mutable x: int; mutable y: int}
-
-type direction = Horizontal | Vertical
-
-type box_sides = {left: int; right: int; top: int; bottom: int}
-
-type positioning = Relative of {x: int; y: int} | Absolute
-
-type horizontal_alignment = Left | Center | Right
-
-type vertical_alignment = Top | Center | Bottom
-
-type size_constraint = Min | Max
-
-let scrollbar_container_width = 15
-
-type box =
-  { mutable name: string option
-  ; mutable content: box_content option
-  ; mutable bbox: bounding_box option
-  ; mutable text_wrap: bool
-  ; mutable background_color: float * float * float * float
-  ; mutable border: bool
-  ; mutable flow: direction option
-  ; mutable font_size: int option
-  ; mutable width_constraint: size_constraint option
-  ; mutable height_constraint: size_constraint option
-  ; mutable clip_content: bool
-  ; mutable position_type: positioning
-  ; mutable allow_horizontal_scroll: bool
-  ; mutable allow_vertical_scroll: bool
-  ; mutable horizontal_align: horizontal_alignment option
-  ; mutable vertical_align: vertical_alignment option
-  ; mutable on_event: event_handler_t option
-  ; mutable scroll_x_offset: int
-  ; mutable scroll_y_offset: int
-  ; mutable focusable: bool }
-
-and event_handler_t = b:box option -> e:Sdl.event -> unit
-
-and text_area_information =
-  { text: Rope.rope option
-  ; cursor_pos: int option
-  ; highlight_pos: int option * int option
-  ; holding_mousedown_rope_pos: int option }
-
-and scrollcontainer_info =
-  { other_scrollcontainer: scrollcontainer_info option
-  ; content: box
-  ; scroll: box
-  ; scrollbar_container: box
-  ; container: box
-  ; orientation: direction }
-
-and box_content =
-  | Box of box
-  | Boxes of box list
-  | Text of {string: string}
-  | Textarea of text_area_information
-  | ScrollContainer of scrollcontainer_info
-  | TextAreaWithLineNumbers of {line_numbers: box; textarea: box; container: box}
-
-type ui_traversal_context = {in_scrollcontainer: bool; parent: box option}
+open Ui_types
 
 let focused_element : box option ref = ref None
+
+let scrollbar_container_width = 15
 
 let set_focused_element ~(box : box) = focused_element := Some box
 
@@ -106,7 +45,7 @@ let is_within_box ~x ~y ~box ~from_sdl_evt =
   x >= left && x <= right && y <= bottom && y >= top
 
 let default_textarea_event_handler =
- fun ~b ~e ->
+ fun ~(b : box option) ~e ->
   match b with
   | Some b -> (
     match b.content with
@@ -148,17 +87,6 @@ let default_box =
   ; scroll_y_offset= 0
   ; focusable= false }
 
-let get_glyph_info_from_glyph ~glyph ~font_info =
-  font_info.Freetype.glyph_info_with_char.(Char.code glyph - 32)
-
-let get_text_wrap_info ~bbox ~glyph ~x ~y ~font_info ~text_wrap =
-  let glyph_info = get_glyph_info_from_glyph ~glyph ~font_info in
-  if x + glyph_info.x_advance > bbox.x + bbox.width && text_wrap then
-    ( ~new_x:(bbox.x + glyph_info.x_advance)
-    , ~new_y:(y + font_info.font_height)
-    , ~wraps:true )
-  else (~new_x:(x + glyph_info.x_advance), ~new_y:y, ~wraps:false)
-
 module TextTextureInfo = struct
   type texture_info =
     {gl_texture_id: int; font_size: int; font_info: Freetype.font_info}
@@ -191,7 +119,7 @@ module TextTextureInfo = struct
         (~font_info, ~gl_texture_id:gl_buffer_glyph_texture_atlas)
 end
 
-let create_textarea_box ?(text : Rope.rope option) () =
+let create_textarea_box ?(text : Rope_types.rope option) () =
   { default_box with
     focusable= true
   ; clip_content= true
@@ -233,27 +161,22 @@ let get_text_bounding_box ~(box : box) =
     TextTextureInfo.get_or_add_font_size_text_texture
       ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
   in
-  let Rope.{y; _} =
-    Rope.traverse_rope ~rope
-      ~handle_result:(fun
-          (acc : Rope.rope_traversal_info Rope.traverse_info) c ->
-        let (Rope_Traversal_Info acc) = acc in
-        max_y := get_max_int !max_y acc.y ;
-        match c with
-        | '\n' ->
-            Rope_Traversal_Info
-              { y= acc.y + font_info.Freetype.font_height
-              ; x= bbox.x
-              ; rope_pos= acc.rope_pos + 1 }
-        | _ ->
-            let ~new_x, ~new_y, .. =
-              get_text_wrap_info ~bbox ~glyph:c ~x:acc.x ~y:acc.y ~font_info
-                ~text_wrap:box.text_wrap
-            in
-            max_x :=
-              get_max_int !max_x
-                (new_x + if is_textarea then text_caret_width else 0) ;
-            Rope_Traversal_Info {y= new_y; x= new_x; rope_pos= acc.rope_pos + 1} )
+  let Rope_types.{y; _} =
+    Rope.traverse_rope ~box ~font_info ~rope
+      ~handle_result:
+        (Some
+           (fun (acc : Rope_types.rope_traversal_info Rope_types.traverse_info)
+             c
+           ->
+             let (Rope_Traversal_Info acc) = acc in
+             max_y := get_max_int !max_y acc.y ;
+             match c with
+             | '\n' ->
+                 ()
+             | _ ->
+                 max_x :=
+                   get_max_int !max_x
+                     (acc.x + if is_textarea then text_caret_width else 0) ) )
       ~result:(Rope_Traversal_Info {x= bbox.x; y= bbox.y; rope_pos= 0})
   in
   max_y := get_max_int !max_y y ;
@@ -325,34 +248,14 @@ let get_xy_pos_of_text_caret ~text_area_info ~box =
     in
     match text_area_info.text with
     | Some rope ->
-        let Rope.{x; y; _} =
+        let Rope_types.{x; y; _} =
           let start_x = bbox.x + box.scroll_x_offset
           and start_y = bbox.y + box.scroll_y_offset in
-          Rope.traverse_rope ~rope
-            ~handle_result:(fun acc c ->
-              let (Rope_Traversal_Info acc) = acc in
-              if acc.rope_pos = Option.get text_area_info.cursor_pos then
-                Rope_Traversal_Info acc
-              else
-                match c with
-                | '\n' ->
-                    Rope_Traversal_Info
-                      { x= start_x
-                      ; y= acc.y + font_info.font_height
-                      ; rope_pos= acc.rope_pos + 1 }
-                | _ ->
-                    let gi = get_glyph_info_from_glyph ~glyph:c ~font_info in
-                    let ~new_x, ~new_y, ~wraps =
-                      get_text_wrap_info
-                        ~bbox:(Option.value box.bbox ~default:default_bbox)
-                        ~glyph:c ~x:acc.x ~y:acc.y ~font_info
-                        ~text_wrap:box.text_wrap
-                    in
-                    Rope_Traversal_Info
-                      { x= (if wraps then start_x + gi.x_advance else new_x)
-                      ; y= new_y
-                      ; rope_pos= acc.rope_pos + 1 } )
-            ~result:(Rope_Traversal_Info {x= start_x; y= start_y; rope_pos= 0})
+          Rope.traverse_rope ~box ~font_info ~rope
+            ~handle_result:(Some (fun _acc _c -> ()))
+            ~result:
+              (Rope_types.Rope_Traversal_Info
+                 {x= start_x; y= start_y; rope_pos= 0} )
         in
         Some (~x, ~y)
     | None ->
