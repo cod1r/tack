@@ -1,3 +1,5 @@
+open Ui_types
+
 let create_textarea_with_line_numbers ?text ~textarea_width ~textarea_height ()
     =
   let container =
@@ -26,10 +28,10 @@ let create_textarea_with_line_numbers ?text ~textarea_width ~textarea_height ()
   textarea.bbox <-
     Some {x= 0; y= 0; width= textarea_width; height= textarea_height} ;
   container.content <- Some (Boxes [line_numbers; textarea]) ;
-  Ui_types.TextAreaWithLineNumbers {line_numbers; container; textarea}
+  TextAreaWithLineNumbers {line_numbers; container; textarea}
 
 let get_line_nums rope textarea =
-  let textarea_bbox = Option.get textarea.Ui_types.bbox in
+  let textarea_bbox = Option.get textarea.bbox in
   let ~font_info, .. =
     Ui.TextTextureInfo.get_or_add_font_size_text_texture
       ~font_size:(Option.value textarea.font_size ~default:Freetype.font_size)
@@ -49,21 +51,21 @@ let get_line_number_boxes ~rope ~box_containing_textarea =
       (fun ln -> match ln with Some ln -> Int.to_string ln | None -> "")
       line_nums
   in
-  Ui_types.Boxes
+  Boxes
     (List.map
        (fun s ->
          { Ui.default_box with
            height_constraint= Some Min
          ; width_constraint= Some Min
          ; horizontal_align= Some Right
-         ; content= Some (Ui_types.Text {string= s}) } )
+         ; content= Some (Text {string= s}) } )
        (stringified |> List.rev) )
 
 let adjust_textarea_with_line_numbers ~textarea_with_line_numbers =
   match textarea_with_line_numbers with
-  | Ui_types.TextAreaWithLineNumbers {line_numbers; textarea; _} -> (
+  | TextAreaWithLineNumbers {line_numbers; textarea; _} -> (
     match textarea.content with
-    | Some (Ui_types.Textarea info) -> begin
+    | Some (Textarea info) -> begin
       let rope = info.text in
       match rope with
       | Some rope ->

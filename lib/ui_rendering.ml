@@ -310,7 +310,7 @@ let () =
 let get_new_tex_coords_based_off_of_clipped_points ~clipped_points ~points
     ~(glyph_info : Freetype.glyph_info_) (left, right, top, bottom) =
   (*
-what it is: index
+  what it is (corner of vertex); index
   left bottom x;0
   left bottom y;1
   left top x;2

@@ -1,9 +1,10 @@
 open Sdl
+open Ui_types
 
 let _LINE_NUMBER_RIGHT_PADDING = 20
 
-let find_closest_vertical_range ~(box : Ui_types.box)
-    ~(font_info : Freetype.font_info) ~rope ~y ~scroll_y_offset =
+let find_closest_vertical_range ~(box : box) ~(font_info : Freetype.font_info)
+    ~rope ~y ~scroll_y_offset =
   let bbox =
     match box.bbox with
     | Some bbox ->
@@ -26,9 +27,8 @@ let find_closest_vertical_range ~(box : Ui_types.box)
   in
   closest_vertical_range
 
-let find_closest_horizontal_pos ~(box : Ui_types.box)
-    ~(font_info : Freetype.font_info) ~rope ~x ~scroll_y_offset
-    ~closest_vertical_range ~scroll_x_offset =
+let find_closest_horizontal_pos ~(box : box) ~(font_info : Freetype.font_info)
+    ~rope ~x ~scroll_y_offset ~closest_vertical_range ~scroll_x_offset =
   let bbox =
     match box.bbox with
     | Some bbox ->
@@ -65,7 +65,7 @@ let find_closest_horizontal_pos ~(box : Ui_types.box)
        2. Find the horizontal x position, that is built from traversing the rope again given the vertical range,
           that is within the vertical range and is closest to the x value for the mousedown event.
 *)
-let find_closest_rope_pos_for_cursor_on_coords ~(box : Ui_types.box)
+let find_closest_rope_pos_for_cursor_on_coords ~(box : box)
     ~(font_info : Freetype.font_info) ~x ~y ~rope ~scroll_y_offset
     ~scroll_x_offset =
   let width_ratio, height_ratio =
@@ -82,8 +82,8 @@ let find_closest_rope_pos_for_cursor_on_coords ~(box : Ui_types.box)
   in
   if closest_rope = None then Rope.length rope else closest_rope |> Option.get
 
-let find_coords_for_cursor_pos ~(box : Ui_types.box) ~font_info ~rope
-    ~cursor_pos ~scroll_y_offset =
+let find_coords_for_cursor_pos ~(box : box) ~font_info ~rope ~cursor_pos
+    ~scroll_y_offset =
   let bbox =
     match box.bbox with
     | Some bbox ->
@@ -120,9 +120,8 @@ let find_closest_rope_pos_for_moving_cursor_in_vertical_range
   hor_pos
 
 let handle_kbd_evt ~(font_info : Freetype.font_info) ~char_code ~box
-    ~kbd_evt_type ~keysym
-    ~(text_area_information : Ui_types.text_area_information) ~scroll_y_offset
-    ~scroll_x_offset : Ui_types.text_area_information =
+    ~kbd_evt_type ~keysym ~(text_area_information : text_area_information)
+    ~scroll_y_offset ~scroll_x_offset : text_area_information =
   let r =
     Option.value text_area_information.text ~default:(Rope.of_string "")
   in
@@ -221,8 +220,7 @@ let handle_kbd_evt ~(font_info : Freetype.font_info) ~char_code ~box
     | _ ->
         text_area_information )
 
-let handle_txt_evt ~(text_area_information : Ui_types.text_area_information)
-    ~text =
+let handle_txt_evt ~(text_area_information : text_area_information) ~text =
   let r =
     Option.value text_area_information.text ~default:(Rope.of_string "")
   in
@@ -243,9 +241,8 @@ let handle_txt_evt ~(text_area_information : Ui_types.text_area_information)
     ; holding_mousedown_rope_pos= None
     ; cursor_pos= Some (cursor_pos' + String.length text) }
 
-let handle_mouse_motion_evt
-    ~(text_area_information : Ui_types.text_area_information) ~x ~y ~box
-    ~font_info ~rope ~scroll_y_offset ~scroll_x_offset =
+let handle_mouse_motion_evt ~(text_area_information : text_area_information) ~x
+    ~y ~box ~font_info ~rope ~scroll_y_offset ~scroll_x_offset =
   let rope = Option.value rope ~default:(Rope.of_string "") in
   match text_area_information.holding_mousedown_rope_pos with
   | Some mousedown_rope_pos ->

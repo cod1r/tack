@@ -158,8 +158,8 @@ let delete r ~start ~len =
   in
   concat before after
 
-let get_pair_col_and_rope_pos
-    ~(rope_traversal_info : Rope_types.rope_traversal_info) ~closest_info ~x =
+let get_pair_col_and_rope_pos ~(rope_traversal_info : rope_traversal_info)
+    ~closest_info ~x =
   match closest_info.closest_vertical_range with
   | Some (s, e) ->
       if rope_traversal_info.y = s && closest_info.upper_y = e then
@@ -174,8 +174,7 @@ let get_pair_col_and_rope_pos
   | None ->
       (None, None)
 
-let fold_rope_traversal_info (box : Ui_types.box)
-    (font_info : Freetype.font_info)
+let fold_rope_traversal_info (box : box) (font_info : Freetype.font_info)
     (rope_traversal_info : rope_traversal_info traverse_info) c =
   let bbox =
     match box.bbox with
@@ -194,7 +193,7 @@ let fold_rope_traversal_info (box : Ui_types.box)
   | _ -> begin
     let ~new_x, ~new_y, ~wraps =
       Ui_utils.get_text_wrap_info ~box ~glyph:c ~x:acc.x ~y:acc.y ~font_info
-        ~text_wrap:box.Ui_types.text_wrap
+        ~text_wrap:box.text_wrap
     in
     Rope_Traversal_Info
       { x= (if wraps then start_x else new_x)
@@ -202,7 +201,7 @@ let fold_rope_traversal_info (box : Ui_types.box)
       ; rope_pos= acc.rope_pos + 1 }
     end
 
-let fold_line_numbers (box : Ui_types.box) (font_info : Freetype.font_info)
+let fold_line_numbers (box : box) (font_info : Freetype.font_info)
     (acc : line_number_info traverse_info) c =
   let bbox =
     match box.bbox with
@@ -231,7 +230,7 @@ let fold_line_numbers (box : Ui_types.box) (font_info : Freetype.font_info)
   | _ -> begin
     let ~new_x, ~new_y, ~wraps =
       Ui_utils.get_text_wrap_info ~box ~glyph:c ~x:rope_traversal_info.x
-        ~y:rope_traversal_info.y ~font_info ~text_wrap:box.Ui_types.text_wrap
+        ~y:rope_traversal_info.y ~font_info ~text_wrap:box.text_wrap
     in
     Line_Numbers
       ( { x= (if wraps then start_x else new_x)
@@ -247,7 +246,7 @@ let fold_line_numbers (box : Ui_types.box) (font_info : Freetype.font_info)
             [Some 1] )
     end
 
-let fold_finding_cursor (box : Ui_types.box) (font_info : Freetype.font_info)
+let fold_finding_cursor (box : box) (font_info : Freetype.font_info)
     (acc : find_cursor_info traverse_info) c =
   let bbox =
     match box.bbox with
@@ -285,7 +284,7 @@ let fold_finding_cursor (box : Ui_types.box) (font_info : Freetype.font_info)
   | _ -> begin
     let ~new_x, ~new_y, ~wraps =
       Ui_utils.get_text_wrap_info ~box ~glyph:c ~x:rope_traversal_info.x
-        ~y:rope_traversal_info.y ~font_info ~text_wrap:box.Ui_types.text_wrap
+        ~y:rope_traversal_info.y ~font_info ~text_wrap:box.text_wrap
     in
     Finding_Cursor
       ( { x= (if wraps then start_x else new_x)
@@ -295,7 +294,7 @@ let fold_finding_cursor (box : Ui_types.box) (font_info : Freetype.font_info)
     end
 
 let rec traverse_rope : type a.
-       box:Ui_types.box
+       box:box
     -> font_info:Freetype.font_info
     -> rope:rope
     -> handle_result:(a traverse_info -> char -> unit) option

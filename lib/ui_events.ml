@@ -1,10 +1,12 @@
+open Ui_types
+
 let event_handlers = ref []
 
 let adjust_scroll_container_for_focused_element b new_text_area_information =
   match
     List.find_opt
       (function
-        | Ui_types.ScrollContainer {content; _} ->
+        | ScrollContainer {content; _} ->
             content == b
         | _ ->
             failwith "impossible" )
@@ -112,7 +114,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
         match
           List.find_opt
             (function
-              | Ui_types.ScrollContainer {content; _} ->
+              | ScrollContainer {content; _} ->
                   content == b
               | _ ->
                   failwith "impossible" )
@@ -126,14 +128,13 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                ; scrollbar_container
                ; _ } ) -> begin
           let adjust_scroll ~scroll ~scrollbar_container = function
-            | Ui_types.Vertical -> begin
-              match scroll.Ui_types.bbox with
+            | Vertical -> begin
+              match scroll.bbox with
               | Some bbox ->
-                  let Ui_types.
-                        { y= scrollbar_container_y
-                        ; height= scrollbar_container_height
-                        ; _ } =
-                    Option.get scrollbar_container.Ui_types.bbox
+                  let { y= scrollbar_container_y
+                      ; height= scrollbar_container_height
+                      ; _ } =
+                    Option.get scrollbar_container.bbox
                   in
                   scroll.bbox <-
                     Some
@@ -141,7 +142,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                         y=
                           min
                             ( scrollbar_container_y + scrollbar_container_height
-                            - bbox.Ui_types.height )
+                            - bbox.height )
                             (max scrollbar_container_y (bbox.y + -y)) }
               | None ->
                   failwith "SHOULD HAVE BBOX FOR SCROLL"
@@ -149,10 +150,9 @@ let pass_evt_to_focused ~(e : Sdl.event) =
             | Horizontal -> begin
               match scroll.bbox with
               | Some bbox ->
-                  let Ui_types.
-                        { x= scrollbar_container_x
-                        ; width= scrollbar_container_width
-                        ; _ } =
+                  let { x= scrollbar_container_x
+                      ; width= scrollbar_container_width
+                      ; _ } =
                     Option.get scrollbar_container.bbox
                   in
                   scroll.bbox <-
@@ -193,14 +193,14 @@ let pass_evt_to_focused ~(e : Sdl.event) =
 
 let check_for_holding ~(e : Sdl.event) =
   match e with
-  | Sdl.KeyboardEvt {keysym; kbd_evt_type; _} -> (
+  | KeyboardEvt {keysym; kbd_evt_type; _} -> (
       if Char.code keysym = 1073742048 then
         match kbd_evt_type with
         | Keydown ->
             Ui.holding_ctrl := true
         | Keyup ->
             Ui.holding_ctrl := false )
-  | Sdl.MouseButtonEvt {mouse_evt_type; x; y; _} -> (
+  | MouseButtonEvt {mouse_evt_type; x; y; _} -> (
     match mouse_evt_type with
     | Mousedown ->
         Ui.holding_mousedown := `True (~original_x:x, ~original_y:y)
@@ -217,8 +217,7 @@ let emit_event ~(e : Sdl.event) =
     !event_handlers
 
 (* the reason that it's a box option is because sometimes there are going to be global event handlers *)
-let add_event_handler ~(box : Ui_types.box option)
-    ~(event_handler : Ui_types.event_handler_t) =
+let add_event_handler ~(box : box option) ~(event_handler : event_handler_t) =
   if
     not
       (List.exists
@@ -226,7 +225,7 @@ let add_event_handler ~(box : Ui_types.box option)
          !event_handlers )
   then event_handlers := (box, event_handler) :: !event_handlers
 
-let remove_event_handler ~(box : Ui_types.box) =
+let remove_event_handler ~(box : box) =
   event_handlers :=
     List.filter
       (fun (box', _) -> Option.is_none box' || Option.get box' != box)
