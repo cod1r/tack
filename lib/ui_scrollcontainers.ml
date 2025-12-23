@@ -39,34 +39,39 @@ let get_scrollbar_event_logic ~content ~orientation =
       match b with
       | Some b -> (
         match !Ui.holding_mousedown with
-        | `True (~original_x, ~original_y) -> (
-            let _, height_ratio =
-              Sdl.get_logical_to_opengl_window_dims_ratio ()
-            in
-            let y = y * height_ratio in
-            if
-              Ui.is_within_box ~box:b ~x:original_x ~y:original_y
-                ~from_sdl_evt:true
-              && not !original_mousedown_pos_was_within
-            then (
-              original_mousedown_pos_was_within := true ;
-              let bbox = Option.value b.bbox ~default:Ui.default_bbox in
-              diff_from_initial_mousedown_to_start_of_bar :=
-                match orientation with
-                | Vertical ->
-                    y - bbox.y
-                | Horizontal ->
-                    x - bbox.x ) ;
-            if !original_mousedown_pos_was_within then
+        | `True (~original_x, ~original_y) -> begin
+          let width_ratio, height_ratio =
+            Sdl.get_logical_to_opengl_window_dims_ratio ()
+          in
+          let y = y * height_ratio in
+          let x = x * width_ratio in
+          if
+            Ui.is_within_box ~box:b ~x:original_x ~y:original_y
+              ~from_sdl_evt:true
+            && not !original_mousedown_pos_was_within
+          then begin
+            original_mousedown_pos_was_within := true ;
+            assert (b.bbox <> None) ;
+            let bbox = Option.get b.bbox in
+            diff_from_initial_mousedown_to_start_of_bar :=
               match orientation with
               | Vertical ->
-                  handle_vertical_scroll_on_evt ~y ~content ~scrollbar_box:b
-                    ~diff_from_initial_mousedown_to_start_of_bar:
-                      !diff_from_initial_mousedown_to_start_of_bar
+                  y - bbox.y
               | Horizontal ->
-                  handle_horizontal_scroll_on_evt ~x ~content ~scrollbar_box:b
-                    ~diff_from_initial_mousedown_to_start_of_bar:
-                      !diff_from_initial_mousedown_to_start_of_bar )
+                  x - bbox.x
+          end ;
+          if !original_mousedown_pos_was_within then begin
+            match orientation with
+            | Vertical ->
+                handle_vertical_scroll_on_evt ~y ~content ~scrollbar_box:b
+                  ~diff_from_initial_mousedown_to_start_of_bar:
+                    !diff_from_initial_mousedown_to_start_of_bar
+            | Horizontal ->
+                handle_horizontal_scroll_on_evt ~x ~content ~scrollbar_box:b
+                  ~diff_from_initial_mousedown_to_start_of_bar:
+                    !diff_from_initial_mousedown_to_start_of_bar
+          end
+          end
         | `False ->
             original_mousedown_pos_was_within := false )
       | None ->
@@ -158,18 +163,8 @@ let create_scrollcontainer ~(content : box) ~orientation ~other_scrollcontainer
                     Vertical ) } }
   in
   Ui.scrollcontainers := scrollcontainer :: !Ui.scrollcontainers ;
-  begin match scrollcontainer with
-  | ScrollContainer {container; _} ->
-      Ui.constrain_width_height ~box:container
-  | _ ->
-      failwith ("IMPOSSIBLE" ^ __LOC__)
-  end ;
   scrollcontainer
 
-(* the code in this function reveals how fragile the design of the ui lib is.
-I change the box contents and the focused box/element needs to be the direct box that holds
-the contents so I have to change it here. Also text_wrap needs to be copied which is another edge case.
-So many edge cases. *)
 let wrap_box_contents_in_scrollcontainer ~(parent : box) ~(box : box)
     ~orientation =
   match box.content with
@@ -336,13 +331,14 @@ let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
             let new_scrollbar_height =
               parent_height * parent_height / content_height
             in
-            if bbox.y + new_scrollbar_height > bottom then
-              scroll.bbox <-
-                Some
-                  { bbox with
-                    y= bottom - new_scrollbar_height
-                  ; height= new_scrollbar_height }
-            else scroll.bbox <- Some {bbox with height= new_scrollbar_height}
+            scroll.bbox <-
+              Some
+                { bbox with
+                  height= new_scrollbar_height
+                ; y=
+                    ( if bbox.y + new_scrollbar_height > bottom then
+                        bottom - new_scrollbar_height
+                      else bbox.y ) }
         | None ->
             failwith "SHOULD HAVE BBOX for scroll.Ui.bbox"
         end
@@ -365,23 +361,25 @@ let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
             let new_scrollbar_width =
               parent_width * parent_width / content_width
             in
-            if bbox.x + new_scrollbar_width > right then
-              scroll.bbox <-
-                Some
-                  { bbox with
-                    x= right - new_scrollbar_width
-                  ; width= new_scrollbar_width }
-            else scroll.bbox <- Some {bbox with width= new_scrollbar_width}
+            scroll.bbox <-
+              Some
+                { bbox with
+                  width= new_scrollbar_width
+                ; x=
+                    ( if bbox.x + new_scrollbar_width > right then
+                        right - new_scrollbar_width
+                      else bbox.x ) }
         | None ->
             failwith ("SHOULD HAVE BBOX FOR SCROLL.BBOX" ^ __LOC__)
         end
-      | false -> (
+      | false -> begin
         match scroll.bbox with
         | Some bbox ->
             scroll.bbox <- Some {bbox with x= left; width= 0} ;
             content.scroll_x_offset <- 0
         | None ->
-            failwith "SHOULD'VE HAD BBOX" )
+            failwith "SHOULD'VE HAD BBOX"
+        end
       end
     end
   | None ->

@@ -310,16 +310,16 @@ let rec traverse_rope : type a.
         let acc = ref r in
         let len = String.length l in
         for i = 0 to len - 1 do
-          let (Rope_Traversal_Info temp) =
-            fold_rope_traversal_info box font_info (Rope_Traversal_Info !acc)
-              l.[i]
-          in
           begin match handle_result with
           | Some handle_result ->
               handle_result (Rope_Traversal_Info !acc) l.[i]
           | None ->
               ()
           end ;
+          let (Rope_Traversal_Info temp) =
+            fold_rope_traversal_info box font_info (Rope_Traversal_Info !acc)
+              l.[i]
+          in
           acc := temp
         done ;
         !acc
@@ -327,15 +327,15 @@ let rec traverse_rope : type a.
         let acc = ref r in
         let len = String.length l in
         for i = 0 to len - 1 do
-          let (Line_Numbers temp) =
-            fold_line_numbers box font_info (Line_Numbers !acc) l.[i]
-          in
           begin match handle_result with
           | Some handle_result ->
               handle_result (Line_Numbers !acc) l.[i]
           | None ->
               ()
           end ;
+          let (Line_Numbers temp) =
+            fold_line_numbers box font_info (Line_Numbers !acc) l.[i]
+          in
           acc := temp
         done ;
         !acc
@@ -343,15 +343,15 @@ let rec traverse_rope : type a.
         let acc = ref r in
         let len = String.length l in
         for i = 0 to len - 1 do
-          let (Finding_Cursor temp) =
-            fold_finding_cursor box font_info (Finding_Cursor !acc) l.[i]
-          in
           begin match handle_result with
           | Some handle_result ->
               handle_result (Finding_Cursor !acc) l.[i]
           | None ->
               ()
           end ;
+          let (Finding_Cursor temp) =
+            fold_finding_cursor box font_info (Finding_Cursor !acc) l.[i]
+          in
           acc := temp
         done ;
         !acc )

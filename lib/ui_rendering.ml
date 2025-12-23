@@ -671,7 +671,8 @@ let add_event_handlers ~(box : Ui_types.box) =
 
 let handle_list_of_boxes_initial_position ~(box : Ui_types.box)
     ~(d : Ui_types.direction) ~(list : Ui_types.box list) =
-  let box_bbox = Option.value box.bbox ~default:Ui.default_bbox in
+  assert (Option.is_some box.bbox) ;
+  let box_bbox = Option.get box.bbox in
   let acc_width, acc_height =
     List.fold_left
       (fun (acc_w, acc_h) b ->
@@ -903,10 +904,6 @@ let draw_text_textarea ~(font_info : Freetype.font_info) ~(box : Ui_types.box)
             ; x= start_x
             ; y= bbox.y + font_info.font_height + scroll_y_offset } ) )
 
-(* At first, it seems like there could be a write_rope_to_text_buffer function, BUT
-  there are specific details like wrapping that I'd like to handle. Maybe there could be
-  an abstraction for that specific wrapping behavior, but let's consider that later.
-*)
 let draw_textarea ~(font_info : Freetype.font_info) ~rope ~highlight ~cursor_pos
     ~(box : Ui_types.box) =
   match rope with
@@ -985,13 +982,8 @@ let handle_if_content_overflows_or_not ~(box : Ui_types.box)
         ; bottom= content_bottom } =
     Ui.calculate_content_boundaries ~box
   in
-  let Ui_types.{width; height; _} =
-    match box.bbox with
-    | Some bbox ->
-        bbox
-    | None ->
-        failwith ("SHOULD HAVE BBOX;" ^ __LOC__)
-  in
+  assert (box.bbox <> None) ;
+  let Ui_types.{width; height; _} = Option.get box.bbox in
   if not context.in_scrollcontainer then begin
     if
       content_right - content_left > width
@@ -1014,7 +1006,8 @@ let handle_if_content_overflows_or_not ~(box : Ui_types.box)
   end
 
 let rec calculate_ui ~(box : Ui_types.box) ~context =
-  Ui.constrain_width_height ~box ;
+  Ui.constrain_width_height ~box ~context ;
+  assert (Option.is_some box.bbox) ;
   handle_if_content_overflows_or_not ~box ~context ;
   match box.content with
   | Some (Box b) ->
@@ -1067,7 +1060,7 @@ let rec calculate_ui ~(box : Ui_types.box) ~context =
         ~content ~scroll ~orientation ;
       Ui_scrollcontainers.adjust_scrollbar_according_to_content_size ~content
         ~scroll ~orientation ;
-      begin match orientation with
+      (* begin match orientation with
       | Vertical ->
           let bbox = Option.get scroll.bbox in
           if bbox.height = 0 then
@@ -1078,7 +1071,7 @@ let rec calculate_ui ~(box : Ui_types.box) ~context =
           if bbox.width = 0 then
             Ui_scrollcontainers.unwrap_scrollcontainer ~box
               ~unwrap_orientation:orientation
-      end ;
+      end ; *)
       calculate_ui ~box:container
         ~context:{in_scrollcontainer= true; parent= Some box}
   | Some

@@ -44,6 +44,12 @@ and contains text
     currently there's an issue where the child box will try and max its size to the parents size and the parent will try and min
       its size to the child's size so neither gets the right size...
 
+    UI layout features:
+      vertical/horizontal "flow" layout
+      vertical/horizontal/center alignment
+
+    size min/max'ing needs to be rethought...
+
     a lot of logic is fragile and needs to be tested
 
 performance ideas:

@@ -8,6 +8,36 @@ let list_files dir =
   in
   list_files' dir []
 
+type file_tree =
+  | Directory of {name: string; children: file_tree list; level: int}
+  | File of string
+
+let build_file_tree dir =
+  let rec traverse_file_tree level dir =
+    let files =
+      Sys.readdir dir |> Array.to_list |> List.map (fun f -> dir ^ "/" ^ f)
+    in
+    let children =
+      List.map
+        (fun f ->
+          if Sys.is_directory f then traverse_file_tree (level + 1) f
+          else File f )
+        files
+    in
+    Directory {name= dir; children; level}
+  in
+  if Sys.is_directory dir then traverse_file_tree 0 dir else File dir
+
+let flatten_tree file_tree =
+  let rec fold acc file_tree =
+    match file_tree with
+    | Directory {children; _} as d ->
+        List.fold_left (fun acc child -> fold acc child) (d :: acc) children
+    | File _ as f ->
+        f :: acc
+  in
+  fold [] file_tree
+
 let includes_search files search =
   List.filter
     (fun file ->

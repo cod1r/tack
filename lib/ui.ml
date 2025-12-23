@@ -41,7 +41,9 @@ let is_within_box ~x ~y ~box ~from_sdl_evt =
       (x * width_ratio, y * height_ratio)
     else (x, y)
   in
-  let {left; right; top; bottom} = get_box_sides ~box in
+  let {left; right; top; bottom} =
+    try get_box_sides ~box with Failure e -> failwith (e ^ __LOC__)
+  in
   x >= left && x <= right && y <= bottom && y >= top
 
 let default_textarea_event_handler =
@@ -153,9 +155,13 @@ let get_text_bounding_box ~(box : box) =
     | _ ->
         failwith __FUNCTION__
   in
-  let bbox = Option.value box.bbox ~default:default_bbox in
+  assert (box.bbox <> None) ;
+  let bbox = Option.get box.bbox in
   let (min_x, min_y, max_x, max_y) : int ref * int ref * int ref * int ref =
-    (ref bbox.x, ref bbox.y, ref Int.min_int, ref Int.min_int)
+    ( ref (bbox.x + box.scroll_x_offset)
+    , ref (bbox.y + box.scroll_y_offset)
+    , ref Int.min_int
+    , ref Int.min_int )
   in
   let ~font_info, .. =
     TextTextureInfo.get_or_add_font_size_text_texture
@@ -165,30 +171,29 @@ let get_text_bounding_box ~(box : box) =
     Rope.traverse_rope ~box ~font_info ~rope
       ~handle_result:
         (Some
-           (fun (acc : Rope_types.rope_traversal_info Rope_types.traverse_info)
-             c
-           ->
-             let (Rope_Traversal_Info acc) = acc in
+           (fun (Rope_Traversal_Info acc) _c ->
              max_y := get_max_int !max_y acc.y ;
-             match c with
-             | '\n' ->
-                 ()
-             | _ ->
-                 max_x :=
-                   get_max_int !max_x
-                     (acc.x + if is_textarea then text_caret_width else 0) ) )
-      ~result:(Rope_Traversal_Info {x= bbox.x; y= bbox.y; rope_pos= 0})
+             max_x :=
+               get_max_int !max_x
+                 (acc.x + if is_textarea then text_caret_width else 0) ) )
+      ~result:
+        (Rope_Traversal_Info
+           { x= bbox.x + box.scroll_x_offset
+           ; y= bbox.y + box.scroll_y_offset
+           ; rope_pos= 0 } )
   in
   max_y := get_max_int !max_y y ;
   max_y := !max_y + font_info.font_height ;
   (~min_x:!min_x, ~max_x:!max_x, ~min_y:!min_y, ~max_y:!max_y)
 
 let calculate_content_boundaries ~(box : box) =
-  let {left; right; top; bottom} = get_box_sides ~box in
+  let {left; right; top; bottom} =
+    try get_box_sides ~box with Failure e -> failwith (e ^ __LOC__)
+  in
   match box.content with
   | Some (Box b) ->
       let {left= left'; right= right'; top= top'; bottom= bottom'} =
-        get_box_sides ~box:b
+        try get_box_sides ~box:b with Failure e -> failwith (e ^ __LOC__)
       in
       { left= get_min_int left left'
       ; right= get_max_int right right'
@@ -201,7 +206,9 @@ let calculate_content_boundaries ~(box : box) =
           , max_vertical_position ) =
         List.fold_left
           (fun (min_horizontal, max_horizontal, min_vertical, max_vertical) b ->
-            let {left; right; top; bottom} = get_box_sides ~box:b in
+            let {left; right; top; bottom} =
+              try get_box_sides ~box:b with Failure e -> failwith (e ^ __LOC__)
+            in
             ( get_min_int min_horizontal left
             , get_max_int max_horizontal right
             , get_min_int min_vertical top
@@ -237,27 +244,34 @@ let calculate_content_boundaries ~(box : box) =
   | None ->
       {left; right; top; bottom}
 
-(* the x, y values also contain the scroll offsets from the box *)
 let get_xy_pos_of_text_caret ~text_area_info ~box =
-  let bbox = Option.value box.bbox ~default:default_bbox in
+  assert (box.bbox <> None) ;
+  let bbox = Option.get box.bbox in
   if Option.is_none text_area_info.cursor_pos then None
   else
     let ~font_info, .. =
       TextTextureInfo.get_or_add_font_size_text_texture
         ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
     in
+    let cursor_pos = Option.get text_area_info.cursor_pos in
     match text_area_info.text with
     | Some rope ->
-        let Rope_types.{x; y; _} =
-          let start_x = bbox.x + box.scroll_x_offset
-          and start_y = bbox.y + box.scroll_y_offset in
-          Rope.traverse_rope ~box ~font_info ~rope
-            ~handle_result:(Some (fun _acc _c -> ()))
-            ~result:
-              (Rope_types.Rope_Traversal_Info
-                 {x= start_x; y= start_y; rope_pos= 0} )
-        in
-        Some (~x, ~y)
+        let start_x = bbox.x + box.scroll_x_offset
+        and start_y = bbox.y + box.scroll_y_offset
+        and x = ref 0
+        and y = ref 0 in
+        ignore
+          (Rope.traverse_rope ~box ~font_info ~rope
+             ~handle_result:
+               (Some
+                  (fun (Rope_types.Rope_Traversal_Info acc) _c ->
+                    if acc.rope_pos = cursor_pos then (
+                      x := acc.x ;
+                      y := acc.y ) ) )
+             ~result:
+               (Rope_types.Rope_Traversal_Info
+                  {x= start_x; y= start_y; rope_pos= 0} ) ) ;
+        Some (~x:!x, ~y:!y)
     | None ->
         None
 
@@ -280,7 +294,7 @@ let adjust_scrollbar_according_to_textarea_text_caret ~text_area_info ~scroll
     | Some bbox -> begin
       match orientation with
       | Horizontal ->
-          if x + text_caret_width > right then
+          if x + text_caret_width > right then begin
             scroll.bbox <-
               Some
                 { bbox with
@@ -288,8 +302,9 @@ let adjust_scrollbar_according_to_textarea_text_caret ~text_area_info ~scroll
                     bbox.x
                     + (right - left)
                       * (x + text_caret_width - right)
-                      / (content_right - content_left) } ;
-          if x < left then
+                      / (content_right - content_left) }
+          end ;
+          if x < left then begin
             scroll.bbox <-
               Some
                 { bbox with
@@ -298,8 +313,9 @@ let adjust_scrollbar_according_to_textarea_text_caret ~text_area_info ~scroll
                     + (right - left)
                       * (x - text_caret_width - left)
                       / (content_right - content_left) }
+          end
       | Vertical ->
-          if y < top then
+          if y < top then begin
             scroll.bbox <-
               Some
                 { bbox with
@@ -307,8 +323,9 @@ let adjust_scrollbar_according_to_textarea_text_caret ~text_area_info ~scroll
                     bbox.y
                     + (bottom - top)
                       * (y - (top + font_info.font_height))
-                      / (content_bottom - content_top) } ;
-          if y + font_info.font_height > bottom then
+                      / (content_bottom - content_top) }
+          end ;
+          if y + font_info.font_height > bottom then begin
             scroll.bbox <-
               Some
                 { bbox with
@@ -318,9 +335,10 @@ let adjust_scrollbar_according_to_textarea_text_caret ~text_area_info ~scroll
                       * ( y + font_info.font_height
                         - (bottom - font_info.font_height) )
                       / (content_bottom - content_top) }
+          end
       end
     | None ->
-        failwith ("SHOULD HAVE BBOX FOR scroll.bbox" ^ __LOC__)
+        failwith ("SHOULD HAVE BBOX FOR scroll.bbox " ^ __LOC__)
     end
   | None ->
       ()
@@ -347,15 +365,17 @@ let get_available_size_for_maxed_constrained_inner_boxes
   left_over / number_of_constrained
 
 let handle_maximizing_of_inner_content_size ~(parent_box : box) =
+  assert (parent_box.bbox <> None) ;
   let parent_bbox = Option.value parent_box.bbox ~default:default_bbox in
   match parent_box.content with
   | Some (Box b) -> (
-      ( match b.width_constraint with
+      begin match b.width_constraint with
       | Some Max ->
           let b_bbox = Option.value b.bbox ~default:default_bbox in
           b.bbox <- Some {b_bbox with width= parent_bbox.width}
       | Some Min | None ->
-          () ) ;
+          ()
+      end ;
       match b.height_constraint with
       | Some Max ->
           let b_bbox = Option.value b.bbox ~default:default_bbox in
@@ -423,6 +443,7 @@ let handle_maximizing_of_inner_content_size ~(parent_box : box) =
   | Some (ScrollContainer _) ->
       ()
   | Some (TextAreaWithLineNumbers {container; _}) ->
+      assert (parent_box.bbox <> None) ;
       container.bbox <- parent_box.bbox
   | None ->
       ()
@@ -437,12 +458,14 @@ let calculate_string_width ~s ~font_info =
     0 s
 
 let rec clamp_width_or_height_to_content_size ~(box : box)
-    ~(measurement : [`Width | `Height]) =
-  let bbox = Option.value box.bbox ~default:default_bbox in
+    ~(measurement : [`Width | `Height]) ~context =
+  assert (Option.is_some box.bbox) ;
+  let bbox = Option.get box.bbox in
   match box.content with
   | Some (Box b) -> (
-      constrain_width_height ~box:b ;
-      let inner_bbox = Option.value b.bbox ~default:default_bbox in
+      constrain_width_height ~box:b ~context:{context with parent= Some box} ;
+      assert (Option.is_some b.bbox) ;
+      let inner_bbox = Option.get b.bbox in
       match measurement with
       | `Width when box.width_constraint = Some Min ->
           box.bbox <- Some {bbox with width= inner_bbox.width}
@@ -451,7 +474,10 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
       | _ ->
           () )
   | Some (Boxes list) -> (
-      List.iter (fun b -> constrain_width_height ~box:b) list ;
+      List.iter
+        (fun b ->
+          constrain_width_height ~box:b ~context:{context with parent= Some box} )
+        list ;
       match box.flow with
       | Some Vertical -> (
           let summed_size =
@@ -468,16 +494,9 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
               0 list
           in
           match measurement with
-          | `Width
-            when match box.width_constraint with Some Min -> true | _ -> false
-            ->
+          | `Width when box.width_constraint = Some Min ->
               box.bbox <- Some {bbox with width= max_width}
-          | `Height
-            when match box.height_constraint with
-                 | Some Min ->
-                     true
-                 | _ ->
-                     false ->
+          | `Height when box.height_constraint = Some Min ->
               box.bbox <- Some {bbox with height= summed_size}
           | _ ->
               () )
@@ -491,21 +510,16 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
           let max_height =
             List.fold_left
               (fun acc b ->
-                get_max_int acc
-                  (Option.value b.bbox ~default:default_bbox).height )
+                let b_height =
+                  (Option.value b.bbox ~default:default_bbox).height
+                in
+                get_max_int acc b_height )
               0 list
           in
           match measurement with
-          | `Width
-            when match box.width_constraint with Some Min -> true | _ -> false
-            ->
+          | `Width when box.width_constraint = Some Min ->
               box.bbox <- Some {bbox with width= summed_size}
-          | `Height
-            when match box.height_constraint with
-                 | Some Min ->
-                     true
-                 | _ ->
-                     false ->
+          | `Height when box.height_constraint = Some Min ->
               box.bbox <- Some {bbox with height= max_height}
           | _ ->
               () )
@@ -519,27 +533,20 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
       let string_width = calculate_string_width ~s:string ~font_info in
       (* this doesn't handle the case of text wrapping *)
       match measurement with
-      | `Width
-        when match box.width_constraint with Some Min -> true | _ -> false ->
+      | `Width when box.width_constraint = Some Min ->
           box.bbox <- Some {bbox with width= string_width}
-      | `Height
-        when match box.width_constraint with Some Min -> true | _ -> false ->
+      | `Height when box.width_constraint = Some Min ->
           box.bbox <- Some {bbox with height= font_info.font_height}
       | _ ->
           () )
   | Some (Textarea _)
-    when match (box.width_constraint, box.height_constraint) with
-         | Some Min, None | None, Some Min ->
-             true
-         | _ ->
-             false ->
+    when box.width_constraint = Some Min || box.height_constraint = Some Min ->
       let {left; right; top; bottom} = calculate_content_boundaries ~box in
       box.bbox <-
         Some {x= left; y= top; width= right - left; height= bottom - top}
   | Some (ScrollContainer {container; scrollbar_container; orientation; _}) -> (
     match measurement with
-    | `Width
-      when match box.width_constraint with Some Min -> true | _ -> false -> (
+    | `Width when box.width_constraint = Some Min -> (
       match orientation with
       | Vertical ->
           let {width= content_width; _} : bounding_box =
@@ -554,8 +561,7 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
             Option.value container.bbox ~default:default_bbox
           in
           box.bbox <- Some {bbox with width= content_width} )
-    | `Height
-      when match box.height_constraint with Some Min -> true | _ -> false -> (
+    | `Height when box.height_constraint = Some Min -> (
       match orientation with
       | Horizontal ->
           let {height= content_height; _} : bounding_box =
@@ -572,19 +578,45 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
           box.bbox <- Some {bbox with height= content_height} )
     | _ ->
         () )
-  | Some (TextAreaWithLineNumbers {container; _}) -> (
-    match measurement with
-    | `Width
-      when match box.width_constraint with Some Min -> true | _ -> false ->
-        box.bbox <- container.bbox
-    | `Height
-      when match box.height_constraint with Some Min -> true | _ -> false ->
-        box.bbox <- container.bbox
-    | _ ->
-        () )
+  | Some (TextAreaWithLineNumbers {container; _}) -> begin
+      constrain_width_height ~box:container
+        ~context:{context with parent= Some box} ;
+      assert (container.bbox <> None) ;
+      match measurement with
+      | `Width when box.width_constraint = Some Min ->
+          box.bbox <- container.bbox
+      | `Height when box.height_constraint = Some Min ->
+          box.bbox <- container.bbox
+      | _ ->
+          ()
+      end
   | None ->
       ()
   | _ ->
+      ()
+
+and calculate_box_position ~(box : Ui_types.box)
+    ~(context : Ui_types.ui_traversal_context) =
+  (* box position should always start inside the parent if there's no bbox defined before hand *)
+  begin match box.bbox with
+  | Some _ ->
+      ()
+  | None -> (
+    match context.parent with
+    | Some parent ->
+        assert (Option.is_some parent.bbox) ;
+        let parent_bbox = Option.get parent.bbox in
+        box.bbox <-
+          Some {x= parent_bbox.x; y= parent_bbox.y; width= 0; height= 0}
+    | None ->
+        failwith "WHY IS THERE NO BBOX WITH NO PARENT" )
+  end ;
+  match box.position_type with
+  | Relative {x; y} ->
+      assert (Option.is_some box.bbox) ;
+      let bbox = Option.get box.bbox in
+      box.bbox <- Some {bbox with x= bbox.x + x; y= bbox.y + y}
+  | Absolute ->
       ()
 
 (* I'm not sure how to handle cases where the contents are positioned outside of
@@ -592,7 +624,8 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
    positioned would be fine but that leaves problems like child contents being outside of
    the parent container which poses the question of, what should the min width/height be?
    Perhaps, restricting this functionality when child elements are only positioned relatively *)
-and constrain_width_height ~(box : box) =
-  clamp_width_or_height_to_content_size ~box ~measurement:`Width ;
-  clamp_width_or_height_to_content_size ~box ~measurement:`Height ;
+and constrain_width_height ~(box : box) ~context =
+  calculate_box_position ~box ~context ;
+  clamp_width_or_height_to_content_size ~box ~measurement:`Width ~context ;
+  clamp_width_or_height_to_content_size ~box ~measurement:`Height ~context ;
   handle_maximizing_of_inner_content_size ~parent_box:box

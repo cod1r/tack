@@ -47,9 +47,7 @@ let get_line_nums rope textarea =
 let get_line_number_boxes ~rope ~box_containing_textarea =
   let line_nums = get_line_nums rope box_containing_textarea in
   let stringified =
-    List.map
-      (fun ln -> match ln with Some ln -> Int.to_string ln | None -> "")
-      line_nums
+    List.map (function Some ln -> Int.to_string ln | None -> "") line_nums
   in
   Boxes
     (List.map

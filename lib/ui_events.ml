@@ -13,17 +13,31 @@ let adjust_scroll_container_for_focused_element b new_text_area_information =
       !Ui.scrollcontainers
   with
   | Some
-      (ScrollContainer {scroll; orientation; other_scrollcontainer; content; _})
-    -> (
-      Ui.adjust_scrollbar_according_to_textarea_text_caret
-        ~text_area_info:new_text_area_information ~scroll ~orientation ~content ;
-      match other_scrollcontainer with
-      | Some {scroll; orientation; content; _} ->
-          Ui.adjust_scrollbar_according_to_textarea_text_caret
-            ~text_area_info:new_text_area_information ~scroll ~orientation
-            ~content
-      | _ ->
-          () )
+      (ScrollContainer
+         { scroll
+         ; orientation
+         ; other_scrollcontainer
+         ; content
+         ; scrollbar_container
+         ; _ } ) -> begin
+    Ui.adjust_scrollbar_according_to_textarea_text_caret
+      ~text_area_info:new_text_area_information ~scroll ~orientation ~content ;
+    let scroll_bbox = Option.get scroll.bbox in
+    assert (
+      Ui.is_within_box ~x:scroll_bbox.x ~y:scroll_bbox.y
+        ~box:scrollbar_container ~from_sdl_evt:false ) ;
+    match other_scrollcontainer with
+    | Some {scroll; orientation; content; scrollbar_container; _} ->
+        Ui.adjust_scrollbar_according_to_textarea_text_caret
+          ~text_area_info:new_text_area_information ~scroll ~orientation
+          ~content ;
+        let scroll_bbox = Option.get scroll.bbox in
+        assert (
+          Ui.is_within_box ~x:scroll_bbox.x ~y:scroll_bbox.y
+            ~box:scrollbar_container ~from_sdl_evt:false )
+    | _ ->
+        ()
+    end
   | _ ->
       ()
 
@@ -43,8 +57,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
         | Some _ ->
             let new_text_area_information =
               Ui_textarea.handle_kbd_evt ~box:b ~font_info ~char_code ~keysym
-                ~kbd_evt_type ~scroll_x_offset:b.scroll_x_offset
-                ~text_area_information:info ~scroll_y_offset:b.scroll_y_offset
+                ~kbd_evt_type ~text_area_information:info
             in
             adjust_scroll_container_for_focused_element b
               new_text_area_information ;
@@ -64,8 +77,6 @@ let pass_evt_to_focused ~(e : Sdl.event) =
             let new_info =
               Ui_textarea.handle_mouse_motion_evt ~x ~y ~box:b ~font_info
                 ~rope:info.text ~text_area_information:info
-                ~scroll_y_offset:b.scroll_y_offset
-                ~scroll_x_offset:b.scroll_x_offset
             in
             b.content <- Some (Textarea new_info)
         | None ->
@@ -84,8 +95,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
             | Some r -> (
                 let rope_pos =
                   Ui_textarea.find_closest_rope_pos_for_cursor_on_coords ~box:b
-                    ~font_info ~x ~y ~rope:r ~scroll_y_offset:b.scroll_y_offset
-                    ~scroll_x_offset:b.scroll_x_offset
+                    ~font_info ~x ~y ~rope:r
                 in
                 match mouse_evt_type with
                 | Mousedown ->
@@ -127,6 +137,9 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                ; other_scrollcontainer
                ; scrollbar_container
                ; _ } ) -> begin
+          let width_ratio, height_ratio =
+            Sdl.get_logical_to_opengl_window_dims_ratio ()
+          in
           let adjust_scroll ~scroll ~scrollbar_container = function
             | Vertical -> begin
               match scroll.bbox with
@@ -143,9 +156,10 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                           min
                             ( scrollbar_container_y + scrollbar_container_height
                             - bbox.height )
-                            (max scrollbar_container_y (bbox.y + -y)) }
+                            (max scrollbar_container_y
+                               (bbox.y + (-y * height_ratio)) ) }
               | None ->
-                  failwith "SHOULD HAVE BBOX FOR SCROLL"
+                  failwith "SHOULD HAVE BBOX FOR SCROLL1"
               end
             | Horizontal -> begin
               match scroll.bbox with
@@ -162,9 +176,10 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                           min
                             ( scrollbar_container_x + scrollbar_container_width
                             - bbox.width )
-                            (max scrollbar_container_x (bbox.x + x)) }
+                            (max scrollbar_container_x
+                               (bbox.x + (x * width_ratio)) ) }
               | None ->
-                  failwith "SHOULD HAVE BBOX FOR SCROLL"
+                  failwith "SHOULD HAVE BBOX FOR SCROLL2"
               end
           in
           adjust_scroll ~scroll ~scrollbar_container orientation ;
