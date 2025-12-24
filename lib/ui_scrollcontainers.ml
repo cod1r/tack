@@ -131,7 +131,8 @@ let create_scrollcontainer ~(content : box) ~orientation ~other_scrollcontainer
   let ~scrollbar_container, ~scrollbar =
     create_scrollbar_container ~content ~orientation
   in
-  let content_bbox = Option.value content.bbox ~default:Ui.default_bbox in
+  assert (content.bbox <> None) ;
+  let content_bbox = Option.get content.bbox in
   let scrollcontainer =
     ScrollContainer
       { other_scrollcontainer

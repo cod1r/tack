@@ -158,10 +158,7 @@ let get_text_bounding_box ~(box : box) =
   assert (box.bbox <> None) ;
   let bbox = Option.get box.bbox in
   let (min_x, min_y, max_x, max_y) : int ref * int ref * int ref * int ref =
-    ( ref (bbox.x + box.scroll_x_offset)
-    , ref (bbox.y + box.scroll_y_offset)
-    , ref Int.min_int
-    , ref Int.min_int )
+    (ref Int.max_int, ref Int.max_int, ref Int.min_int, ref Int.min_int)
   in
   let ~font_info, .. =
     TextTextureInfo.get_or_add_font_size_text_texture
@@ -172,6 +169,8 @@ let get_text_bounding_box ~(box : box) =
       ~handle_result:
         (Some
            (fun (Rope_Traversal_Info acc) _c ->
+             min_y := get_min_int !min_y acc.y ;
+             min_x := get_min_int !min_x acc.x ;
              max_y := get_max_int !max_y acc.y ;
              max_x :=
                get_max_int !max_x
@@ -275,8 +274,13 @@ let get_xy_pos_of_text_caret ~text_area_info ~box =
     | None ->
         None
 
-let adjust_scrollbar_according_to_textarea_text_caret ~text_area_info ~scroll
-    ~orientation ~content =
+(*
+Scrollbars are adjusted which then causes
+changes to the content scroll offsets in Ui_rendering via
+change_content_scroll_offsets_based_off_scrollbar
+*)
+let adjust_scrollbar_according_to_textarea_text_caret ~mouse_pos_xy
+    ~text_area_info ~scroll ~orientation ~content =
   let {right; left; top; bottom} = get_box_sides ~box:content in
   let { right= content_right
       ; left= content_left
@@ -288,57 +292,65 @@ let adjust_scrollbar_according_to_textarea_text_caret ~text_area_info ~scroll
     TextTextureInfo.get_or_add_font_size_text_texture
       ~font_size:(Option.value content.font_size ~default:Freetype.font_size)
   in
-  match get_xy_pos_of_text_caret ~text_area_info ~box:content with
-  | Some (~x, ~y) -> begin
-    match scroll.bbox with
-    | Some bbox -> begin
-      match orientation with
-      | Horizontal ->
-          if x + text_caret_width > right then begin
-            scroll.bbox <-
-              Some
-                { bbox with
-                  x=
-                    bbox.x
-                    + (right - left)
-                      * (x + text_caret_width - right)
-                      / (content_right - content_left) }
-          end ;
-          if x < left then begin
-            scroll.bbox <-
-              Some
-                { bbox with
-                  x=
-                    bbox.x
-                    + (right - left)
-                      * (x - text_caret_width - left)
-                      / (content_right - content_left) }
-          end
-      | Vertical ->
-          if y < top then begin
-            scroll.bbox <-
-              Some
-                { bbox with
-                  y=
-                    bbox.y
-                    + (bottom - top)
-                      * (y - (top + font_info.font_height))
-                      / (content_bottom - content_top) }
-          end ;
-          if y + font_info.font_height > bottom then begin
-            scroll.bbox <-
-              Some
-                { bbox with
-                  y=
-                    bbox.y
-                    + (bottom - top)
-                      * ( y + font_info.font_height
-                        - (bottom - font_info.font_height) )
-                      / (content_bottom - content_top) }
-          end
-      end
-    | None ->
-        failwith ("SHOULD HAVE BBOX FOR scroll.bbox " ^ __LOC__)
+  let potential_xy =
+    match mouse_pos_xy with
+    | Some (x, y) ->
+        Some (x, y)
+    | None -> (
+      match get_xy_pos_of_text_caret ~text_area_info ~box:content with
+      | Some (~x, ~y) ->
+          Some (x, y)
+      | None ->
+          None )
+  in
+  match potential_xy with
+  | Some (x, y) -> begin
+    assert (scroll.bbox <> None) ;
+    let bbox = Option.get scroll.bbox in
+    match orientation with
+    | Horizontal ->
+        if x + text_caret_width > right then begin
+          scroll.bbox <-
+            Some
+              { bbox with
+                x=
+                  bbox.x
+                  + (right - left)
+                    * (x + text_caret_width - right)
+                    / (content_right - content_left) }
+        end ;
+        if x < left then begin
+          scroll.bbox <-
+            Some
+              { bbox with
+                x=
+                  bbox.x
+                  + (right - left)
+                    * (x - text_caret_width - left)
+                    / (content_right - content_left) }
+        end
+    | Vertical ->
+        if y < top then begin
+          scroll.bbox <-
+            Some
+              { bbox with
+                y=
+                  bbox.y
+                  + (bottom - top)
+                    * (y - (top + font_info.font_height))
+                    / (content_bottom - content_top) }
+        end ;
+        if y + font_info.font_height > bottom then begin
+          scroll.bbox <-
+            Some
+              { bbox with
+                y=
+                  bbox.y
+                  + (bottom - top)
+                    * ( y + font_info.font_height
+                      - (bottom - font_info.font_height) )
+                    / (content_bottom - content_top) }
+        end
     end
   | None ->
       ()
@@ -579,17 +591,17 @@ let rec clamp_width_or_height_to_content_size ~(box : box)
     | _ ->
         () )
   | Some (TextAreaWithLineNumbers {container; _}) -> begin
-      constrain_width_height ~box:container
-        ~context:{context with parent= Some box} ;
-      assert (container.bbox <> None) ;
-      match measurement with
-      | `Width when box.width_constraint = Some Min ->
-          box.bbox <- container.bbox
-      | `Height when box.height_constraint = Some Min ->
-          box.bbox <- container.bbox
-      | _ ->
-          ()
-      end
+    constrain_width_height ~box:container
+      ~context:{context with parent= Some box} ;
+    assert (container.bbox <> None) ;
+    match measurement with
+    | `Width when box.width_constraint = Some Min ->
+        box.bbox <- container.bbox
+    | `Height when box.height_constraint = Some Min ->
+        box.bbox <- container.bbox
+    | _ ->
+        ()
+    end
   | None ->
       ()
   | _ ->

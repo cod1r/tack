@@ -518,14 +518,8 @@ let get_horizontal_text_start ~(box : Ui_types.box)
   with Invalid_argument e ->
     failwith ("alignment requires a bbox;" ^ e ^ __LOC__)
 
-let write_highlight_to_ui_buffer ~(points : (int * int) list) ~parent =
-  let _parent = parent in
-  let points =
-    List.fold_left
-      (fun acc (x, y) -> acc @ [Float.of_int x] @ [Float.of_int y])
-      [] points
-    |> Float.Array.of_list
-  in
+let write_highlight_to_ui_buffer ~(points : int list) ~parent =
+  let points = points |> List.map Float.of_int |> Float.Array.of_list in
   let points =
     match parent with
     | Some parent ->
@@ -573,19 +567,20 @@ let draw_highlight ~(box : Ui_types.box) ~(font_info : Freetype.font_info)
                 ~font_info ~text_wrap
             in
             if acc.rope_pos >= highlight_start && acc.rope_pos < highlight_end
-            then
+            then begin
               let points =
-                [ ( (if wraps then start_x else acc.x)
-                  , next_y + if wraps then font_info.font_height else 0 )
-                ; ( (if wraps then start_x else acc.x)
-                  , acc.y + if wraps then font_info.font_height else 0 )
-                ; ( (if wraps then start_x else acc.x) + x_advance
-                  , acc.y + if wraps then font_info.font_height else 0 )
-                ; ( (if wraps then start_x else acc.x) + x_advance
-                  , next_y + if wraps then font_info.font_height else 0 ) ]
+                [ (if wraps then start_x else acc.x)
+                ; (next_y + if wraps then font_info.font_height else 0)
+                ; (if wraps then start_x else acc.x)
+                ; (acc.y + if wraps then font_info.font_height else 0)
+                ; (if wraps then start_x else acc.x) + x_advance
+                ; (acc.y + if wraps then font_info.font_height else 0)
+                ; (if wraps then start_x else acc.x) + x_advance
+                ; (next_y + if wraps then font_info.font_height else 0) ]
               in
               entire_points_of_highlight_quads :=
                 List.append points !entire_points_of_highlight_quads
+            end
       in
       ignore
         (Rope.traverse_rope ~box ~font_info ~rope:r
@@ -599,30 +594,42 @@ let draw_highlight ~(box : Ui_types.box) ~(font_info : Freetype.font_info)
   | _ ->
       ()
 
-let write_cursor_to_ui_buffer ~x ~y ~font_height =
+let write_cursor_to_ui_buffer ~parent ~x ~y ~font_height =
   let points =
-    [ (x, y + font_height)
-    ; (x, y)
-    ; (x + Ui.text_caret_width, y)
-    ; (x + Ui.text_caret_width, y + font_height) ]
+    [ x
+    ; y + font_height
+    ; x
+    ; y
+    ; x + Ui.text_caret_width
+    ; y
+    ; x + Ui.text_caret_width
+    ; y + font_height ]
+    |> List.map Float.of_int |> Float.Array.of_list
   in
-  let values = Float.Array.init 24 (fun _ -> 0.) in
-  List.iteri
-    (fun idx (x, y) ->
-      let x, y = (Float.of_int x, Float.of_int y) in
-      let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
-      let start = idx * _EACH_POINT_FLOAT_AMOUNT in
-      Float.Array.set values start x ;
-      Float.Array.set values (start + 1) y ;
-      Float.Array.set values (start + 2) 0. ;
-      Float.Array.set values (start + 3) 0. ;
-      Float.Array.set values (start + 4) 0. ;
-      Float.Array.set values (start + 5) 1. )
-    points ;
-  Float.Array.iteri
-    (fun idx v -> ui_buffer.buffer.{idx + ui_buffer.length} <- v)
-    values ;
-  ui_buffer.length <- ui_buffer.length + Float.Array.length values
+  let points =
+    match parent with
+    | Some parent ->
+        get_potential_clipped_points ~parent ~points
+    | None ->
+        points
+  in
+  let idx = ref 0 in
+  let ui_buffer_idx = ref ui_buffer.length in
+  while !idx < Float.Array.length points do
+    let x, y =
+      (Float.Array.get points !idx, Float.Array.get points (!idx + 1))
+    in
+    let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
+    ui_buffer.buffer.{!ui_buffer_idx} <- x ;
+    ui_buffer.buffer.{!ui_buffer_idx + 1} <- y ;
+    ui_buffer.buffer.{!ui_buffer_idx + 2} <- 0. ;
+    ui_buffer.buffer.{!ui_buffer_idx + 3} <- 0. ;
+    ui_buffer.buffer.{!ui_buffer_idx + 4} <- 0. ;
+    ui_buffer.buffer.{!ui_buffer_idx + 5} <- 1. ;
+    idx := !idx + 2 ;
+    ui_buffer_idx := !ui_buffer_idx + _EACH_POINT_FLOAT_AMOUNT
+  done ;
+  ui_buffer.length <- !ui_buffer_idx
 
 let validate ~(box : Ui_types.box) =
   let rec validate' (box : Ui_types.box) visited =
@@ -772,13 +779,8 @@ let align_inner_box_horizontally ~(box : Ui_types.box)
 
 let draw_cursor ~(font_info : Freetype.font_info) ~(box : Ui_types.box)
     ~(r : Rope_types.rope) ~cursor_pos ~scroll_y_offset ~scroll_x_offset =
-  let bbox =
-    match box.bbox with
-    | Some bbox ->
-        bbox
-    | None ->
-        failwith ("SHOULD HAVE BBOX;" ^ __LOC__)
-  in
+  assert (box.bbox <> None) ;
+  let bbox = Option.get box.bbox in
   let start_x = bbox.x + scroll_x_offset in
   match cursor_pos with
   | Some cursor_pos ->
@@ -790,9 +792,10 @@ let draw_cursor ~(font_info : Freetype.font_info) ~(box : Ui_types.box)
           && y_pos <= bbox.y + bbox.height
           && acc.x >= bbox.x
           && acc.x <= bbox.x + bbox.width
-        then
+        then begin
           write_cursor_to_ui_buffer ~x:acc.x ~y:acc.y
-            ~font_height:font_info.font_height
+            ~font_height:font_info.font_height ~parent:(Some box)
+        end
       in
       let res =
         Rope.traverse_rope ~box ~font_info ~rope:r
@@ -801,9 +804,10 @@ let draw_cursor ~(font_info : Freetype.font_info) ~(box : Ui_types.box)
             (Rope_types.Rope_Traversal_Info
                {x= start_x; y= bbox.y + scroll_y_offset; rope_pos= 0} )
       in
-      if res.rope_pos = cursor_pos then
+      if res.rope_pos = cursor_pos then begin
         write_cursor_to_ui_buffer ~x:res.x ~y:res.y
-          ~font_height:font_info.font_height
+          ~font_height:font_info.font_height ~parent:(Some box)
+      end
   | None ->
       ()
 
@@ -1015,7 +1019,7 @@ let rec calculate_ui ~(box : Ui_types.box) ~context =
       align_inner_box_vertically ~box ~inner_box:b ;
       calculate_ui ~box:b ~context:{context with parent= Some box}
   | Some (Boxes list) ->
-      ( match box.flow with
+      begin match box.flow with
       | Some ((Horizontal | Vertical) as d) ->
           let boxes_pos =
             ref (handle_list_of_boxes_initial_position ~d ~box ~list)
@@ -1047,7 +1051,8 @@ let rec calculate_ui ~(box : Ui_types.box) ~context =
                   () )
             list
       | None ->
-          () ) ;
+          ()
+      end ;
       List.iter
         (fun b -> calculate_ui ~box:b ~context:{context with parent= Some box})
         list
@@ -1060,7 +1065,7 @@ let rec calculate_ui ~(box : Ui_types.box) ~context =
         ~content ~scroll ~orientation ;
       Ui_scrollcontainers.adjust_scrollbar_according_to_content_size ~content
         ~scroll ~orientation ;
-      (* begin match orientation with
+      begin match orientation with
       | Vertical ->
           let bbox = Option.get scroll.bbox in
           if bbox.height = 0 then
@@ -1071,7 +1076,7 @@ let rec calculate_ui ~(box : Ui_types.box) ~context =
           if bbox.width = 0 then
             Ui_scrollcontainers.unwrap_scrollcontainer ~box
               ~unwrap_orientation:orientation
-      end ; *)
+      end ;
       calculate_ui ~box:container
         ~context:{in_scrollcontainer= true; parent= Some box}
   | Some

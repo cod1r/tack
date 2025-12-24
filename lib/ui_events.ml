@@ -2,7 +2,8 @@ open Ui_types
 
 let event_handlers = ref []
 
-let adjust_scroll_container_for_focused_element b new_text_area_information =
+let adjust_scroll_container_for_focused_element ?mouse_pos_xy b
+    new_text_area_information =
   match
     List.find_opt
       (function
@@ -20,7 +21,7 @@ let adjust_scroll_container_for_focused_element b new_text_area_information =
          ; content
          ; scrollbar_container
          ; _ } ) -> begin
-    Ui.adjust_scrollbar_according_to_textarea_text_caret
+    Ui.adjust_scrollbar_according_to_textarea_text_caret ~mouse_pos_xy
       ~text_area_info:new_text_area_information ~scroll ~orientation ~content ;
     let scroll_bbox = Option.get scroll.bbox in
     assert (
@@ -28,7 +29,7 @@ let adjust_scroll_container_for_focused_element b new_text_area_information =
         ~box:scrollbar_container ~from_sdl_evt:false ) ;
     match other_scrollcontainer with
     | Some {scroll; orientation; content; scrollbar_container; _} ->
-        Ui.adjust_scrollbar_according_to_textarea_text_caret
+        Ui.adjust_scrollbar_according_to_textarea_text_caret ~mouse_pos_xy
           ~text_area_info:new_text_area_information ~scroll ~orientation
           ~content ;
         let scroll_bbox = Option.get scroll.bbox in
@@ -66,7 +67,13 @@ let pass_evt_to_focused ~(e : Sdl.event) =
             ()
         end
       | Sdl.MouseMotionEvt {x; y; _}
-        when Ui.is_within_box ~x ~y ~from_sdl_evt:true ~box:b -> begin
+        when begin match !Ui.holding_mousedown with
+             | `True (~original_x, ~original_y) ->
+                 Ui.is_within_box ~x:original_x ~y:original_y ~from_sdl_evt:true
+                   ~box:b
+             | _ ->
+                 false
+             end -> begin
         match b.bbox with
         | Some _ ->
             let ~font_info, .. =
@@ -78,12 +85,17 @@ let pass_evt_to_focused ~(e : Sdl.event) =
               Ui_textarea.handle_mouse_motion_evt ~x ~y ~box:b ~font_info
                 ~rope:info.text ~text_area_information:info
             in
+            let width_ratio, height_ratio = Sdl.get_logical_to_opengl_window_dims_ratio () in
+            let x, y = x * width_ratio, y * height_ratio in
+            adjust_scroll_container_for_focused_element ~mouse_pos_xy:(x, y) b new_info;
             b.content <- Some (Textarea new_info)
         | None ->
             ()
         end
       | Sdl.MouseButtonEvt {mouse_evt_type; x; y; _}
-        when Ui.is_within_box ~x ~y ~from_sdl_evt:true ~box:b -> begin
+        when Ui.is_within_box ~x ~y ~from_sdl_evt:true ~box:b
+             && mouse_evt_type = Mousedown
+             || mouse_evt_type = Mouseup -> begin
         match b.bbox with
         | Some _ -> (
             let ~font_info, .. =
