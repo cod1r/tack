@@ -49,6 +49,10 @@ and contains text
       vertical/horizontal/center alignment
 
     size min/max'ing needs to be rethought...
+  
+    why is there acceleration/deceleration for vertical scrolling near the end?
+  
+    need to change the box_content type so that box_content can contain box_content and not box
 
     a lot of logic is fragile and needs to be tested
 

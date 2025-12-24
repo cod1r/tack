@@ -125,11 +125,7 @@ let create_textarea_box ?(text : Rope_types.rope option) () =
   { default_box with
     focusable= true
   ; clip_content= true
-  ; content=
-      Some
-        (Textarea
-           { default_text_area_information with
-             text= (match text with Some text -> Some text | None -> None) } )
+  ; content= Some (Textarea {default_text_area_information with text})
   ; allow_vertical_scroll= true
   ; allow_horizontal_scroll= true
   ; on_event= Some default_textarea_event_handler }
@@ -175,11 +171,7 @@ let get_text_bounding_box ~(box : box) =
              max_x :=
                get_max_int !max_x
                  (acc.x + if is_textarea then text_caret_width else 0) ) )
-      ~result:
-        (Rope_Traversal_Info
-           { x= bbox.x + box.scroll_x_offset
-           ; y= bbox.y + box.scroll_y_offset
-           ; rope_pos= 0 } )
+      ~result:(Rope_Traversal_Info {x= bbox.x; y= bbox.y; rope_pos= 0})
   in
   max_y := get_max_int !max_y y ;
   max_y := !max_y + font_info.font_height ;

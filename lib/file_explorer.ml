@@ -30,15 +30,17 @@ let file_item_box (f : Files.file_tree) =
           match b with
           | Some b -> begin
             match e with
-            | MouseMotionEvt {x; y; _}
-              when Ui.is_within_box ~x ~y ~box:b ~from_sdl_evt:true -> begin
-              b.background_color <- (0.5, 0.5, 0.5, 1.)
-            end
+            | MouseMotionEvt {x; y; _} -> begin
+              if Ui.is_within_box ~x ~y ~box:b ~from_sdl_evt:true then
+                b.background_color <- (0.5, 0.5, 0.5, 1.)
+              else b.background_color <- (1., 1., 1., 1.)
+              end
             | _ ->
-                b.background_color <- (1., 1., 1., 1.)
+                ()
             end
           | None ->
-              () ) }
+              () )
+  ; name= Some name }
 
 let root_children =
   match file_tree with Directory {children; _} -> children | File _ -> []

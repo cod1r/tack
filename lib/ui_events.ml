@@ -85,9 +85,12 @@ let pass_evt_to_focused ~(e : Sdl.event) =
               Ui_textarea.handle_mouse_motion_evt ~x ~y ~box:b ~font_info
                 ~rope:info.text ~text_area_information:info
             in
-            let width_ratio, height_ratio = Sdl.get_logical_to_opengl_window_dims_ratio () in
-            let x, y = x * width_ratio, y * height_ratio in
-            adjust_scroll_container_for_focused_element ~mouse_pos_xy:(x, y) b new_info;
+            let width_ratio, height_ratio =
+              Sdl.get_logical_to_opengl_window_dims_ratio ()
+            in
+            let x, y = (x * width_ratio, y * height_ratio) in
+            adjust_scroll_container_for_focused_element ~mouse_pos_xy:(x, y) b
+              new_info ;
             b.content <- Some (Textarea new_info)
         | None ->
             ()
@@ -248,9 +251,10 @@ let add_event_handler ~(box : box option) ~(event_handler : event_handler_t) =
   if
     not
       (List.exists
-         (fun (_, evt_handler) -> evt_handler == event_handler)
+         (fun (b, evt_handler) -> evt_handler == event_handler && b == box)
          !event_handlers )
   then event_handlers := (box, event_handler) :: !event_handlers
+  else assert false
 
 let remove_event_handler ~(box : box) =
   event_handlers :=

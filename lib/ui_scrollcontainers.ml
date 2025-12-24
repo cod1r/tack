@@ -386,7 +386,7 @@ let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
   | None ->
       ()
 
-let change_content_scroll_offsets_based_off_scrollbar ~content ~scroll
+let change_content_scroll_offsets_based_off_scrollbar ~(content : box) ~scroll
     ~orientation =
   match scroll.bbox with
   | Some scroll_bbox ->
@@ -404,11 +404,13 @@ let change_content_scroll_offsets_based_off_scrollbar ~content ~scroll
       (* distance from scrollbar to start of content divided by content size gives us the percentage
          that is supposed offscreen and I multiply by the content size to get how many pixels should be scrolled.
          negative because it needs to go in the opposite direction of the scrolling *)
-      if scroll_bbox.width > 0 && orientation = Horizontal then
+      if scroll_bbox.width > 0 && orientation = Horizontal then begin
         content.scroll_x_offset <-
-          -content_width * (scroll_bbox.x - left) / content_bbox_width ;
-      if scroll_bbox.height > 0 && orientation = Vertical then
+          -content_width * (scroll_bbox.x - left) / content_bbox_width
+      end ;
+      if scroll_bbox.height > 0 && orientation = Vertical then begin
         content.scroll_y_offset <-
           -content_height * (scroll_bbox.y - top) / content_bbox_height
+      end
   | _ ->
       ()
