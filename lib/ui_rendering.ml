@@ -1,4 +1,5 @@
 open Freetype
+open Ui_types
 
 let _ = Opengl.gl_enable_texture_2d ()
 
@@ -237,7 +238,7 @@ let () =
     ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
 
 let get_potential_clipped_points ~parent ~points =
-  let Ui_types.{left; right; top; bottom} =
+  let {left; right; top; bottom} =
     try Ui.get_box_sides ~box:parent
     with Invalid_argument e -> failwith (e ^ __LOC__)
   in
@@ -261,9 +262,9 @@ let get_potential_clipped_points ~parent ~points =
   done ;
   clipped_points
 
-let write_container_values_to_ui_buffer ~(box : Ui_types.box)
-    ~(parent : Ui_types.box option) =
-  let Ui_types.{width; height; x; y; _} =
+let write_container_values_to_ui_buffer ~(box : box)
+    ~(parent : box option) =
+  let {width; height; x; y; _} =
     Option.value box.bbox ~default:Ui.default_bbox
   and r, g, b, alpha = box.background_color in
   let points : floatarray =
@@ -352,7 +353,7 @@ let write_to_text_buffer ~(glyph_info : Freetype.glyph_info_) ~x ~y
     right bottom x;
     right bottom y;
     *)
-  let Ui_types.{left; right; top; bottom} = Ui.get_box_sides ~box:parent in
+  let {left; right; top; bottom} = Ui.get_box_sides ~box:parent in
   let glyph_left, glyph_right, glyph_top, glyph_bottom =
     ( x + glyph_info.horiBearingX
     , x + glyph_info.width + glyph_info.horiBearingX
@@ -477,7 +478,7 @@ let draw_to_gl_buffer () =
   Opengl.gl_draw_arrays_with_quads (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT) ;
   ui_buffer.length <- 0
 
-let get_vertical_text_start ~(box : Ui_types.box)
+let get_vertical_text_start ~(box : box)
     ~(font_info : Freetype.font_info) =
   try
     let bbox = Option.get box.bbox in
@@ -497,7 +498,7 @@ let get_vertical_text_start ~(box : Ui_types.box)
   with Invalid_argument e ->
     failwith ("alignment requires a bbox;" ^ e ^ __LOC__)
 
-let get_horizontal_text_start ~(box : Ui_types.box)
+let get_horizontal_text_start ~(box : box)
     ~(font_info : Freetype.font_info) ~(s : string) =
   let width_of_string =
     String.fold_left
@@ -545,7 +546,7 @@ let write_highlight_to_ui_buffer ~(points : int list) ~parent =
   done ;
   ui_buffer.length <- !ui_buffer_idx
 
-let draw_highlight ~(box : Ui_types.box) ~(font_info : Freetype.font_info)
+let draw_highlight ~(box : box) ~(font_info : Freetype.font_info)
     ~(r : Rope_types.rope) ~(highlight : int option * int option)
     ~scroll_y_offset ~scroll_x_offset ~text_wrap =
   let bbox = Option.value box.bbox ~default:Ui.default_bbox in
@@ -631,8 +632,8 @@ let write_cursor_to_ui_buffer ~parent ~x ~y ~font_height =
   done ;
   ui_buffer.length <- !ui_buffer_idx
 
-let validate ~(box : Ui_types.box) =
-  let rec validate' (box : Ui_types.box) visited =
+let validate ~(box : box) =
+  let rec validate' (box : box) visited =
     if List.exists (fun b -> b == box) visited then
       failwith "Recursive box structure detected"
     else
@@ -655,8 +656,8 @@ let validate ~(box : Ui_types.box) =
   in
   validate' box []
 
-let add_event_handlers ~(box : Ui_types.box) =
-  let rec add_event_handlers' (box : Ui_types.box) =
+let add_event_handlers ~(box : box) =
+  let rec add_event_handlers' (box : box) =
     ( match box.on_event with
     | Some oc ->
         Ui_events.add_event_handler ~box:(Some box) ~event_handler:oc
@@ -676,14 +677,14 @@ let add_event_handlers ~(box : Ui_types.box) =
   in
   add_event_handlers' box
 
-let handle_list_of_boxes_initial_position ~(box : Ui_types.box)
-    ~(d : Ui_types.direction) ~(list : Ui_types.box list) =
+let handle_list_of_boxes_initial_position ~(box : box)
+    ~(d : direction) ~(list : box list) =
   assert (Option.is_some box.bbox) ;
   let box_bbox = Option.get box.bbox in
   let acc_width, acc_height =
     List.fold_left
       (fun (acc_w, acc_h) b ->
-        let bbox = Option.value b.Ui_types.bbox ~default:Ui.default_bbox in
+        let bbox = Option.value b.bbox ~default:Ui.default_bbox in
         match d with
         | Horizontal ->
             (acc_w + bbox.width, bbox.height)
@@ -714,7 +715,7 @@ let handle_list_of_boxes_initial_position ~(box : Ui_types.box)
   in
   (x_pos + box.scroll_x_offset, y_pos + box.scroll_y_offset)
 
-let align_inner_box_vertically ~(box : Ui_types.box) ~(inner_box : Ui_types.box)
+let align_inner_box_vertically ~(box : box) ~(inner_box : box)
     =
   match box.bbox with
   | Some bbox -> (
@@ -746,8 +747,8 @@ let align_inner_box_vertically ~(box : Ui_types.box) ~(inner_box : Ui_types.box)
   | None ->
       ()
 
-let align_inner_box_horizontally ~(box : Ui_types.box)
-    ~(inner_box : Ui_types.box) =
+let align_inner_box_horizontally ~(box : box)
+    ~(inner_box : box) =
   match box.bbox with
   | Some bbox -> (
       let inner_box_bbox =
@@ -777,7 +778,7 @@ let align_inner_box_horizontally ~(box : Ui_types.box)
   | None ->
       ()
 
-let draw_cursor ~(font_info : Freetype.font_info) ~(box : Ui_types.box)
+let draw_cursor ~(font_info : Freetype.font_info) ~(box : box)
     ~(r : Rope_types.rope) ~cursor_pos ~scroll_y_offset ~scroll_x_offset =
   assert (box.bbox <> None) ;
   let bbox = Option.get box.bbox in
@@ -812,17 +813,17 @@ let draw_cursor ~(font_info : Freetype.font_info) ~(box : Ui_types.box)
       ()
 
 type draw_context =
-  {parent: Ui_types.box option; previous_context: draw_context option}
+  {parent: box option; previous_context: draw_context option}
 
 let find_closest_parent_that_clips ~(context : draw_context) ~bbox =
   let rec loop context =
     match context.parent with
     | Some parent ->
-        let Ui_types.{left; right; top; bottom} =
+        let {left; right; top; bottom} =
           Ui.get_box_sides ~box:parent
         in
         let bbox_left, bbox_right, bbox_top, bbox_bottom =
-          (bbox.Ui_types.x, bbox.x + bbox.width, bbox.y, bbox.y + bbox.height)
+          (bbox.x, bbox.x + bbox.width, bbox.y, bbox.y + bbox.height)
         in
         let out =
           bbox_left > right || bbox_right < left || bbox_left < left
@@ -844,7 +845,7 @@ let find_closest_parent_that_clips ~(context : draw_context) ~bbox =
   in
   loop context
 
-let draw_text ~(s : string) ~(box : Ui_types.box) ~context =
+let draw_text ~(s : string) ~(box : box) ~context =
   let ~font_info, ~gl_texture_id =
     Ui.TextTextureInfo.get_or_add_font_size_text_texture
       ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
@@ -873,7 +874,7 @@ let draw_text ~(s : string) ~(box : Ui_types.box) ~context =
       horizontal_pos := !horizontal_pos + glyph.x_advance )
     s
 
-let draw_text_textarea ~(font_info : Freetype.font_info) ~(box : Ui_types.box)
+let draw_text_textarea ~(font_info : Freetype.font_info) ~(box : box)
     ~(rope : Rope_types.rope) ~scroll_y_offset ~scroll_x_offset ~text_wrap =
   let bbox = Option.value box.bbox ~default:Ui.default_bbox in
   let start_x = bbox.x + scroll_x_offset in
@@ -909,7 +910,7 @@ let draw_text_textarea ~(font_info : Freetype.font_info) ~(box : Ui_types.box)
             ; y= bbox.y + font_info.font_height + scroll_y_offset } ) )
 
 let draw_textarea ~(font_info : Freetype.font_info) ~rope ~highlight ~cursor_pos
-    ~(box : Ui_types.box) =
+    ~(box : box) =
   match rope with
   | Some r -> begin
     draw_text_textarea ~font_info ~rope:r ~box
@@ -928,10 +929,10 @@ let draw_textarea ~(font_info : Freetype.font_info) ~rope ~highlight ~cursor_pos
   | None ->
       ()
 
-let rec draw_box ~(box : Ui_types.box) ~(context : draw_context) =
+let rec draw_box ~(box : box) ~(context : draw_context) =
   begin match box.bbox with
   | Some bbox ->
-      let Ui_types.{left; top; bottom; right} = Ui.get_box_sides ~box in
+      let {left; top; bottom; right} = Ui.get_box_sides ~box in
       let window_width_height = Sdl.sdl_gl_getdrawablesize () in
       let window_width_gl, window_height_gl =
         (window_width_height lsr 32, window_width_height land ((1 lsl 32) - 1))
@@ -977,9 +978,9 @@ let rec draw_box ~(box : Ui_types.box) ~(context : draw_context) =
       ()
   end
 
-let handle_if_content_overflows_or_not ~(box : Ui_types.box)
-    ~(context : Ui_types.ui_traversal_context) =
-  let Ui_types.
+let handle_if_content_overflows_or_not ~(box : box)
+    ~(context : ui_traversal_context) =
+  let
         { left= content_left
         ; right= content_right
         ; top= content_top
@@ -987,7 +988,7 @@ let handle_if_content_overflows_or_not ~(box : Ui_types.box)
     Ui.calculate_content_boundaries ~box
   in
   assert (box.bbox <> None) ;
-  let Ui_types.{width; height; _} = Option.get box.bbox in
+  let {width; height; _} = Option.get box.bbox in
   if not context.in_scrollcontainer then begin
     if
       content_right - content_left > width
@@ -1009,7 +1010,7 @@ let handle_if_content_overflows_or_not ~(box : Ui_types.box)
     end
   end
 
-let rec calculate_ui ~(box : Ui_types.box) ~context =
+let rec calculate_ui ~(box : box) ~context =
   Ui.constrain_width_height ~box ~context ;
   assert (Option.is_some box.bbox) ;
   handle_if_content_overflows_or_not ~box ~context ;
@@ -1026,7 +1027,7 @@ let rec calculate_ui ~(box : Ui_types.box) ~context =
           in
           List.iter
             (fun b ->
-              match b.Ui_types.bbox with
+              match b.bbox with
               | Some bbbox -> begin
                 bbbox.x <- fst !boxes_pos ;
                 bbbox.y <- snd !boxes_pos ;
@@ -1088,7 +1089,7 @@ let rec calculate_ui ~(box : Ui_types.box) ~context =
   | None ->
       ()
 
-let draw ~(box : Ui_types.box) =
+let draw ~(box : box) =
   Opengl.gl_clear_color 1. 1. 1. 1. ;
   Opengl.gl_clear () ;
   validate ~box ;
