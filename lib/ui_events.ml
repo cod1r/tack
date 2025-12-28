@@ -251,10 +251,11 @@ let add_event_handler ~(box : box option) ~(event_handler : event_handler_t) =
   if
     not
       (List.exists
-         (fun (b, evt_handler) -> evt_handler == event_handler && b == box)
+         (fun (b, evt_handler) ->
+           evt_handler == event_handler
+           && match (box, b) with Some b, Some b' -> b == b' | _ -> false )
          !event_handlers )
   then event_handlers := (box, event_handler) :: !event_handlers
-  else assert false
 
 let remove_event_handler ~(box : box) =
   event_handlers :=

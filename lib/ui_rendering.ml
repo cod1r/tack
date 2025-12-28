@@ -262,10 +262,8 @@ let get_potential_clipped_points ~parent ~points =
   done ;
   clipped_points
 
-let write_container_values_to_ui_buffer ~(box : box)
-    ~(parent : box option) =
-  let {width; height; x; y; _} =
-    Option.value box.bbox ~default:Ui.default_bbox
+let write_container_values_to_ui_buffer ~(box : box) ~(parent : box option) =
+  let {width; height; x; y; _} = Option.value box.bbox ~default:Ui.default_bbox
   and r, g, b, alpha = box.background_color in
   let points : floatarray =
     [| Float.of_int x
@@ -478,8 +476,7 @@ let draw_to_gl_buffer () =
   Opengl.gl_draw_arrays_with_quads (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT) ;
   ui_buffer.length <- 0
 
-let get_vertical_text_start ~(box : box)
-    ~(font_info : Freetype.font_info) =
+let get_vertical_text_start ~(box : box) ~(font_info : Freetype.font_info) =
   try
     let bbox = Option.get box.bbox in
     let start_of_vertical =
@@ -498,8 +495,8 @@ let get_vertical_text_start ~(box : box)
   with Invalid_argument e ->
     failwith ("alignment requires a bbox;" ^ e ^ __LOC__)
 
-let get_horizontal_text_start ~(box : box)
-    ~(font_info : Freetype.font_info) ~(s : string) =
+let get_horizontal_text_start ~(box : box) ~(font_info : Freetype.font_info)
+    ~(s : string) =
   let width_of_string =
     String.fold_left
       (fun acc c ->
@@ -677,8 +674,8 @@ let add_event_handlers ~(box : box) =
   in
   add_event_handlers' box
 
-let handle_list_of_boxes_initial_position ~(box : box)
-    ~(d : direction) ~(list : box list) =
+let handle_list_of_boxes_initial_position ~(box : box) ~(d : direction)
+    ~(list : box list) =
   assert (Option.is_some box.bbox) ;
   let box_bbox = Option.get box.bbox in
   let acc_width, acc_height =
@@ -715,8 +712,7 @@ let handle_list_of_boxes_initial_position ~(box : box)
   in
   (x_pos + box.scroll_x_offset, y_pos + box.scroll_y_offset)
 
-let align_inner_box_vertically ~(box : box) ~(inner_box : box)
-    =
+let align_inner_box_vertically ~(box : box) ~(inner_box : box) =
   match box.bbox with
   | Some bbox -> (
       let inner_box_bbox =
@@ -747,8 +743,7 @@ let align_inner_box_vertically ~(box : box) ~(inner_box : box)
   | None ->
       ()
 
-let align_inner_box_horizontally ~(box : box)
-    ~(inner_box : box) =
+let align_inner_box_horizontally ~(box : box) ~(inner_box : box) =
   match box.bbox with
   | Some bbox -> (
       let inner_box_bbox =
@@ -812,16 +807,13 @@ let draw_cursor ~(font_info : Freetype.font_info) ~(box : box)
   | None ->
       ()
 
-type draw_context =
-  {parent: box option; previous_context: draw_context option}
+type draw_context = {parent: box option; previous_context: draw_context option}
 
 let find_closest_parent_that_clips ~(context : draw_context) ~bbox =
   let rec loop context =
     match context.parent with
     | Some parent ->
-        let {left; right; top; bottom} =
-          Ui.get_box_sides ~box:parent
-        in
+        let {left; right; top; bottom} = Ui.get_box_sides ~box:parent in
         let bbox_left, bbox_right, bbox_top, bbox_bottom =
           (bbox.x, bbox.x + bbox.width, bbox.y, bbox.y + bbox.height)
         in
@@ -980,11 +972,10 @@ let rec draw_box ~(box : box) ~(context : draw_context) =
 
 let handle_if_content_overflows_or_not ~(box : box)
     ~(context : ui_traversal_context) =
-  let
-        { left= content_left
-        ; right= content_right
-        ; top= content_top
-        ; bottom= content_bottom } =
+  let { left= content_left
+      ; right= content_right
+      ; top= content_top
+      ; bottom= content_bottom } =
     Ui.calculate_content_boundaries ~box
   in
   assert (box.bbox <> None) ;
