@@ -1,57 +1,64 @@
 open Tack
 
 let () = Sdl.sdl_gl_setswapinterval 0
-
 let rendering_content = Editor.open_file "lib/ui_rendering.ml"
 
 let textarea_with_line_numbers =
   Ui_textarea_with_line_numbers.create_textarea_with_line_numbers
-    ~text:rendering_content ~textarea_width:1000 ~textarea_height:1000 ()
+    ~text:rendering_content
+    ~textarea_width:1000
+    ~textarea_height:1000
+    ()
+;;
 
 let file_explorer =
   { Ui.default_box with
-    bbox= Some {x= 0; y= 0; height= 0; width= 300}
-  ; height_constraint= Some Max
-  ; content= Some (Boxes Tack.File_explorer.file_items)
-  ; flow= Some Vertical }
+    bbox = Some { x = 0; y = 0; height = 0; width = 300 }
+  ; height_constraint = Some Max
+  ; content = Some (Boxes Tack.File_explorer.file_items)
+  ; flow = Some Vertical
+  }
+;;
 
 let box =
   { Ui.default_box with
-    bbox= Some {x= 0; y= 0; width= 2000; height= 2000}
-  ; clip_content= true
-  ; content=
+    bbox = Some { x = 0; y = 0; width = 2000; height = 2000 }
+  ; clip_content = true
+  ; content =
       Some
         (Boxes
            (List.init 100 (fun _ ->
-                { Ui.default_box with
-                  clip_content= true
-                ; content=
-                    Some
-                      (Boxes
-                         (List.init 100 (fun _ ->
-                              { Ui.default_box with
-                                clip_content= true
-                              ; background_color=
-                                  ( Random.float 1.
-                                  , Random.float 1.
-                                  , Random.float 1.
-                                  , 1.0 )
-                              ; font_size= Some 15
-                              ; content= Some (Text {string= "20"})
-                              ; bbox= Some {x= 0; y= 0; width= 20; height= 20}
-                              } ) ) )
-                ; width_constraint= Some Min
-                ; height_constraint= Some Min
-                ; flow= Some Vertical } ) ) )
-  ; flow= Some Horizontal }
+              { Ui.default_box with
+                clip_content = true
+              ; content =
+                  Some
+                    (Boxes
+                       (List.init 100 (fun _ ->
+                          { Ui.default_box with
+                            clip_content = true
+                          ; background_color =
+                              Random.float 1., Random.float 1., Random.float 1., 1.0
+                          ; font_size = Some 15
+                          ; content = Some (Text { string = "20" })
+                          ; bbox = Some { x = 0; y = 0; width = 20; height = 20 }
+                          })))
+              ; width_constraint = Some Min
+              ; height_constraint = Some Min
+              ; flow = Some Vertical
+              })))
+  ; flow = Some Horizontal
+  }
+;;
 
 let box =
   { Ui.default_box with
-    bbox=
-      Some {x= 0; y= 0; width= 2000; height= 2000}
+    bbox =
+      Some { x = 0; y = 0; width = 2000; height = 2000 }
       (* width_constraint= Some Min
   ; height_constraint= Some Min *)
-  ; content= Some textarea_with_line_numbers }
+  ; content = Some textarea_with_line_numbers
+  }
+;;
 
 (* let box =
   { Ui.default_box with
@@ -78,13 +85,16 @@ let rec loop () =
   let evt = Sdl.sdl_pollevent () in
   let continue =
     match evt with
-    | Some Quit ->
-        false
+    | Some Quit -> false
     | None ->
-        Ui_rendering.draw ~box ; true
+      Ui_rendering.draw ~box;
+      true
     | Some e ->
-        Ui_events.emit_event ~e ; Ui_rendering.draw ~box ; true
+      Ui_events.emit_event ~e;
+      Ui_rendering.draw ~box;
+      true
   in
   if continue then loop () else ()
+;;
 
 let () = loop ()
