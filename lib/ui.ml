@@ -328,51 +328,42 @@ let adjust_scrollbar_according_to_textarea_text_caret
     let bbox = Option.get scroll.bbox in
     (match orientation with
      | Horizontal ->
-       if x + text_caret_width > right
-       then
-         scroll.bbox
-         <- Some
-              { bbox with
-                x =
-                  bbox.x
-                  + ((right - left)
-                     * (x + text_caret_width - right)
-                     / (content_right - content_left))
-              };
-       if x < left
-       then
-         scroll.bbox
-         <- Some
-              { bbox with
-                x =
-                  bbox.x
-                  + ((right - left)
-                     * (x - text_caret_width - left)
-                     / (content_right - content_left))
-              }
+       let scroll_direction_and_amt =
+         if x + text_caret_width > right
+         then x + text_caret_width - right
+         else if x < left
+         then x - text_caret_width - left
+         else 0
+       in
+       scroll.bbox
+       <- Some
+            { bbox with
+              x =
+                bbox.x
+                + ((right - left)
+                   * scroll_direction_and_amt
+                   / (content_right - content_left))
+            }
      | Vertical ->
-       if y < top
-       then
-         scroll.bbox
-         <- Some
-              { bbox with
-                y =
-                  bbox.y
-                  + ((bottom - top)
-                     * (y - (top + font_info.font_height))
-                     / (content_bottom - content_top))
-              };
-       if y + font_info.font_height > bottom
-       then
-         scroll.bbox
-         <- Some
-              { bbox with
-                y =
-                  bbox.y
-                  + ((bottom - top)
-                     * (y + font_info.font_height - (bottom - font_info.font_height))
-                     / (content_bottom - content_top))
-              })
+       let scroll_direction_and_amt =
+         (* reason for the 2 * font_info.font_height is because
+           sometimes the different between y + font_info.font_height and bottom
+           isn't enough for the integer division to not end up being 0 *)
+         if y < top
+         then y - (top + 2 * font_info.font_height)
+         else if y + font_info.font_height > bottom
+         then y + 2 * font_info.font_height - bottom
+         else 0
+       in
+       scroll.bbox
+       <- Some
+            { bbox with
+              y =
+                bbox.y
+                + ((bottom - top)
+                   * scroll_direction_and_amt
+                   / (content_bottom - content_top))
+            })
   | None -> ()
 ;;
 
