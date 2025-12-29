@@ -590,12 +590,9 @@ let draw_highlight
       ~(font_info : Freetype.font_info)
       ~(r : Rope_types.rope)
       ~(highlight : int option * int option)
-      ~scroll_y_offset
-      ~scroll_x_offset
       ~text_wrap
   =
   let bbox = Option.value box.bbox ~default:Ui.default_bbox in
-  let start_x = bbox.x + scroll_x_offset in
   let entire_points_of_highlight_quads = ref [] in
   match highlight with
   | Some highlight_start, Some highlight_end ->
@@ -619,13 +616,13 @@ let draw_highlight
         if acc.rope_pos >= highlight_start && acc.rope_pos < highlight_end
         then (
           let points =
-            [ (if wraps then start_x else acc.x)
+            [ acc.x + box.scroll_x_offset
             ; (next_y + if wraps then font_info.font_height else 0)
-            ; (if wraps then start_x else acc.x)
+            ; acc.x + box.scroll_x_offset
             ; (acc.y + if wraps then font_info.font_height else 0)
-            ; (if wraps then start_x else acc.x) + x_advance
+            ; acc.x + box.scroll_x_offset + x_advance
             ; (acc.y + if wraps then font_info.font_height else 0)
-            ; (if wraps then start_x else acc.x) + x_advance
+            ; acc.x + box.scroll_x_offset + x_advance
             ; (next_y + if wraps then font_info.font_height else 0)
             ]
           in
@@ -640,7 +637,10 @@ let draw_highlight
          ~handle_result:(Some fn_for_draw_highlight)
          ~result:
            (Rope_types.Rope_Traversal_Info
-              { x = start_x; y = bbox.y + scroll_y_offset; rope_pos = 0 }));
+              { x = bbox.x + box.scroll_x_offset
+              ; y = bbox.y + box.scroll_y_offset
+              ; rope_pos = 0
+              }));
     write_highlight_to_ui_buffer
       ~points:!entire_points_of_highlight_quads
       ~parent:(Some box)
@@ -805,26 +805,24 @@ let draw_cursor
       ~(box : box)
       ~(r : Rope_types.rope)
       ~cursor_pos
-      ~scroll_y_offset
-      ~scroll_x_offset
   =
   assert (box.bbox <> None);
   let bbox = Option.get box.bbox in
-  let start_x = bbox.x + scroll_x_offset in
   match cursor_pos with
   | Some cursor_pos ->
     let fn_draw_cursor acc _c =
       let (Rope_types.Rope_Traversal_Info acc) = acc in
       let y_pos = acc.y in
+      let x_pos = acc.x + box.scroll_x_offset in
       if
         acc.rope_pos = cursor_pos
         && y_pos >= bbox.y
         && y_pos <= bbox.y + bbox.height
-        && acc.x >= bbox.x
-        && acc.x <= bbox.x + bbox.width
+        && x_pos >= bbox.x
+        && x_pos <= bbox.x + bbox.width
       then
         write_cursor_to_ui_buffer
-          ~x:acc.x
+          ~x:x_pos
           ~y:acc.y
           ~font_height:font_info.font_height
           ~parent:(Some box)
@@ -837,7 +835,10 @@ let draw_cursor
         ~handle_result:(Some fn_draw_cursor)
         ~result:
           (Rope_types.Rope_Traversal_Info
-             { x = start_x; y = bbox.y + scroll_y_offset; rope_pos = 0 })
+             { x = bbox.x + box.scroll_x_offset
+             ; y = bbox.y + box.scroll_y_offset
+             ; rope_pos = 0
+             })
     in
     if res.rope_pos = cursor_pos
     then
@@ -922,14 +923,11 @@ let draw_text_textarea
       ~(font_info : Freetype.font_info)
       ~(box : box)
       ~(rope : Rope_types.rope)
-      ~scroll_y_offset
-      ~scroll_x_offset
       ~text_wrap
   =
-  let bbox = Option.value box.bbox ~default:Ui.default_bbox in
-  let start_x = bbox.x + scroll_x_offset in
-  let fn_for_drawing_text acc c =
-    let (Rope_types.Rope_Traversal_Info acc) = acc in
+  assert (box.bbox <> None);
+  let bbox = Option.get box.bbox in
+  let fn_for_drawing_text (Rope_types.Rope_Traversal_Info acc) c =
     if c <> '\n'
     then (
       let gi = Freetype.get_glyph_info_from_glyph ~glyph:c ~font_info in
@@ -945,7 +943,7 @@ let draw_text_textarea
         && Bytes.length gi.bytes > 0
       then
         write_to_text_buffer
-          ~x:(if wraps then start_x else acc.x)
+          ~x:(acc.x + box.scroll_x_offset)
           ~y:y_pos_start
           ~glyph_info:gi
           ~glyph:c
@@ -961,8 +959,8 @@ let draw_text_textarea
        ~result:
          (Rope_types.Rope_Traversal_Info
             { rope_pos = 0
-            ; x = start_x
-            ; y = bbox.y + font_info.font_height + scroll_y_offset
+            ; x = bbox.x + box.scroll_x_offset
+            ; y = bbox.y + font_info.font_height + box.scroll_y_offset
             }))
 ;;
 
@@ -975,30 +973,11 @@ let draw_textarea
   =
   match rope with
   | Some r ->
-    draw_text_textarea
-      ~font_info
-      ~rope:r
-      ~box
-      ~scroll_y_offset:box.scroll_y_offset
-      ~scroll_x_offset:box.scroll_x_offset
-      ~text_wrap:box.text_wrap;
+    draw_text_textarea ~font_info ~rope:r ~box ~text_wrap:box.text_wrap;
     (match !Ui.focused_element with
      | Some b when b == box ->
-       draw_highlight
-         ~r
-         ~scroll_y_offset:box.scroll_y_offset
-         ~scroll_x_offset:box.scroll_x_offset
-         ~highlight
-         ~box
-         ~font_info
-         ~text_wrap:box.text_wrap;
-       draw_cursor
-         ~r
-         ~cursor_pos
-         ~scroll_y_offset:box.scroll_y_offset
-         ~scroll_x_offset:box.scroll_x_offset
-         ~font_info
-         ~box
+       draw_highlight ~r ~highlight ~box ~font_info ~text_wrap:box.text_wrap;
+       draw_cursor ~r ~cursor_pos ~font_info ~box
      | _ -> ())
   | None -> ()
 ;;
@@ -1123,15 +1102,11 @@ let rec calculate_ui ~(box : box) ~context =
       list
   | Some (Text _) -> ()
   | Some (Textarea _) -> ()
-  | Some (ScrollContainer { content; scroll; container; orientation; _ }) ->
+  | Some (ScrollContainer ({ orientation; scroll; container; _ } as scrollcontainer_info))
+    ->
     Ui_scrollcontainers.change_content_scroll_offsets_based_off_scrollbar
-      ~content
-      ~scroll
-      ~orientation;
-    Ui_scrollcontainers.adjust_scrollbar_according_to_content_size
-      ~content
-      ~scroll
-      ~orientation;
+      ~scrollcontainer_info;
+    Ui_scrollcontainers.adjust_scrollbar_according_to_content_size ~scrollcontainer_info;
     (match orientation with
      | Vertical ->
        let bbox = Option.get scroll.bbox in

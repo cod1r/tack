@@ -297,10 +297,9 @@ change_content_scroll_offsets_based_off_scrollbar
 let adjust_scrollbar_according_to_textarea_text_caret
       ~mouse_pos_xy
       ~text_area_info
-      ~scroll
-      ~orientation
-      ~content
+      ~scrollcontainer_info
   =
+  let { content; scroll; scrollbar_container; orientation; _ } = scrollcontainer_info in
   let { right; left; top; bottom } = get_box_sides ~box:content in
   let { right = content_right
       ; left = content_left
@@ -325,6 +324,8 @@ let adjust_scrollbar_according_to_textarea_text_caret
   match potential_xy with
   | Some (x, y) ->
     assert (scroll.bbox <> None);
+    assert (scrollbar_container.bbox <> None);
+    let scrollbar_container_bbox = Option.get scrollbar_container.bbox in
     let bbox = Option.get scroll.bbox in
     (match orientation with
      | Horizontal ->
@@ -335,35 +336,40 @@ let adjust_scrollbar_according_to_textarea_text_caret
          then x - text_caret_width - left
          else 0
        in
-       scroll.bbox
-       <- Some
-            { bbox with
-              x =
-                bbox.x
-                + ((right - left)
-                   * scroll_direction_and_amt
-                   / (content_right - content_left))
-            }
+       let offset_amount =
+         (right - left) * scroll_direction_and_amt / (content_right - content_left)
+       in
+       let sign = Int.compare offset_amount 0 in
+       if
+         (sign = -1 && bbox.x > scrollbar_container_bbox.x)
+         || (sign = 1
+             && bbox.x
+                < scrollbar_container_bbox.x + scrollbar_container_bbox.width - bbox.width
+            )
+       then scroll.bbox <- Some { bbox with x = bbox.x + offset_amount }
      | Vertical ->
        let scroll_direction_and_amt =
          (* reason for the 2 * font_info.font_height is because
            sometimes the different between y + font_info.font_height and bottom
            isn't enough for the integer division to not end up being 0 *)
          if y < top
-         then y - (top + 2 * font_info.font_height)
+         then y - (top + (2 * font_info.font_height))
          else if y + font_info.font_height > bottom
-         then y + 2 * font_info.font_height - bottom
+         then y + (2 * font_info.font_height) - bottom
          else 0
        in
-       scroll.bbox
-       <- Some
-            { bbox with
-              y =
-                bbox.y
-                + ((bottom - top)
-                   * scroll_direction_and_amt
-                   / (content_bottom - content_top))
-            })
+       let offset_amount =
+         (bottom - top) * scroll_direction_and_amt / (content_bottom - content_top)
+       in
+       let sign = Int.compare offset_amount 0 in
+       if
+         (sign = -1 && bbox.y > scrollbar_container_bbox.y)
+         || (sign = 1
+             && bbox.y
+                < scrollbar_container_bbox.y
+                  + scrollbar_container_bbox.height
+                  - bbox.height)
+       then scroll.bbox <- Some { bbox with y = bbox.y + offset_amount })
   | None -> ()
 ;;
 

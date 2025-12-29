@@ -291,7 +291,10 @@ let unwrap_scrollcontainer ~(box : box) ~unwrap_orientation =
   | _ -> ()
 ;;
 
-let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
+let adjust_scrollbar_according_to_content_size ~scrollcontainer_info =
+  let { content; orientation; scroll; scrollbar_container; _ } = scrollcontainer_info in
+  assert (scrollbar_container.bbox <> None);
+  let scrollbar_container_bbox = Option.get scrollbar_container.bbox in
   match content.bbox with
   | Some _ ->
     let { left; right; top; bottom } = Ui.get_box_sides ~box:content in
@@ -319,6 +322,8 @@ let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
                   ; y =
                       (if bbox.y + new_scrollbar_height > bottom
                        then bottom - new_scrollbar_height
+                       else if bbox.y < top
+                       then scrollbar_container_bbox.y
                        else bbox.y)
                   }
            | None -> failwith "SHOULD HAVE BBOX for scroll.Ui.bbox")
@@ -343,6 +348,8 @@ let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
                   ; x =
                       (if bbox.x + new_scrollbar_width > right
                        then right - new_scrollbar_width
+                       else if bbox.x < left
+                       then scrollbar_container_bbox.x
                        else bbox.x)
                   }
            | None -> failwith ("SHOULD HAVE BBOX FOR SCROLL.BBOX" ^ __LOC__))
@@ -355,11 +362,8 @@ let adjust_scrollbar_according_to_content_size ~content ~scroll ~orientation =
   | None -> ()
 ;;
 
-let change_content_scroll_offsets_based_off_scrollbar
-      ~(content : box)
-      ~scroll
-      ~orientation
-  =
+let change_content_scroll_offsets_based_off_scrollbar ~scrollcontainer_info =
+  let { scroll; orientation; content; _ } = scrollcontainer_info in
   match scroll.bbox with
   | Some scroll_bbox ->
     let { left; right; top; bottom } = Ui.get_box_sides ~box:content in

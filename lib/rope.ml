@@ -191,14 +191,13 @@ let fold_rope_traversal_info
     | Some bbox -> bbox
     | None -> failwith "EXPECTED BOX to have BBOX"
   in
-  let start_x = bbox.x + box.scroll_x_offset in
   let (Rope_Traversal_Info acc) = rope_traversal_info in
   match c with
   | '\n' ->
     Rope_Traversal_Info
-      { x = start_x; y = acc.y + font_info.font_height; rope_pos = acc.rope_pos + 1 }
+      { x = bbox.x; y = acc.y + font_info.font_height; rope_pos = acc.rope_pos + 1 }
   | _ ->
-    let ~new_x, ~new_y, ~wraps =
+    let ~new_x, ~new_y, .. =
       Ui_utils.get_text_wrap_info
         ~box
         ~glyph:c
@@ -207,8 +206,7 @@ let fold_rope_traversal_info
         ~font_info
         ~text_wrap:box.text_wrap
     in
-    Rope_Traversal_Info
-      { x = (if wraps then start_x else new_x); y = new_y; rope_pos = acc.rope_pos + 1 }
+    Rope_Traversal_Info { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
 ;;
 
 let fold_line_numbers
@@ -222,12 +220,11 @@ let fold_line_numbers
     | Some bbox -> bbox
     | None -> failwith "EXPECTED BOX to have BBOX"
   in
-  let start_x = bbox.x + box.scroll_x_offset in
   let (Line_Numbers (rope_traversal_info, list)) = acc in
   match c with
   | '\n' ->
     Line_Numbers
-      ( { x = start_x
+      ( { x = bbox.x
         ; y = rope_traversal_info.y + font_info.font_height
         ; rope_pos = rope_traversal_info.rope_pos + 1
         }
@@ -246,10 +243,7 @@ let fold_line_numbers
         ~text_wrap:box.text_wrap
     in
     Line_Numbers
-      ( { x = (if wraps then start_x else new_x)
-        ; y = new_y
-        ; rope_pos = rope_traversal_info.rope_pos + 1
-        }
+      ( { x = new_x; y = new_y; rope_pos = rope_traversal_info.rope_pos + 1 }
       , let most_recent_line_number = List.find_opt (fun ln -> Option.is_some ln) list in
         match most_recent_line_number with
         | Some _ -> if wraps then None :: list else list
@@ -267,7 +261,6 @@ let fold_finding_cursor
     | Some bbox -> bbox
     | None -> failwith "EXPECTED BOX to have BBOX"
   in
-  let start_x = bbox.x + box.scroll_x_offset in
   let (Finding_Cursor (rope_traversal_info, closest_info)) = acc in
   let closest_info =
     match closest_info.original_pos with
@@ -287,13 +280,13 @@ let fold_finding_cursor
   match c with
   | '\n' ->
     Finding_Cursor
-      ( { x = start_x
+      ( { x = bbox.x
         ; y = rope_traversal_info.y + font_info.font_height
         ; rope_pos = rope_traversal_info.rope_pos + 1
         }
       , { closest_info with upper_y = closest_info.upper_y + font_info.font_height } )
   | _ ->
-    let ~new_x, ~new_y, ~wraps =
+    let ~new_x, ~new_y, .. =
       Ui_utils.get_text_wrap_info
         ~box
         ~glyph:c
@@ -303,10 +296,7 @@ let fold_finding_cursor
         ~text_wrap:box.text_wrap
     in
     Finding_Cursor
-      ( { x = (if wraps then start_x else new_x)
-        ; y = new_y
-        ; rope_pos = rope_traversal_info.rope_pos + 1
-        }
+      ( { x = new_x; y = new_y; rope_pos = rope_traversal_info.rope_pos + 1 }
       , { closest_info with upper_y = new_y + font_info.font_height } )
 ;;
 

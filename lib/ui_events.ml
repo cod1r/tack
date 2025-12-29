@@ -10,38 +10,17 @@ let adjust_scroll_container_for_focused_element ?mouse_pos_xy b new_text_area_in
         | _ -> failwith "impossible")
       !Ui.scrollcontainers
   with
-  | Some
-      (ScrollContainer
-         { scroll; orientation; other_scrollcontainer; content; scrollbar_container; _ })
-    ->
+  | Some (ScrollContainer ({ other_scrollcontainer; _ } as scrollcontainer_info)) ->
     Ui.adjust_scrollbar_according_to_textarea_text_caret
       ~mouse_pos_xy
       ~text_area_info:new_text_area_information
-      ~scroll
-      ~orientation
-      ~content;
-    let scroll_bbox = Option.get scroll.bbox in
-    assert (
-      Ui.is_within_box
-        ~x:scroll_bbox.x
-        ~y:scroll_bbox.y
-        ~box:scrollbar_container
-        ~from_sdl_evt:false);
+      ~scrollcontainer_info;
     (match other_scrollcontainer with
-     | Some { scroll; orientation; content; scrollbar_container; _ } ->
+     | Some scrollcontainer_info ->
        Ui.adjust_scrollbar_according_to_textarea_text_caret
          ~mouse_pos_xy
          ~text_area_info:new_text_area_information
-         ~scroll
-         ~orientation
-         ~content;
-       let scroll_bbox = Option.get scroll.bbox in
-       assert (
-         Ui.is_within_box
-           ~x:scroll_bbox.x
-           ~y:scroll_bbox.y
-           ~box:scrollbar_container
-           ~from_sdl_evt:false)
+         ~scrollcontainer_info
      | _ -> ())
   | _ -> ()
 ;;

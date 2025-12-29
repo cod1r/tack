@@ -9,7 +9,7 @@ let find_closest_vertical_range ~(box : box) ~(font_info : Freetype.font_info) ~
     | Some bbox -> bbox
     | None -> failwith ("should have bbox;" ^ __LOC__)
   in
-  let lower_y = bbox.y + box.scroll_y_offset in
+  let lower_y = bbox.y in
   let upper_y = lower_y + font_info.font_height in
   let _, Rope_types.{ closest_vertical_range; _ } =
     Rope.traverse_rope
@@ -42,8 +42,8 @@ let find_closest_horizontal_pos
     | Some bbox -> bbox
     | None -> failwith ("should have bbox;" ^ __LOC__)
   in
-  let start_x = bbox.x + box.scroll_x_offset in
-  let lower_y = bbox.y + box.scroll_y_offset in
+  let start_x = bbox.x in
+  let lower_y = bbox.y in
   let upper_y = lower_y + font_info.font_height in
   let rope_traversal_info, closest_info =
     Rope.traverse_rope
@@ -85,9 +85,10 @@ let find_closest_rope_pos_for_cursor_on_coords
       ~rope
   =
   let width_ratio, height_ratio = Sdl.get_logical_to_opengl_window_dims_ratio () in
-  (* ratio is needed because the x,y coords given from MouseEvent is based on window without high dpi so scaling needs to happen *)
-  let x = x * width_ratio
-  and y = y * height_ratio in
+  (* ratio is needed because the x,y coords given from MouseEvent is based on window without high dpi so scaling needs to happen
+  and offsetting the scroll offsets *)
+  let x = (x * width_ratio) - box.scroll_x_offset
+  and y = (y * height_ratio) - box.scroll_y_offset in
   let closest_vertical_range = find_closest_vertical_range ~box ~font_info ~rope ~y in
   let closest_rope =
     find_closest_horizontal_pos ~box ~font_info ~rope ~closest_vertical_range ~x
@@ -99,8 +100,7 @@ let find_coords_for_cursor_pos ~(box : box) ~font_info ~rope ~cursor_pos =
   assert (box.bbox <> None);
   let bbox = Option.get box.bbox in
   let found = ref None in
-  let fn_for_finding_coords acc _c =
-    let (Rope_types.Rope_Traversal_Info acc) = acc in
+  let fn_for_finding_coords (Rope_types.Rope_Traversal_Info acc) _c =
     if acc.rope_pos = cursor_pos then found := Some acc
   in
   ignore
@@ -109,12 +109,7 @@ let find_coords_for_cursor_pos ~(box : box) ~font_info ~rope ~cursor_pos =
        ~font_info
        ~rope
        ~handle_result:(Some fn_for_finding_coords)
-       ~result:
-         (Rope_types.Rope_Traversal_Info
-            { x = bbox.x + box.scroll_x_offset
-            ; y = bbox.y + box.scroll_y_offset
-            ; rope_pos = 0
-            }));
+       ~result:(Rope_types.Rope_Traversal_Info { x = bbox.x; y = bbox.y; rope_pos = 0 }));
   match !found with
   | Some acc -> acc
   | None -> "EXPECTED TO HAVE SOME COORDS " ^ __LOC__ |> failwith
