@@ -60,12 +60,12 @@ let box =
   }
 ;;
 
-(* let box =
+let box =
   { Ui.default_box with
     bbox= Some {x= 0; y= 0; width= 2000; height= 0}
   ; height_constraint= Some Min
   ; content= Some (Boxes [file_explorer; box])
-  ; flow= Some Horizontal } *)
+  ; flow= Some Horizontal }
 
 (* let box =
   { Ui.default_box with
