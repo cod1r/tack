@@ -132,47 +132,38 @@ let pass_evt_to_focused ~(e : Sdl.event) =
              in
              let adjust_scroll ~scroll ~scrollbar_container = function
                | Vertical ->
-                 (match scroll.bbox with
-                  | Some bbox ->
-                    let { y = scrollbar_container_y
-                        ; height = scrollbar_container_height
-                        ; _
-                        }
-                      =
-                      Option.get scrollbar_container.bbox
-                    in
-                    scroll.bbox
-                    <- Some
-                         { bbox with
-                           y =
-                             min
-                               (scrollbar_container_y
-                                + scrollbar_container_height
-                                - bbox.height)
-                               (max scrollbar_container_y (bbox.y + (-y * height_ratio)))
-                         }
-                  | None -> failwith "SHOULD HAVE BBOX FOR SCROLL1")
+                 assert (scroll.bbox <> None);
+                 let bbox = Option.get scroll.bbox in
+                 let { y = scrollbar_container_y; height = scrollbar_container_height; _ }
+                   =
+                   Option.get scrollbar_container.bbox
+                 in
+                 scroll.bbox
+                 <- Some
+                      { bbox with
+                        y =
+                          min
+                            (scrollbar_container_y
+                             + scrollbar_container_height
+                             - bbox.height)
+                            (max scrollbar_container_y (bbox.y + (-y * height_ratio)))
+                      }
                | Horizontal ->
-                 (match scroll.bbox with
-                  | Some bbox ->
-                    let { x = scrollbar_container_x
-                        ; width = scrollbar_container_width
-                        ; _
-                        }
-                      =
-                      Option.get scrollbar_container.bbox
-                    in
-                    scroll.bbox
-                    <- Some
-                         { bbox with
-                           x =
-                             min
-                               (scrollbar_container_x
-                                + scrollbar_container_width
-                                - bbox.width)
-                               (max scrollbar_container_x (bbox.x + (x * width_ratio)))
-                         }
-                  | None -> failwith "SHOULD HAVE BBOX FOR SCROLL2")
+                 assert (scroll.bbox <> None);
+                 let bbox = Option.get scroll.bbox in
+                 let { x = scrollbar_container_x; width = scrollbar_container_width; _ } =
+                   Option.get scrollbar_container.bbox
+                 in
+                 scroll.bbox
+                 <- Some
+                      { bbox with
+                        x =
+                          min
+                            (scrollbar_container_x
+                             + scrollbar_container_width
+                             - bbox.width)
+                            (max scrollbar_container_x (bbox.x + (x * width_ratio)))
+                      }
              in
              adjust_scroll ~scroll ~scrollbar_container orientation;
              (match other_scrollcontainer with

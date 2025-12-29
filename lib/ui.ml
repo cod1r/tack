@@ -16,8 +16,8 @@ let holding_ctrl = ref false
 let get_box_sides ~(box : box) : box_sides =
   match box.bbox with
   | Some bbox ->
-    let right = bbox.x + bbox.width
-    and bottom = bbox.y + bbox.height in
+    let right = bbox.x + bbox.width - 1
+    and bottom = bbox.y + bbox.height - 1 in
     { left = bbox.x; top = bbox.y; right; bottom }
   | None -> failwith "calling get_box_sides requires a bbox property of Some"
 ;;
@@ -38,10 +38,8 @@ let is_within_box ~x ~y ~box ~from_sdl_evt =
       x * width_ratio, y * height_ratio)
     else x, y
   in
-  let { left; right; top; bottom } =
-    try get_box_sides ~box with
-    | Failure e -> failwith (e ^ __LOC__)
-  in
+  assert (box.bbox <> None);
+  let { left; right; top; bottom } = get_box_sides ~box in
   x >= left && x <= right && y <= bottom && y >= top
 ;;
 

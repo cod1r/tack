@@ -1083,12 +1083,6 @@ let rec calculate_ui ~(box : box) ~context =
               bbbox.x <- fst !boxes_pos;
               bbbox.y <- snd !boxes_pos;
               let bbbox_used_width, bbbox_used_height = bbbox.width, bbbox.height in
-              if Sys.getenv_opt "DEBUG" |> Option.is_some
-              then (
-                if bbbox_used_width = 0 && d = Horizontal
-                then Printf.eprintf "flow is horizontal but width is 0\n";
-                if bbbox_used_height = 0 && d = Vertical
-                then Printf.eprintf "flow is vertical but height is 0\n");
               boxes_pos
               := let x, y = !boxes_pos in
                  (match d with
