@@ -252,12 +252,11 @@ let handle_txt_evt ~(text_area_information : text_area_information) ~text =
     | _ -> cursor_pos', r
   in
   let new_rope = Rope.insert new_rope cursor_pos' text in
-  Ui_types.
-    { text = Some new_rope
-    ; highlight_pos = None, None
-    ; holding_mousedown_rope_pos = None
-    ; cursor_pos = Some (cursor_pos' + String.length text)
-    }
+  { text = Some new_rope
+  ; highlight_pos = None, None
+  ; holding_mousedown_rope_pos = None
+  ; cursor_pos = Some (cursor_pos' + String.length text)
+  }
 ;;
 
 let handle_mouse_motion_evt

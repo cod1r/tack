@@ -175,7 +175,6 @@ let pass_evt_to_focused ~(e : Sdl.event) =
           let new_text_area_information =
             Ui_textarea.handle_txt_evt ~text_area_information:info ~text
           in
-          adjust_scroll_container_for_focused_element b new_text_area_information;
           b.content <- Some (Textarea new_text_area_information)
         | _ -> ())
      | _ -> ())

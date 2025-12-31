@@ -494,15 +494,20 @@ let rec clamp_width_or_height_to_content_size
   =
   assert (Option.is_some box.bbox);
   let bbox = Option.get box.bbox in
+  let width_constraint_is_min =
+    Option.is_some box.width_constraint && Option.get box.width_constraint == Min
+  and height_constraint_is_min =
+    Option.is_some box.height_constraint && Option.get box.height_constraint == Min
+  in
   match box.content with
   | Some (Box b) ->
     constrain_width_height ~box:b ~context:{ context with parent = Some box };
     assert (Option.is_some b.bbox);
     let inner_bbox = Option.get b.bbox in
     (match measurement with
-     | `Width when box.width_constraint = Some Min ->
+     | `Width when width_constraint_is_min ->
        box.bbox <- Some { bbox with width = inner_bbox.width }
-     | `Height when box.height_constraint = Some Min ->
+     | `Height when height_constraint_is_min ->
        box.bbox <- Some { bbox with height = inner_bbox.height }
      | _ -> ())
   | Some (Boxes list) ->
@@ -525,9 +530,9 @@ let rec clamp_width_or_height_to_content_size
            list
        in
        (match measurement with
-        | `Width when box.width_constraint = Some Min ->
+        | `Width when width_constraint_is_min ->
           box.bbox <- Some { bbox with width = max_width }
-        | `Height when box.height_constraint = Some Min ->
+        | `Height when height_constraint_is_min ->
           box.bbox <- Some { bbox with height = summed_size }
         | _ -> ())
      | Some Horizontal ->
@@ -546,9 +551,9 @@ let rec clamp_width_or_height_to_content_size
            list
        in
        (match measurement with
-        | `Width when box.width_constraint = Some Min ->
+        | `Width when width_constraint_is_min ->
           box.bbox <- Some { bbox with width = summed_size }
-        | `Height when box.height_constraint = Some Min ->
+        | `Height when height_constraint_is_min ->
           box.bbox <- Some { bbox with height = max_height }
         | _ -> ())
      | None -> ())
@@ -560,9 +565,9 @@ let rec clamp_width_or_height_to_content_size
     let string_width = calculate_string_width ~s:string ~font_info in
     (* this doesn't handle the case of text wrapping *)
     (match measurement with
-     | `Width when box.width_constraint = Some Min ->
+     | `Width when width_constraint_is_min ->
        box.bbox <- Some { bbox with width = string_width }
-     | `Height when box.width_constraint = Some Min ->
+     | `Height when width_constraint_is_min ->
        box.bbox <- Some { bbox with height = font_info.font_height }
      | _ -> ())
   | Some (Textarea _)
@@ -571,7 +576,7 @@ let rec clamp_width_or_height_to_content_size
     box.bbox <- Some { x = left; y = top; width = right - left; height = bottom - top }
   | Some (ScrollContainer { container; scrollbar_container; orientation; _ }) ->
     (match measurement with
-     | `Width when box.width_constraint = Some Min ->
+     | `Width when width_constraint_is_min ->
        (match orientation with
         | Vertical ->
           let { width = content_width; _ } : bounding_box =
@@ -585,7 +590,7 @@ let rec clamp_width_or_height_to_content_size
             Option.value container.bbox ~default:default_bbox
           in
           box.bbox <- Some { bbox with width = content_width })
-     | `Height when box.height_constraint = Some Min ->
+     | `Height when height_constraint_is_min ->
        (match orientation with
         | Horizontal ->
           let { height = content_height; _ } : bounding_box =
@@ -604,8 +609,8 @@ let rec clamp_width_or_height_to_content_size
     constrain_width_height ~box:container ~context:{ context with parent = Some box };
     assert (container.bbox <> None);
     (match measurement with
-     | `Width when box.width_constraint = Some Min -> box.bbox <- container.bbox
-     | `Height when box.height_constraint = Some Min -> box.bbox <- container.bbox
+     | `Width when width_constraint_is_min -> box.bbox <- container.bbox
+     | `Height when height_constraint_is_min -> box.bbox <- container.bbox
      | _ -> ())
   | None -> ()
   | _ -> ()
