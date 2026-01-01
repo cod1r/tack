@@ -637,10 +637,7 @@ let draw_highlight
          ~handle_result:(Some fn_for_draw_highlight)
          ~result:
            (Rope_types.Rope_Traversal_Info
-              { x = bbox.x + box.scroll_x_offset
-              ; y = bbox.y + box.scroll_y_offset
-              ; rope_pos = 0
-              }));
+              { x = bbox.x; y = bbox.y + box.scroll_y_offset; rope_pos = 0 }));
     write_highlight_to_ui_buffer
       ~points:!entire_points_of_highlight_quads
       ~parent:(Some box)
@@ -693,8 +690,6 @@ let validate ~(box : box) =
       | Some (Boxes list) ->
         let visited = box :: visited in
         List.iter (fun b -> validate' b visited) list
-      | Some (TextAreaWithLineNumbers { container; _ }) ->
-        validate' container (box :: visited)
       | Some (Text _) -> ()
       | Some (Textarea _) -> ()
       | Some (ScrollContainer { content; _ }) -> validate' content (box :: visited)
@@ -712,7 +707,6 @@ let add_event_handlers ~(box : box) =
     | Some (Box b) -> add_event_handlers' b
     | Some (Boxes list) -> List.iter (fun b -> add_event_handlers' b) list
     | Some (ScrollContainer { container; _ }) -> add_event_handlers' container
-    | Some (TextAreaWithLineNumbers { container; _ }) -> add_event_handlers' container
     | Some (Text _) | Some (Textarea _) | None -> ()
   in
   add_event_handlers' box
@@ -835,10 +829,7 @@ let draw_cursor
         ~handle_result:(Some fn_draw_cursor)
         ~result:
           (Rope_types.Rope_Traversal_Info
-             { x = bbox.x + box.scroll_x_offset
-             ; y = bbox.y + box.scroll_y_offset
-             ; rope_pos = 0
-             })
+             { x = bbox.x; y = bbox.y + box.scroll_y_offset; rope_pos = 0 })
     in
     if res.rope_pos = cursor_pos
     then
@@ -959,7 +950,7 @@ let draw_text_textarea
        ~result:
          (Rope_types.Rope_Traversal_Info
             { rope_pos = 0
-            ; x = bbox.x + box.scroll_x_offset
+            ; x = bbox.x
             ; y = bbox.y + font_info.font_height + box.scroll_y_offset
             }))
 ;;
@@ -1020,10 +1011,6 @@ let rec draw_box ~(box : box) ~(context : draw_context) =
         draw_box
           ~box:container
           ~context:{ parent = Some box; previous_context = Some context }
-      | Some (TextAreaWithLineNumbers { container; _ }) ->
-        draw_box
-          ~box:container
-          ~context:{ parent = Some box; previous_context = Some context }
       | None -> ())
   | None -> ()
 ;;
@@ -1064,6 +1051,7 @@ let handle_if_content_overflows_or_not ~(box : box) ~(context : ui_traversal_con
 ;;
 
 let rec calculate_ui ~(box : box) ~context =
+  Option.iter (fun update -> update ()) box.update;
   Ui.constrain_width_height ~box ~context;
   assert (Option.is_some box.bbox);
   handle_if_content_overflows_or_not ~box ~context;
@@ -1076,20 +1064,19 @@ let rec calculate_ui ~(box : box) ~context =
     (match box.flow with
      | Some ((Horizontal | Vertical) as d) ->
        let boxes_pos = ref (handle_list_of_boxes_initial_position ~d ~box ~list) in
-       List.iter
-         (fun b ->
-            match b.bbox with
-            | Some bbbox ->
-              bbbox.x <- fst !boxes_pos;
-              bbbox.y <- snd !boxes_pos;
-              let bbbox_used_width, bbbox_used_height = bbbox.width, bbbox.height in
-              boxes_pos
-              := let x, y = !boxes_pos in
-                 (match d with
-                  | Horizontal -> x + bbbox_used_width, y
-                  | Vertical -> x, y + bbbox_used_height)
-            | None -> ())
-         list
+       list
+       |> List.iter (fun b ->
+         match b.bbox with
+         | Some bbbox ->
+           bbbox.x <- fst !boxes_pos;
+           bbbox.y <- snd !boxes_pos;
+           let bbbox_used_width, bbbox_used_height = bbbox.width, bbbox.height in
+           boxes_pos
+           := let x, y = !boxes_pos in
+              (match d with
+               | Horizontal -> x + bbbox_used_width, y
+               | Vertical -> x, y + bbbox_used_height)
+         | None -> ())
      | None -> ());
     List.iter
       (fun b -> calculate_ui ~box:b ~context:{ context with parent = Some box })
@@ -1113,12 +1100,6 @@ let rec calculate_ui ~(box : box) ~context =
        then
          Ui_scrollcontainers.unwrap_scrollcontainer ~box ~unwrap_orientation:orientation);
     calculate_ui ~box:container ~context:{ in_scrollcontainer = true; parent = Some box }
-  | Some
-      (TextAreaWithLineNumbers { container; line_numbers = _; textarea = _ } as
-       textarea_with_line_numbers) ->
-    Ui_textarea_with_line_numbers.adjust_textarea_with_line_numbers
-      ~textarea_with_line_numbers;
-    calculate_ui ~box:container ~context:{ context with parent = Some box }
   | None -> ()
 ;;
 

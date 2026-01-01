@@ -82,6 +82,7 @@ let default_box =
   ; scroll_x_offset = 0
   ; scroll_y_offset = 0
   ; focusable = false
+  ; update = None
   }
 ;;
 
@@ -232,15 +233,6 @@ let calculate_content_boundaries ~(box : box) =
     ; bottom = get_max_int bottom max_y
     }
   | Some (ScrollContainer { container; _ }) ->
-    let { left = left'; right = right'; top = top'; bottom = bottom' } =
-      get_box_sides ~box:container
-    in
-    { left = get_min_int left left'
-    ; right = get_max_int right right'
-    ; top = get_min_int top top'
-    ; bottom = get_max_int bottom bottom'
-    }
-  | Some (TextAreaWithLineNumbers { container; _ }) ->
     let { left = left'; right = right'; top = top'; bottom = bottom' } =
       get_box_sides ~box:container
     in
@@ -469,9 +461,6 @@ let handle_maximizing_of_inner_content_size ~(parent_box : box) =
   | Some (Text _) -> ()
   | Some (Textarea _) -> ()
   | Some (ScrollContainer _) -> ()
-  | Some (TextAreaWithLineNumbers { container; _ }) ->
-    assert (parent_box.bbox <> None);
-    container.bbox <- parent_box.bbox
   | None -> ()
 ;;
 
@@ -604,13 +593,6 @@ let rec clamp_width_or_height_to_content_size
             Option.value container.bbox ~default:default_bbox
           in
           box.bbox <- Some { bbox with height = content_height })
-     | _ -> ())
-  | Some (TextAreaWithLineNumbers { container; _ }) ->
-    constrain_width_height ~box:container ~context:{ context with parent = Some box };
-    assert (container.bbox <> None);
-    (match measurement with
-     | `Width when width_constraint_is_min -> box.bbox <- container.bbox
-     | `Height when height_constraint_is_min -> box.bbox <- container.bbox
      | _ -> ())
   | None -> ()
   | _ -> ()

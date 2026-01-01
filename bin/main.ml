@@ -4,7 +4,7 @@ let () = Sdl.sdl_gl_setswapinterval 0
 let rendering_content = Editor.open_file "lib/ui_rendering.ml"
 
 let textarea_with_line_numbers =
-  Ui_textarea_with_line_numbers.create_textarea_with_line_numbers
+  Textarea_with_line_numbers.create_textarea_with_line_numbers
     ~text:rendering_content
     ~textarea_width:1000
     ~textarea_height:1000
@@ -52,20 +52,21 @@ let box =
 
 let box =
   { Ui.default_box with
-    width_constraint = Some Min
+    bbox = Some { x = 100; y = 0; width = 0; height = 0 }
+  ; width_constraint = Some Min
   ; height_constraint = Some Min
-  ; content = Some textarea_with_line_numbers
+  ; content = Some (Box textarea_with_line_numbers)
   }
 ;;
 
-let box =
+(* let box =
   { Ui.default_box with
     bbox = Some { x = 0; y = 0; width = 2000; height = 0 }
   ; height_constraint = Some Min
   ; content = Some (Boxes [ file_explorer; box ])
   ; flow = Some Horizontal
   }
-;;
+;; *)
 
 (* let box =
   { Ui.default_box with

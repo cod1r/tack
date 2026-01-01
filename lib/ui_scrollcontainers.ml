@@ -179,7 +179,7 @@ let create_scrollcontainer ~(content : box) ~orientation ~other_scrollcontainer 
 
 let wrap_box_contents_in_scrollcontainer ~(parent : box) ~(box : box) ~orientation =
   match box.content with
-  | Some (Box _ | Boxes _ | Textarea _ | Text _ | TextAreaWithLineNumbers _) ->
+  | Some (Box _ | Boxes _ | Textarea _ | Text _) ->
     (match box.bbox with
      | Some bbox ->
        (match orientation with

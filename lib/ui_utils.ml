@@ -28,8 +28,7 @@ let clone_box ~(box : Ui_types.box) =
                   ; scrollbar_container = clone_box' scrollbar_container
                   ; container = clone_box' container
                   })
-           | Some (Text _) | Some (Textarea _) | Some (TextAreaWithLineNumbers _) | None
-             -> box.content)
+           | Some (Text _ | Textarea _) | None -> box.content)
       ; bbox = box.bbox
       ; text_wrap = box.text_wrap
       ; background_color = box.background_color
@@ -48,6 +47,7 @@ let clone_box ~(box : Ui_types.box) =
       ; scroll_y_offset = box.scroll_y_offset
       ; scroll_x_offset = box.scroll_x_offset
       ; focusable = box.focusable
+      ; update = box.update
       }
   in
   clone_box' box

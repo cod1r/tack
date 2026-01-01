@@ -130,6 +130,8 @@ let pass_evt_to_focused ~(e : Sdl.event) =
              let width_ratio, height_ratio =
                Sdl.get_logical_to_opengl_window_dims_ratio ()
              in
+             let y = y * height_ratio
+             and x = x * width_ratio in
              let adjust_scroll ~scroll ~scrollbar_container = function
                | Vertical ->
                  assert (scroll.bbox <> None);
@@ -146,7 +148,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                             (scrollbar_container_y
                              + scrollbar_container_height
                              - bbox.height)
-                            (max scrollbar_container_y (bbox.y + (-y * height_ratio)))
+                            (max scrollbar_container_y (bbox.y + -y))
                       }
                | Horizontal ->
                  assert (scroll.bbox <> None);
@@ -162,7 +164,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                             (scrollbar_container_x
                              + scrollbar_container_width
                              - bbox.width)
-                            (max scrollbar_container_x (bbox.x + (x * width_ratio)))
+                            (max scrollbar_container_x (bbox.x + x))
                       }
              in
              adjust_scroll ~scroll ~scrollbar_container orientation;

@@ -39,6 +39,7 @@ type size_constraint =
 
 type box =
   { mutable name : string option
+  ; mutable update : (unit -> unit) option
   ; mutable content : box_content option
   ; mutable bbox : bounding_box option
   ; mutable text_wrap : bool
@@ -84,11 +85,6 @@ and box_content =
   | Text of { string : string }
   | Textarea of text_area_information
   | ScrollContainer of scrollcontainer_info
-  | TextAreaWithLineNumbers of
-      { line_numbers : box
-      ; textarea : box
-      ; container : box
-      }
 
 type ui_traversal_context =
   { in_scrollcontainer : bool
