@@ -3,6 +3,17 @@ open Ui_types
 
 let _LINE_NUMBER_RIGHT_PADDING = 20
 
+let create_textarea_box ?(text : Rope_types.rope option) () =
+  { Ui.default_box with
+    focusable = true
+  ; clip_content = true
+  ; content = Some (Textarea { Ui.default_text_area_information with text })
+  ; allow_vertical_scroll = true
+  ; allow_horizontal_scroll = true
+  ; on_event = Some Ui.default_textarea_event_handler
+  }
+;;
+
 let find_closest_vertical_range ~(box : box) ~(font_info : Freetype.font_info) ~rope ~y =
   let bbox =
     match box.bbox with

@@ -76,8 +76,8 @@ let create_textarea_with_line_numbers ?text ~textarea_width ~textarea_height () 
   in
   let textarea =
     match text with
-    | Some text -> Ui.create_textarea_box ~text ()
-    | None -> Ui.create_textarea_box ()
+    | Some text -> Ui_textarea.create_textarea_box ~text ()
+    | None -> Ui_textarea.create_textarea_box ()
   in
   textarea.text_wrap <- false;
   textarea.bbox <- Some { x = 0; y = 0; width = textarea_width; height = textarea_height };

@@ -270,7 +270,8 @@ let get_potential_clipped_points ~parent ~points =
 ;;
 
 let write_container_values_to_ui_buffer ~(box : box) ~(parent : box option) =
-  let { width; height; x; y; _ } = Option.value box.bbox ~default:Ui.default_bbox
+  assert (box.bbox <> None);
+  let { width; height; x; y; _ } = Option.get box.bbox
   and r, g, b, alpha = box.background_color in
   let points : floatarray =
     [| Float.of_int x
@@ -303,7 +304,7 @@ let write_container_values_to_ui_buffer ~(box : box) ~(parent : box option) =
     idx := !idx + 6;
     float_array_index := !float_array_index + 2
   done;
-  ui_buffer.length <- ui_buffer.length + 24
+  ui_buffer.length <- !idx
 ;;
 
 let gl_text_buffer = Opengl.gl_gen_one_buffer ()
@@ -1053,10 +1054,14 @@ let handle_if_content_overflows_or_not ~(box : box) ~(context : ui_traversal_con
 let rec calculate_ui ~(box : box) ~context =
   Option.iter (fun update -> update ()) box.update;
   Ui.constrain_width_height ~box ~context;
-  assert (Option.is_some box.bbox);
   handle_if_content_overflows_or_not ~box ~context;
+  assert (Option.is_some box.bbox);
   match box.content with
   | Some (Box b) ->
+    let parent_bbox = Option.get box.bbox in
+    let bbox = Option.value b.bbox ~default:Ui.default_bbox in
+    if not (Ui.is_within_box ~x:bbox.x ~y:bbox.y ~from_sdl_evt:false ~box)
+    then b.bbox <- Some { bbox with x = parent_bbox.x; y = parent_bbox.y };
     align_inner_box_horizontally ~box ~inner_box:b;
     align_inner_box_vertically ~box ~inner_box:b;
     calculate_ui ~box:b ~context:{ context with parent = Some box }
@@ -1071,16 +1076,14 @@ let rec calculate_ui ~(box : box) ~context =
            bbbox.x <- fst !boxes_pos;
            bbbox.y <- snd !boxes_pos;
            let bbbox_used_width, bbbox_used_height = bbbox.width, bbbox.height in
-           boxes_pos
-           := let x, y = !boxes_pos in
-              (match d with
+           (boxes_pos
+            := let x, y = !boxes_pos in
+               match d with
                | Horizontal -> x + bbbox_used_width, y
-               | Vertical -> x, y + bbbox_used_height)
+               | Vertical -> x, y + bbbox_used_height);
+           calculate_ui ~box:b ~context:{ context with parent = Some box }
          | None -> ())
-     | None -> ());
-    List.iter
-      (fun b -> calculate_ui ~box:b ~context:{ context with parent = Some box })
-      list
+     | None -> ())
   | Some (Text _) -> ()
   | Some (Textarea _) -> ()
   | Some (ScrollContainer ({ orientation; scroll; container; _ } as scrollcontainer_info))

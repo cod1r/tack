@@ -39,6 +39,8 @@ and contains text
 
     set width and height as percentages relative to the parent size.
 
+    clip_content bug causing scrollbar_containers to lose background color
+
     box component redesign:
       the design of textarea_with_line_numbers isn't practical due to how, the information that it
       needs to display, is contained.

@@ -121,17 +121,6 @@ module TextTextureInfo = struct
   ;;
 end
 
-let create_textarea_box ?(text : Rope_types.rope option) () =
-  { default_box with
-    focusable = true
-  ; clip_content = true
-  ; content = Some (Textarea { default_text_area_information with text })
-  ; allow_vertical_scroll = true
-  ; allow_horizontal_scroll = true
-  ; on_event = Some default_textarea_event_handler
-  }
-;;
-
 let text_caret_width = 3
 
 (* these functions exist purely because polymorphic comparison is slow *)
@@ -389,7 +378,6 @@ let get_available_size_for_maxed_constrained_inner_boxes
 ;;
 
 let handle_maximizing_of_inner_content_size ~(parent_box : box) =
-  assert (parent_box.bbox <> None);
   let parent_bbox = Option.value parent_box.bbox ~default:default_bbox in
   match parent_box.content with
   | Some (Box b) ->
@@ -481,8 +469,7 @@ let rec clamp_width_or_height_to_content_size
           ~(measurement : [ `Width | `Height ])
           ~context
   =
-  assert (Option.is_some box.bbox);
-  let bbox = Option.get box.bbox in
+  let bbox = Option.value box.bbox ~default:default_bbox in
   let width_constraint_is_min =
     Option.is_some box.width_constraint && Option.get box.width_constraint == Min
   and height_constraint_is_min =
@@ -559,8 +546,7 @@ let rec clamp_width_or_height_to_content_size
      | `Height when width_constraint_is_min ->
        box.bbox <- Some { bbox with height = font_info.font_height }
      | _ -> ())
-  | Some (Textarea _)
-    when box.width_constraint = Some Min || box.height_constraint = Some Min ->
+  | Some (Textarea _) when width_constraint_is_min || height_constraint_is_min ->
     let { left; right; top; bottom } = calculate_content_boundaries ~box in
     box.bbox <- Some { x = left; y = top; width = right - left; height = bottom - top }
   | Some (ScrollContainer { container; scrollbar_container; orientation; _ }) ->
@@ -624,7 +610,6 @@ and calculate_box_position
    the parent container which poses the question of, what should the min width/height be?
    Perhaps, restricting this functionality when child elements are only positioned relatively *)
 and constrain_width_height ~(box : box) ~context =
-  calculate_box_position ~box ~context;
   clamp_width_or_height_to_content_size ~box ~measurement:`Width ~context;
   clamp_width_or_height_to_content_size ~box ~measurement:`Height ~context;
   handle_maximizing_of_inner_content_size ~parent_box:box
