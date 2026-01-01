@@ -40,6 +40,7 @@ let file_item_box (f : Files.file_tree) =
              | _ -> ())
           | None -> ())
   ; name = Some name
+  ; clip_content = true
   }
 ;;
 

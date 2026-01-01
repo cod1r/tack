@@ -39,7 +39,34 @@ and contains text
 
     set width and height as percentages relative to the parent size.
 
-    refactor box_content to be GADTs
+    box component redesign:
+      the design of textarea_with_line_numbers isn't practical due to how, the information that it
+      needs to display, is contained.
+
+      If textarea_information needs to be stored within the new "box", then the library will need
+      specific logic to render the new "box". a better design is to use the primitive elements already
+      provided by the ui library to render the new "box"/component.
+
+      the new element should be able to query the "textarea", get the textarea_information, then used
+      that to render whatever it needs to render.
+
+      the issue with that path is that, now there's a "beforeMount/beforeRender" thing which is very similar to what
+      reactjs had before. can I do better?
+
+
+      using textarea_with_line_numbers as an example:
+        in calculate_ui, there's a function that's called "adjust_textarea_with_line_numbers" that
+        just updates the state/properties of the box that contains the line numbers given the textarea
+        scroll offsets.
+
+        textarea_with_line_numbers doesn't need to be another type of primitive in the ui lib.
+        there just needs to be an update function that updates the properties of the box
+
+        how should the update function get the information that it needs to do proper updates?
+          how do i get access to the primitives in the update function reliably?
+
+      textarea_with_line_numbers needs to be removed from the ui lib and rewritten as a custom box/component
+      that composes the basic primitives that the ui lib offers
 
     currently there's an issue where the child box will try and max its size to the parents size and the parent will try and min
       its size to the child's size so neither gets the right size...
