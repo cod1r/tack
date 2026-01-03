@@ -835,7 +835,7 @@ let draw_cursor
     if res.rope_pos = cursor_pos
     then
       write_cursor_to_ui_buffer
-        ~x:res.x
+        ~x:(res.x + box.scroll_x_offset)
         ~y:res.y
         ~font_height:font_info.font_height
         ~parent:(Some box)
