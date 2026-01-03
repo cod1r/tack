@@ -59,14 +59,14 @@ let direction_to_string ~(orientation : Ui_types.direction) =
   | Horizontal -> "Horizontal"
 ;;
 
-let get_text_wrap_info ~(box : Ui_types.box) ~glyph ~x ~y ~font_info ~text_wrap =
+let get_text_wrap_info ~(box : Ui_types.box) ~glyph ~x ~y ~font_info =
   let bbox =
     match box.bbox with
     | Some bbox -> bbox
     | None -> failwith ("EXPECTED BBOX;" ^ __LOC__)
   in
   let glyph_info = Freetype.get_glyph_info_from_glyph ~glyph ~font_info in
-  if x + glyph_info.x_advance > bbox.x + bbox.width && text_wrap
+  if x + glyph_info.x_advance > bbox.x + bbox.width && box.text_wrap
   then
     ( ~new_x:(bbox.x + glyph_info.x_advance)
     , ~new_y:(y + font_info.font_height)

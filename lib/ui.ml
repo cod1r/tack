@@ -549,36 +549,18 @@ let rec clamp_width_or_height_to_content_size
   | Some (Textarea _) when width_constraint_is_min || height_constraint_is_min ->
     let { left; right; top; bottom } = calculate_content_boundaries ~box in
     box.bbox <- Some { x = left; y = top; width = right - left; height = bottom - top }
-  | Some (ScrollContainer { container; scrollbar_container; orientation; _ }) ->
+  | Some (ScrollContainer { container; _ }) ->
     (match measurement with
      | `Width when width_constraint_is_min ->
-       (match orientation with
-        | Vertical ->
-          let { width = content_width; _ } : bounding_box =
-            Option.value container.bbox ~default:default_bbox
-          and { width = scrollcontainer_width; _ } : bounding_box =
-            Option.value scrollbar_container.bbox ~default:default_bbox
-          in
-          box.bbox <- Some { bbox with width = scrollcontainer_width + content_width }
-        | Horizontal ->
-          let { width = content_width; _ } : bounding_box =
-            Option.value container.bbox ~default:default_bbox
-          in
-          box.bbox <- Some { bbox with width = content_width })
+       let { width = content_width; _ } : bounding_box =
+         Option.value container.bbox ~default:default_bbox
+       in
+       box.bbox <- Some { bbox with width = content_width }
      | `Height when height_constraint_is_min ->
-       (match orientation with
-        | Horizontal ->
-          let { height = content_height; _ } : bounding_box =
-            Option.value container.bbox ~default:default_bbox
-          and { height = scrollcontainer_height; _ } : bounding_box =
-            Option.value scrollbar_container.bbox ~default:default_bbox
-          in
-          box.bbox <- Some { bbox with height = scrollcontainer_height + content_height }
-        | Vertical ->
-          let { height = content_height; _ } : bounding_box =
-            Option.value container.bbox ~default:default_bbox
-          in
-          box.bbox <- Some { bbox with height = content_height })
+       let { height = content_height; _ } : bounding_box =
+         Option.value container.bbox ~default:default_bbox
+       in
+       box.bbox <- Some { bbox with height = content_height }
      | _ -> ())
   | None -> ()
   | _ -> ()

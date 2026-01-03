@@ -198,13 +198,7 @@ let fold_rope_traversal_info
       { x = bbox.x; y = acc.y + font_info.font_height; rope_pos = acc.rope_pos + 1 }
   | _ ->
     let ~new_x, ~new_y, .. =
-      Ui_utils.get_text_wrap_info
-        ~box
-        ~glyph:c
-        ~x:acc.x
-        ~y:acc.y
-        ~font_info
-        ~text_wrap:box.text_wrap
+      Ui_utils.get_text_wrap_info ~box ~glyph:c ~x:acc.x ~y:acc.y ~font_info
     in
     Rope_Traversal_Info { x = new_x; y = new_y; rope_pos = acc.rope_pos + 1 }
 ;;
@@ -240,7 +234,6 @@ let fold_line_numbers
         ~x:rope_traversal_info.x
         ~y:rope_traversal_info.y
         ~font_info
-        ~text_wrap:box.text_wrap
     in
     Line_Numbers
       ( { x = new_x; y = new_y; rope_pos = rope_traversal_info.rope_pos + 1 }
@@ -293,7 +286,6 @@ let fold_finding_cursor
         ~x:rope_traversal_info.x
         ~y:rope_traversal_info.y
         ~font_info
-        ~text_wrap:box.text_wrap
     in
     Finding_Cursor
       ( { x = new_x; y = new_y; rope_pos = rope_traversal_info.rope_pos + 1 }

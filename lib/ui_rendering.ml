@@ -591,7 +591,6 @@ let draw_highlight
       ~(font_info : Freetype.font_info)
       ~(r : Rope_types.rope)
       ~(highlight : int option * int option)
-      ~text_wrap
   =
   let bbox = Option.value box.bbox ~default:Ui.default_bbox in
   let entire_points_of_highlight_quads = ref [] in
@@ -606,13 +605,7 @@ let draw_highlight
         let x_advance = gi.x_advance in
         let next_y = acc.y + font_info.font_height in
         let ~wraps, .. =
-          Ui_utils.get_text_wrap_info
-            ~box
-            ~glyph:c
-            ~x:acc.x
-            ~y:acc.y
-            ~font_info
-            ~text_wrap
+          Ui_utils.get_text_wrap_info ~box ~glyph:c ~x:acc.x ~y:acc.y ~font_info
         in
         if acc.rope_pos >= highlight_start && acc.rope_pos < highlight_end
         then (
@@ -915,7 +908,6 @@ let draw_text_textarea
       ~(font_info : Freetype.font_info)
       ~(box : box)
       ~(rope : Rope_types.rope)
-      ~text_wrap
   =
   assert (box.bbox <> None);
   let bbox = Option.get box.bbox in
@@ -924,7 +916,7 @@ let draw_text_textarea
     then (
       let gi = Freetype.get_glyph_info_from_glyph ~glyph:c ~font_info in
       let ~wraps, .. =
-        Ui_utils.get_text_wrap_info ~box ~glyph:c ~x:acc.x ~y:acc.y ~font_info ~text_wrap
+        Ui_utils.get_text_wrap_info ~box ~glyph:c ~x:acc.x ~y:acc.y ~font_info
       in
       (* descender is a negative value *)
       let descender = font_info.descender in
@@ -965,10 +957,10 @@ let draw_textarea
   =
   match rope with
   | Some r ->
-    draw_text_textarea ~font_info ~rope:r ~box ~text_wrap:box.text_wrap;
+    draw_text_textarea ~font_info ~rope:r ~box;
     (match !Ui.focused_element with
      | Some b when b == box ->
-       draw_highlight ~r ~highlight ~box ~font_info ~text_wrap:box.text_wrap;
+       draw_highlight ~r ~highlight ~box ~font_info;
        draw_cursor ~r ~cursor_pos ~font_info ~box
      | _ -> ())
   | None -> ()

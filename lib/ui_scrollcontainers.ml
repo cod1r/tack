@@ -144,6 +144,14 @@ let create_scrollcontainer ~(content : box) ~orientation ~other_scrollcontainer 
   in
   assert (content.bbox <> None);
   let content_bbox = Option.get content.bbox in
+  let content_bbox =
+    match orientation with
+    | Horizontal ->
+      { content_bbox with height = content_bbox.height - Ui.scrollbar_container_width }
+    | Vertical ->
+      { content_bbox with width = content_bbox.width - Ui.scrollbar_container_width }
+  in
+  content.bbox <- Some content_bbox;
   let scrollcontainer =
     ScrollContainer
       { other_scrollcontainer
@@ -161,7 +169,12 @@ let create_scrollcontainer ~(content : box) ~orientation ~other_scrollcontainer 
                 (Boxes
                    [ (match other_scrollcontainer with
                       | Some scrollinfo ->
-                        { content with content = Some (ScrollContainer scrollinfo) }
+                        { content with
+                          bbox = Some content_bbox
+                        ; content = Some (ScrollContainer scrollinfo)
+                        ; width_constraint = Some Min
+                        ; height_constraint = Some Min
+                        }
                       | None -> content)
                    ; scrollbar_container
                    ])
@@ -180,15 +193,6 @@ let create_scrollcontainer ~(content : box) ~orientation ~other_scrollcontainer 
 let wrap_box_contents_in_scrollcontainer ~(parent : box) ~(box : box) ~orientation =
   match box.content with
   | Some (Box _ | Boxes _ | Textarea _ | Text _) ->
-    (match box.bbox with
-     | Some bbox ->
-       (match orientation with
-        | Vertical ->
-          box.bbox <- Some { bbox with width = bbox.width - Ui.scrollbar_container_width }
-        | Horizontal ->
-          box.bbox
-          <- Some { bbox with height = bbox.height - Ui.scrollbar_container_width })
-     | None -> failwith "SHOULD HAVE BBOX FOR box.bbox");
     (match parent.content with
      | Some (Boxes list) ->
        let other_scrollcontainer =
@@ -220,7 +224,13 @@ let wrap_box_contents_in_scrollcontainer ~(parent : box) ~(box : box) ~orientati
                 | _ -> false
               in
               if b == box || is_nested
-              then { Ui.default_box with bbox = box.bbox; content = Some scrollcontainer }
+              then
+                { Ui.default_box with
+                  bbox = box.bbox
+                ; content = Some scrollcontainer
+                ; width_constraint = Some Min
+                ; height_constraint = Some Min
+                }
               else b)
            list
        in
@@ -232,7 +242,7 @@ let wrap_box_contents_in_scrollcontainer ~(parent : box) ~(box : box) ~orientati
        in
        parent.content <- Some scrollcontainer)
   | None -> failwith "cannot wrap box with no contents"
-  | _ -> failwith ("TODO: " ^ __LOC__)
+  | Some (ScrollContainer _) -> failwith ("TODO: " ^ __LOC__)
 ;;
 
 let unwrap_scrollcontainer ~(box : box) ~unwrap_orientation =
