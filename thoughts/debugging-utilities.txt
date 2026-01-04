@@ -1,0 +1,5 @@
+there needs to be methods to easily debug what is going on when doing layout logic,
+seeing what properties a box has etc so that time is saved.
+
+a simple solution to this is to be able to de-serialize boxes and simply just
+"print" it.

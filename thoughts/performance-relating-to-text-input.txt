@@ -1,0 +1,8 @@
+Need to test more on large amounts of text and rope operations.
+
+
+performance ideas:
+	- the main issue is with edits to the rope. rope changes cause recalculations to occur which means the function traverse_rope
+		gets called a lot. If the file that's being edited, has 1 billion characters (1 gigabyte), each edit or interaction would
+		take forever. There needs to be a way to do edits and recalculate information (such as wrapping, closest cursor position)
+		without iterating over all characters.
