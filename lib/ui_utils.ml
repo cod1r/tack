@@ -10,24 +10,6 @@ let clone_box ~(box : Ui_types.box) =
           (match box.content with
            | Some (Box b) -> Some (Box (clone_box' b))
            | Some (Boxes list) -> Some (Boxes (List.map (fun b -> clone_box' b) list))
-           | Some
-               (ScrollContainer
-                  { content
-                  ; orientation
-                  ; other_scrollcontainer
-                  ; scroll
-                  ; scrollbar_container
-                  ; container
-                  }) ->
-             Some
-               (ScrollContainer
-                  { content = clone_box' content
-                  ; orientation
-                  ; other_scrollcontainer
-                  ; scroll = clone_box' scroll
-                  ; scrollbar_container = clone_box' scrollbar_container
-                  ; container = clone_box' container
-                  })
            | Some (Text _ | Textarea _) | None -> box.content)
       ; bbox = box.bbox
       ; text_wrap = box.text_wrap

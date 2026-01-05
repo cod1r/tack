@@ -686,7 +686,6 @@ let validate ~(box : box) =
         List.iter (fun b -> validate' b visited) list
       | Some (Text _) -> ()
       | Some (Textarea _) -> ()
-      | Some (ScrollContainer { content; _ }) -> validate' content (box :: visited)
       | None -> ())
   in
   validate' box []
@@ -700,7 +699,6 @@ let add_event_handlers ~(box : box) =
     match box.content with
     | Some (Box b) -> add_event_handlers' b
     | Some (Boxes list) -> List.iter (fun b -> add_event_handlers' b) list
-    | Some (ScrollContainer { container; _ }) -> add_event_handlers' container
     | Some (Text _) | Some (Textarea _) | None -> ()
   in
   add_event_handlers' box
@@ -958,7 +956,7 @@ let draw_textarea
   match rope with
   | Some r ->
     draw_text_textarea ~font_info ~rope:r ~box;
-    (match !Ui.focused_element with
+    (match !Ui_globals.focused_element with
      | Some b when b == box ->
        draw_highlight ~r ~highlight ~box ~font_info;
        draw_cursor ~r ~cursor_pos ~font_info ~box
@@ -977,6 +975,12 @@ let rec draw_box ~(box : box) ~(context : draw_context) =
     if left <= window_width_gl && right >= 0 && top <= window_height_gl && bottom >= 0
     then (
       let parent = find_closest_parent_that_clips ~context ~bbox in
+      let scrollcontainer =
+        List.find_opt (fun (b', _) -> b' == box) !Ui_globals.scrollcontainers
+      in
+      (match scrollcontainer with
+       | Some (_, scrollcontainer_info) -> render_scrollcontainer ~scrollcontainer_info
+       | None -> ());
       write_container_values_to_ui_buffer ~box ~parent;
       match box.content with
       | Some (Box b) ->
@@ -1000,15 +1004,10 @@ let rec draw_box ~(box : box) ~(context : draw_context) =
         in
         Opengl.gl_bind_texture ~texture_id:gl_texture_id;
         draw_textarea ~rope:text ~cursor_pos ~highlight:highlight_pos ~font_info ~box
-      | Some (ScrollContainer { container; _ }) ->
-        draw_box
-          ~box:container
-          ~context:{ parent = Some box; previous_context = Some context }
       | None -> ())
   | None -> ()
-;;
 
-let handle_if_content_overflows_or_not ~(box : box) ~(context : ui_traversal_context) =
+and handle_if_content_overflows_or_not ~(box : box) ~(context : ui_traversal_context) =
   let { left = content_left
       ; right = content_right
       ; top = content_top
@@ -1018,36 +1017,114 @@ let handle_if_content_overflows_or_not ~(box : box) ~(context : ui_traversal_con
     Ui.calculate_content_boundaries ~box
   in
   assert (box.bbox <> None);
-  let { width; height; _ } = Option.get box.bbox in
+  let ({ width; height; _ } as bbox) = Option.get box.bbox in
   if not context.in_scrollcontainer
   then (
+    let has_horizontal_scroll_info =
+      List.exists
+        (fun (box', { horizontal_scroll_info; _ }) ->
+           box' == box && Option.is_some horizontal_scroll_info)
+        !Ui_globals.scrollcontainers
+    in
+    let has_vertical_scroll_info =
+      List.exists
+        (fun (box', { vertical_scroll_info; _ }) ->
+           box' == box && Option.is_some vertical_scroll_info)
+        !Ui_globals.scrollcontainers
+    in
+    let already_existing_or_default =
+      List.find_map
+        (fun (box', si) -> if box' == box then Some si else None)
+        !Ui_globals.scrollcontainers
+      |> fun o ->
+      Option.value
+        o
+        ~default:{ vertical_scroll_info = None; horizontal_scroll_info = None }
+      |> ref
+    in
     if
       content_right - content_left > width
       && box.allow_horizontal_scroll
-      && Option.is_some context.parent
+      && not has_horizontal_scroll_info
     then (
-      let parent = Option.get context.parent in
-      Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer
-        ~parent
-        ~box
-        ~orientation:Horizontal);
+      let new_scrollcontainer =
+        Ui_scrollcontainers.create_horizontal_scrollcontainer ~content:box
+      in
+      let new_bbox =
+        { bbox with width = bbox.width - Ui_globals.scrollbar_container_width }
+      in
+      box.bbox <- Some new_bbox;
+      already_existing_or_default
+      := { !already_existing_or_default with
+           horizontal_scroll_info = Some new_scrollcontainer
+         });
     if
       content_bottom - content_top > height
       && box.allow_vertical_scroll
-      && Option.is_some context.parent
+      && not has_vertical_scroll_info
     then (
-      let parent = Option.get context.parent in
-      Ui_scrollcontainers.wrap_box_contents_in_scrollcontainer
-        ~parent
-        ~box
-        ~orientation:Vertical))
-;;
+      let new_scrollcontainer =
+        Ui_scrollcontainers.create_vertical_scrollcontainer ~content:box
+      in
+      let new_bbox =
+        { bbox with height = bbox.height - Ui_globals.scrollbar_container_width }
+      in
+      box.bbox <- Some new_bbox;
+      already_existing_or_default
+      := { !already_existing_or_default with
+           vertical_scroll_info = Some new_scrollcontainer
+         });
+    if
+      (not has_horizontal_scroll_info)
+      && (not has_vertical_scroll_info)
+      && (!already_existing_or_default.vertical_scroll_info |> Option.is_some
+          || !already_existing_or_default.horizontal_scroll_info |> Option.is_some)
+    then
+      Ui_globals.scrollcontainers
+      := (box, !already_existing_or_default) :: !Ui_globals.scrollcontainers)
 
-let rec calculate_ui ~(box : box) ~context =
+and adjust_scrollcontainer_if_needed ~(box : box) =
+  let scrollcontainer_info =
+    List.find_opt (fun (box', _) -> box' == box) !Ui_globals.scrollcontainers
+  in
+  match scrollcontainer_info with
+  | Some (_, scrollcontainer_info) ->
+    Ui_scrollcontainers.adjust_scrollbar_container_according_to_content_size
+      ~scrollcontainer_info
+      ~content:box;
+    Ui_scrollcontainers.change_content_scroll_offsets_based_off_scrollbar
+      ~scrollcontainer_info
+      ~content:box
+  | None -> ()
+
+and calculate_ui_for_scrollcontainer ~(scrollcontainer_info : scrollcontainer_info) =
+  let { vertical_scroll_info; horizontal_scroll_info } = scrollcontainer_info in
+  Option.iter
+    (fun { vertical_scrollbar_container; _ } ->
+       calculate_ui
+         ~box:vertical_scrollbar_container
+         ~context:{ in_scrollcontainer = false; parent = None })
+    vertical_scroll_info;
+  Option.iter
+    (fun { horizontal_scrollbar_container; _ } ->
+       calculate_ui
+         ~box:horizontal_scrollbar_container
+         ~context:{ in_scrollcontainer = false; parent = None })
+    horizontal_scroll_info
+
+and calculate_ui ~(box : box) ~context =
   Option.iter (fun update -> update ()) box.update;
   Ui.constrain_width_height ~box ~context;
   handle_if_content_overflows_or_not ~box ~context;
   assert (Option.is_some box.bbox);
+  let scrollcontainer =
+    List.find_opt (fun (b', _) -> b' == box) !Ui_globals.scrollcontainers
+  in
+  (match scrollcontainer with
+   | Some (_, scrollcontainer_info) ->
+     calculate_ui_for_scrollcontainer ~scrollcontainer_info;
+     adjust_scrollcontainer_if_needed ~box
+   | None -> ());
   match box.content with
   | Some (Box b) ->
     let parent_bbox = Option.get box.bbox in
@@ -1078,24 +1155,22 @@ let rec calculate_ui ~(box : box) ~context =
      | None -> ())
   | Some (Text _) -> ()
   | Some (Textarea _) -> ()
-  | Some (ScrollContainer ({ orientation; scroll; container; _ } as scrollcontainer_info))
-    ->
-    Ui_scrollcontainers.change_content_scroll_offsets_based_off_scrollbar
-      ~scrollcontainer_info;
-    Ui_scrollcontainers.adjust_scrollbar_according_to_content_size ~scrollcontainer_info;
-    (match orientation with
-     | Vertical ->
-       let bbox = Option.get scroll.bbox in
-       if bbox.height = 0
-       then
-         Ui_scrollcontainers.unwrap_scrollcontainer ~box ~unwrap_orientation:orientation
-     | Horizontal ->
-       let bbox = Option.get scroll.bbox in
-       if bbox.width = 0
-       then
-         Ui_scrollcontainers.unwrap_scrollcontainer ~box ~unwrap_orientation:orientation);
-    calculate_ui ~box:container ~context:{ in_scrollcontainer = true; parent = Some box }
   | None -> ()
+
+and render_scrollcontainer ~(scrollcontainer_info : scrollcontainer_info) =
+  let { vertical_scroll_info; horizontal_scroll_info } = scrollcontainer_info in
+  Option.iter
+    (fun { vertical_scrollbar_container; _ } ->
+       draw_box
+         ~box:vertical_scrollbar_container
+         ~context:{ parent = None; previous_context = None })
+    vertical_scroll_info;
+  Option.iter
+    (fun { horizontal_scrollbar_container; _ } ->
+       draw_box
+         ~box:horizontal_scrollbar_container
+         ~context:{ parent = None; previous_context = None })
+    horizontal_scroll_info
 ;;
 
 let draw ~(box : box) =

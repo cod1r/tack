@@ -3,30 +3,18 @@ open Ui_types
 let event_handlers = ref []
 
 let adjust_scroll_container_for_focused_element ?mouse_pos_xy b new_text_area_information =
-  match
-    List.find_opt
-      (function
-        | ScrollContainer { content; _ } -> content == b
-        | _ -> failwith "impossible")
-      !Ui.scrollcontainers
-  with
-  | Some (ScrollContainer ({ other_scrollcontainer; _ } as scrollcontainer_info)) ->
+  match List.find_opt (fun (b', _) -> b' == b) !Ui_globals.scrollcontainers with
+  | Some (_, scrollcontainer_info) ->
     Ui.adjust_scrollbar_according_to_textarea_text_caret
       ~mouse_pos_xy
       ~text_area_info:new_text_area_information
-      ~scrollcontainer_info;
-    (match other_scrollcontainer with
-     | Some scrollcontainer_info ->
-       Ui.adjust_scrollbar_according_to_textarea_text_caret
-         ~mouse_pos_xy
-         ~text_area_info:new_text_area_information
-         ~scrollcontainer_info
-     | _ -> ())
+      ~scrollcontainer_info
+      ~content:b
   | _ -> ()
 ;;
 
 let pass_evt_to_focused ~(e : Sdl.event) =
-  match !Ui.focused_element with
+  match !Ui_globals.focused_element with
   | Some b ->
     (match b.content with
      | Some (Textarea info) ->
@@ -52,7 +40,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
              b.content <- Some (Textarea new_text_area_information)
            | None -> ())
         | Sdl.MouseMotionEvt { x; y; _ }
-          when match !Ui.holding_mousedown with
+          when match !Ui_globals.holding_mousedown with
                | `True (~original_x, ~original_y) ->
                  Ui.is_within_box ~x:original_x ~y:original_y ~from_sdl_evt:true ~box:b
                | _ -> false ->
@@ -116,17 +104,8 @@ let pass_evt_to_focused ~(e : Sdl.event) =
            | None -> ())
         | Sdl.MouseWheelEvt { x; y; mouseX; mouseY }
           when Ui.is_within_box ~x:mouseX ~y:mouseY ~box:b ~from_sdl_evt:true ->
-          (match
-             List.find_opt
-               (function
-                 | ScrollContainer { content; _ } -> content == b
-                 | _ -> failwith "impossible")
-               !Ui.scrollcontainers
-           with
-           | Some
-               (ScrollContainer
-                  { scroll; orientation; other_scrollcontainer; scrollbar_container; _ })
-             ->
+          (match List.find_opt (fun (b', _) -> b' == b) !Ui_globals.scrollcontainers with
+           | Some (_, { vertical_scroll_info; horizontal_scroll_info }) ->
              let width_ratio, height_ratio =
                Sdl.get_logical_to_opengl_window_dims_ratio ()
              in
@@ -135,6 +114,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
              let adjust_scroll ~scroll ~scrollbar_container = function
                | Vertical ->
                  assert (scroll.bbox <> None);
+                 assert (scrollbar_container.bbox <> None);
                  let bbox = Option.get scroll.bbox in
                  let { y = scrollbar_container_y; height = scrollbar_container_height; _ }
                    =
@@ -152,6 +132,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                       }
                | Horizontal ->
                  assert (scroll.bbox <> None);
+                 assert (scrollbar_container.bbox <> None);
                  let bbox = Option.get scroll.bbox in
                  let { x = scrollbar_container_x; width = scrollbar_container_width; _ } =
                    Option.get scrollbar_container.bbox
@@ -167,11 +148,18 @@ let pass_evt_to_focused ~(e : Sdl.event) =
                             (max scrollbar_container_x (bbox.x + x))
                       }
              in
-             adjust_scroll ~scroll ~scrollbar_container orientation;
-             (match other_scrollcontainer with
-              | Some { scroll; orientation; scrollbar_container; _ } ->
-                adjust_scroll ~scroll ~scrollbar_container orientation
-              | _ -> ())
+             (match vertical_scroll_info with
+              | Some
+                  { vertical_scroll = scroll
+                  ; vertical_scrollbar_container = scrollbar_container
+                  } -> adjust_scroll ~scroll ~scrollbar_container Vertical
+              | None -> ());
+             (match horizontal_scroll_info with
+              | Some
+                  { horizontal_scroll = scroll
+                  ; horizontal_scrollbar_container = scrollbar_container
+                  } -> adjust_scroll ~scroll ~scrollbar_container Horizontal
+              | None -> ())
            | _ -> ())
         | Sdl.TextInputEvt { text; _ } ->
           let new_text_area_information =
@@ -189,12 +177,12 @@ let check_for_holding ~(e : Sdl.event) =
     if Char.code keysym = 1073742048
     then (
       match kbd_evt_type with
-      | Keydown -> Ui.holding_ctrl := true
-      | Keyup -> Ui.holding_ctrl := false)
+      | Keydown -> Ui_globals.holding_ctrl := true
+      | Keyup -> Ui_globals.holding_ctrl := false)
   | MouseButtonEvt { mouse_evt_type; x; y; _ } ->
     (match mouse_evt_type with
-     | Mousedown -> Ui.holding_mousedown := `True (~original_x:x, ~original_y:y)
-     | Mouseup -> Ui.holding_mousedown := `False)
+     | Mousedown -> Ui_globals.holding_mousedown := `True (~original_x:x, ~original_y:y)
+     | Mouseup -> Ui_globals.holding_mousedown := `False)
   | _ -> ()
 ;;
 

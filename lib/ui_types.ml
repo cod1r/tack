@@ -70,13 +70,19 @@ and text_area_information =
   ; holding_mousedown_rope_pos : int option
   }
 
+and vertical_scroll_info =
+  { vertical_scroll : box
+  ; vertical_scrollbar_container : box
+  }
+
+and horizontal_scroll_info =
+  { horizontal_scroll : box
+  ; horizontal_scrollbar_container : box
+  }
+
 and scrollcontainer_info =
-  { other_scrollcontainer : scrollcontainer_info option
-  ; content : box
-  ; scroll : box
-  ; scrollbar_container : box
-  ; container : box
-  ; orientation : direction
+  { vertical_scroll_info : vertical_scroll_info option
+  ; horizontal_scroll_info : horizontal_scroll_info option
   }
 
 and box_content =
@@ -84,7 +90,6 @@ and box_content =
   | Boxes of box list
   | Text of { string : string }
   | Textarea of text_area_information
-  | ScrollContainer of scrollcontainer_info
 
 type ui_traversal_context =
   { in_scrollcontainer : bool

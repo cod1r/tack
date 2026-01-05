@@ -1,17 +1,6 @@
 open Ui_types
 
-let focused_element : box option ref = ref None
-let scrollbar_container_width = 15
-let set_focused_element ~(box : box) = focused_element := Some box
-let unfocus_element () = focused_element := None
 let default_bbox : bounding_box = { width = 0; height = 0; x = 0; y = 0 }
-let scrollcontainers : box_content list ref = ref []
-
-let holding_mousedown : [ `True of original_x:int * original_y:int | `False ] ref =
-  ref `False
-;;
-
-let holding_ctrl = ref false
 
 let get_box_sides ~(box : box) : box_sides =
   match box.bbox with
@@ -54,7 +43,7 @@ let default_textarea_event_handler =
           (match b.bbox with
            | Some _ ->
              if is_within_box ~x ~y ~from_sdl_evt:true ~box:b && b.focusable
-             then set_focused_element ~box:b
+             then Ui_globals.set_focused_element ~box:b
            | None -> ())
         | _ -> ())
      | _ -> ())
@@ -221,15 +210,6 @@ let calculate_content_boundaries ~(box : box) =
     ; top = get_min_int top min_y
     ; bottom = get_max_int bottom max_y
     }
-  | Some (ScrollContainer { container; _ }) ->
-    let { left = left'; right = right'; top = top'; bottom = bottom' } =
-      get_box_sides ~box:container
-    in
-    { left = get_min_int left left'
-    ; right = get_max_int right right'
-    ; top = get_min_int top top'
-    ; bottom = get_max_int bottom bottom'
-    }
   | None -> { left; right; top; bottom }
 ;;
 
@@ -277,8 +257,9 @@ let adjust_scrollbar_according_to_textarea_text_caret
       ~mouse_pos_xy
       ~text_area_info
       ~scrollcontainer_info
+      ~content
   =
-  let { content; scroll; scrollbar_container; orientation; _ } = scrollcontainer_info in
+  let { vertical_scroll_info; horizontal_scroll_info } = scrollcontainer_info in
   let { right; left; top; bottom } = get_box_sides ~box:content in
   let { right = content_right
       ; left = content_left
@@ -302,12 +283,46 @@ let adjust_scrollbar_according_to_textarea_text_caret
   in
   match potential_xy with
   | Some (x, y) ->
-    assert (scroll.bbox <> None);
-    assert (scrollbar_container.bbox <> None);
-    let scrollbar_container_bbox = Option.get scrollbar_container.bbox in
-    let bbox = Option.get scroll.bbox in
-    (match orientation with
-     | Horizontal ->
+    (match vertical_scroll_info with
+     | Some
+         { vertical_scroll = scroll; vertical_scrollbar_container = scrollbar_container }
+       ->
+       assert (scroll.bbox <> None);
+       assert (scrollbar_container.bbox <> None);
+       let scrollbar_container_bbox = Option.get scrollbar_container.bbox in
+       let bbox = Option.get scroll.bbox in
+       let scroll_direction_and_amt =
+         (* reason for the 2 * font_info.font_height is because
+        sometimes the different between y + font_info.font_height and bottom
+        isn't enough for the integer division to not end up being 0 *)
+         if y < top
+         then y - (top + (2 * font_info.font_height))
+         else if y + font_info.font_height > bottom
+         then y + (2 * font_info.font_height) - bottom
+         else 0
+       in
+       let offset_amount =
+         (bottom - top) * scroll_direction_and_amt / (content_bottom - content_top)
+       in
+       let sign = Int.compare offset_amount 0 in
+       if
+         (sign = -1 && bbox.y > scrollbar_container_bbox.y)
+         || (sign = 1
+             && bbox.y
+                < scrollbar_container_bbox.y
+                  + scrollbar_container_bbox.height
+                  - bbox.height)
+       then scroll.bbox <- Some { bbox with y = bbox.y + offset_amount }
+     | None -> "expected to have vertical_scroll_info; " ^ __LOC__ |> failwith);
+    (match horizontal_scroll_info with
+     | Some
+         { horizontal_scroll = scroll
+         ; horizontal_scrollbar_container = scrollbar_container
+         } ->
+       assert (scroll.bbox <> None);
+       assert (scrollbar_container.bbox <> None);
+       let scrollbar_container_bbox = Option.get scrollbar_container.bbox in
+       let bbox = Option.get scroll.bbox in
        let scroll_direction_and_amt =
          if x + text_caret_width > right
          then x + text_caret_width - right
@@ -326,29 +341,7 @@ let adjust_scrollbar_according_to_textarea_text_caret
                 < scrollbar_container_bbox.x + scrollbar_container_bbox.width - bbox.width
             )
        then scroll.bbox <- Some { bbox with x = bbox.x + offset_amount }
-     | Vertical ->
-       let scroll_direction_and_amt =
-         (* reason for the 2 * font_info.font_height is because
-           sometimes the different between y + font_info.font_height and bottom
-           isn't enough for the integer division to not end up being 0 *)
-         if y < top
-         then y - (top + (2 * font_info.font_height))
-         else if y + font_info.font_height > bottom
-         then y + (2 * font_info.font_height) - bottom
-         else 0
-       in
-       let offset_amount =
-         (bottom - top) * scroll_direction_and_amt / (content_bottom - content_top)
-       in
-       let sign = Int.compare offset_amount 0 in
-       if
-         (sign = -1 && bbox.y > scrollbar_container_bbox.y)
-         || (sign = 1
-             && bbox.y
-                < scrollbar_container_bbox.y
-                  + scrollbar_container_bbox.height
-                  - bbox.height)
-       then scroll.bbox <- Some { bbox with y = bbox.y + offset_amount })
+     | None -> "expected to have horizontal_scroll_info; " ^ __LOC__ |> failwith)
   | None -> ()
 ;;
 
@@ -448,7 +441,6 @@ let handle_maximizing_of_inner_content_size ~(parent_box : box) =
      | _ -> ())
   | Some (Text _) -> ()
   | Some (Textarea _) -> ()
-  | Some (ScrollContainer _) -> ()
   | None -> ()
 ;;
 
@@ -549,19 +541,6 @@ let rec clamp_width_or_height_to_content_size
   | Some (Textarea _) when width_constraint_is_min || height_constraint_is_min ->
     let { left; right; top; bottom } = calculate_content_boundaries ~box in
     box.bbox <- Some { x = left; y = top; width = right - left; height = bottom - top }
-  | Some (ScrollContainer { container; _ }) ->
-    (match measurement with
-     | `Width when width_constraint_is_min ->
-       let { width = content_width; _ } : bounding_box =
-         Option.value container.bbox ~default:default_bbox
-       in
-       box.bbox <- Some { bbox with width = content_width }
-     | `Height when height_constraint_is_min ->
-       let { height = content_height; _ } : bounding_box =
-         Option.value container.bbox ~default:default_bbox
-       in
-       box.bbox <- Some { bbox with height = content_height }
-     | _ -> ())
   | None -> ()
   | _ -> ()
 

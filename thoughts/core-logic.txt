@@ -1,0 +1,13 @@
+a core part of tack's ui lib is that references are guaranteed to be kept.
+
+for example:
+    a box created by the user of the lib should live throughout the duration
+    of the program and never be destroyed.
+
+    The reason why it is implemented in that way is because it makes it easy
+    for consumers of the lib to pass in an update function and use references to other
+    boxes to grab whatever necessary information in order to render whatever that needs to be
+    rendered.
+
+    And if references are broken, proper updates won't be rendered and user provided logic
+    basically won't run.

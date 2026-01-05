@@ -218,7 +218,7 @@ let handle_kbd_evt
            ; highlight_pos = None, None
            })
        else text_area_information
-     | 'c' when kbd_evt_type = Keydown && !Ui.holding_ctrl ->
+     | 'c' when kbd_evt_type = Keydown && !Ui_globals.holding_ctrl ->
        (match text_area_information.highlight_pos with
         | Some start, Some end' ->
           Rope.substring r ~start ~len:(end' - start)
@@ -226,7 +226,7 @@ let handle_kbd_evt
           |> Sdl.set_clipboard_text
         | _ -> ());
        text_area_information
-     | 'v' when kbd_evt_type = Keydown && !Ui.holding_ctrl ->
+     | 'v' when kbd_evt_type = Keydown && !Ui_globals.holding_ctrl ->
        let clipboard_contents = Sdl.get_clipboard_text () in
        let new_rope =
          Rope.insert
