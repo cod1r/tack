@@ -1,3 +1,7 @@
+Priorities:
+    invest into "debugging-utilities"
+    there's a txt file for thoughts in debugging-utilities.txt
+
 
 look into freetype and harfbuzz
 think about statically linking things vs dynamically linking things
