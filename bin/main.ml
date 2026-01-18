@@ -50,6 +50,13 @@ let box =
   }
 ;;
 
+let () =
+  Ui.print_box ~depth:3 file_explorer
+  |> fun b ->
+  print_string (Buffer.contents b);
+  flush_all ()
+;;
+
 let box =
   { Ui.default_box with
     width_constraint = Some Min
