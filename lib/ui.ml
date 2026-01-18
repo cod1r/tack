@@ -579,166 +579,125 @@ and constrain_width_height ~(box : box) ~context =
 let print_box ?(depth = 1) box =
   let buffer = Buffer.create 65536 in
   let formatter = Format.formatter_of_buffer buffer in
-  let depth_reached = ref false in
   let rec print_box' depth' box =
-    Format.pp_open_vbox formatter 0;
-    Format.pp_print_string formatter "{";
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "name: ";
-    Format.pp_print_string formatter (Option.value box.name ~default:"None");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "update: ";
-    Format.pp_print_string
+    Format.fprintf
       formatter
+      "@[<v 0>{@;\
+       <0 1>@[<v 0>name: %s@,\
+       update: %s@,\
+       bbox: %s@,\
+       text_wrap: %b@,\
+       background_color: %s@,\
+       border: %b@,\
+       flow: %s@,\
+       font_size: %s@,\
+       width_constraint: %s@,\
+       height_constraint: %s@,\
+       clip_content: %b@,\
+       position_type: %s@,\
+       allow_horizontal_scroll: %b@,\
+       allow_vertical_scroll: %b@,\
+       horizontal_align: %s@,\
+       vertical_align: %s@,\
+       on_event: %s@,\
+       scroll_x_offset: %d@,\
+       scroll_y_offset: %d@,\
+       focusable: %b@,\
+       content:@;\
+       <0 1>@[<v 0>"
+      (Option.value box.name ~default:"None")
       (match box.update with
        | Some _ -> "Some update_fn"
-       | None -> "None");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "bbox: ";
-    (match box.bbox with
-     | Some bbox ->
-       Format.fprintf
-         formatter
-         "(x: %d, y: %d, width: %d, height: %d)"
-         bbox.x
-         bbox.y
-         bbox.width
-         bbox.height
-     | None -> ());
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "text_wrap: ";
-    Format.pp_print_string formatter (if box.text_wrap then "true" else "false");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "background_color: ";
-    let r, g, b, a = box.background_color in
-    Format.fprintf formatter "%f %f %f %f" r g b a;
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "border: ";
-    Format.pp_print_string formatter (if box.border then "true" else "false");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "flow: ";
-    Format.pp_print_string
-      formatter
+       | None -> "None")
+      (match box.bbox with
+       | Some bbox ->
+         Printf.sprintf
+           "(x: %d, y: %d, width: %d, height: %d)"
+           bbox.x
+           bbox.y
+           bbox.width
+           bbox.height
+       | None -> "None")
+      box.text_wrap
+      (let r, g, b, a = box.background_color in
+       Printf.sprintf "%f %f %f %f" r g b a)
+      box.border
       (match box.flow with
        | Some Horizontal -> "horizontal"
        | Some Vertical -> "vertical"
-       | None -> "None");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "font_size: ";
-    Format.pp_print_string
-      formatter
+       | None -> "None")
       (match box.font_size with
-       | Some font_size -> string_of_int font_size
-       | None -> "None");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "width_constraint: ";
-    Format.pp_print_string
-      formatter
+       | Some n -> string_of_int n
+       | None -> "None")
       (match box.width_constraint with
-       | Some Min -> "min"
-       | Some Max -> "max"
-       | None -> "None");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "height_constraint: ";
-    Format.pp_print_string
-      formatter
+       | Some Min -> "Some Min"
+       | Some Max -> "Some Max"
+       | None -> "None")
       (match box.height_constraint with
-       | Some Min -> "min"
-       | Some Max -> "max"
-       | None -> "None");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "clip_content: ";
-    Format.pp_print_string formatter (if box.clip_content then "true" else "false");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "position_type: ";
-    Format.pp_print_string
-      formatter
+       | Some Min -> "Some Min"
+       | Some Max -> "Some Max"
+       | None -> "None")
+      box.clip_content
       (match box.position_type with
-       | Relative { x; y } -> Printf.sprintf "relative %d %d" x y
-       | Absolute -> "absolute");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "allow_horizontal_scroll: ";
-    Format.pp_print_string
-      formatter
-      (if box.allow_horizontal_scroll then "true" else "false");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "allow_vertical_scroll: ";
-    Format.pp_print_string
-      formatter
-      (if box.allow_vertical_scroll then "true" else "false");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "horizontal_align: ";
-    Format.pp_print_string
-      formatter
+       | Relative { x; y } -> Printf.sprintf "Relative %d %d" x y
+       | Absolute -> "Absolute")
+      box.allow_horizontal_scroll
+      box.allow_vertical_scroll
       (match box.horizontal_align with
-       | Some Left -> "left"
-       | Some Center -> "center"
-       | Some Right -> "right"
-       | None -> "None");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "vertical_align: ";
-    Format.pp_print_string
-      formatter
+       | Some Left -> "Some Left"
+       | Some Right -> "Some Right"
+       | Some Center -> "Some Center"
+       | None -> "None")
       (match box.vertical_align with
-       | Some Top -> "top"
-       | Some Center -> "center"
-       | Some Bottom -> "bottom"
-       | None -> "None");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "on_event: ";
-    Format.pp_print_string
-      formatter
-      (if box.on_event <> None then "Some on_event" else "None");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "scroll_x_offset: ";
-    Format.pp_print_int formatter box.scroll_x_offset;
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "scroll_y_offset: ";
-    Format.pp_print_int formatter box.scroll_y_offset;
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "focusable: ";
-    Format.pp_print_string formatter (if box.focusable then "true" else "false");
-    Format.pp_print_break formatter 0 0;
-    Format.pp_print_string formatter "content: ";
+       | Some Top -> "Some Top"
+       | Some Bottom -> "Some Bottom"
+       | Some Center -> "Some Center"
+       | None -> "None")
+      (match box.on_event with
+       | Some _ -> "Some on_event"
+       | None -> "None")
+      box.scroll_x_offset
+      box.scroll_y_offset
+      box.focusable;
     if depth' = depth
-    then (
-      depth_reached := true;
-      if box.content <> None
-      then (
-        Format.pp_print_break formatter 0 0;
-        Format.pp_print_string formatter "...");
-      Format.pp_print_string formatter "}";
-      Format.pp_print_flush formatter ())
+    then (if box.content <> None then Format.pp_print_string formatter "...")
     else (
-      Format.pp_print_break formatter 0 1;
-      (match box.content with
-       | Some (Box b) -> print_box' (depth' + 1) b
-       | Some (Boxes list) -> List.iter (fun b -> print_box' (depth' + 1) b) list
-       | Some (Textarea text_area_information) ->
-         Format.pp_print_string formatter "Text area information:";
-         Format.pp_print_break formatter 0 1;
-         Format.pp_print_string
-           formatter
-           (Option.value text_area_information.text ~default:(Rope.of_string "None")
-            |> Rope.to_string);
-         Format.pp_print_break formatter 0 1;
-         Format.pp_print_string
-           formatter
-           (match text_area_information.cursor_pos with
-            | Some cp -> string_of_int cp
-            | None -> "None");
-         Format.pp_print_break formatter 0 0
-       | Some (Text s) ->
-         Format.pp_print_string formatter ("Text of " ^ s.string);
-         Format.pp_print_break formatter 0 0
-       | None ->
-         Format.pp_print_string formatter "None";
-         Format.pp_print_break formatter 0 0)
-    );
+      match box.content with
+      | Some (Box b) -> print_box' (depth' + 1) b
+      | Some (Boxes list) ->
+        List.iteri
+          (fun i b ->
+             Format.pp_open_vbox formatter 0;
+             print_box' (depth' + 1) b;
+             Format.pp_close_box formatter ();
+             if i < List.length list - 1 then Format.pp_print_cut formatter ())
+          list
+      | Some (Textarea text_area_information) ->
+        Format.pp_print_break formatter 0 1;
+        Format.pp_open_vbox formatter 0;
+        Format.pp_print_string formatter "Text area information:";
+        Format.pp_print_break formatter 0 0;
+        Format.pp_print_string
+          formatter
+          (Option.value text_area_information.text ~default:(Rope.of_string "None")
+           |> Rope.to_string);
+        Format.pp_print_break formatter 0 0;
+        Format.pp_print_string
+          formatter
+          (match text_area_information.cursor_pos with
+           | Some cp -> string_of_int cp
+           | None -> "None");
+        Format.pp_close_box formatter ();
+        Format.pp_print_break formatter 0 0
+      | Some (Text s) -> Format.pp_print_string formatter ("Text of " ^ s.string)
+      | None -> Format.pp_print_string formatter "None");
+    Format.pp_close_box formatter ();
+    Format.pp_close_box formatter ();
+    Format.pp_print_cut formatter ();
     Format.pp_print_string formatter "}";
-      Format.pp_print_break formatter 0 0
+    Format.pp_close_box formatter ()
   in
   print_box' 1 box;
-  if !depth_reached = false then (Format.pp_print_flush formatter ());
+  Format.pp_print_flush formatter ();
   buffer
 ;;
