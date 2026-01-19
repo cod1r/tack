@@ -292,6 +292,7 @@ let fold_finding_cursor
       , { closest_info with upper_y = new_y + font_info.font_height } )
 ;;
 
+(* scroll_x_offset and scroll_y_offset should not be handled in traverse_rope function *)
 let rec traverse_rope
   : type a.
     box:box

@@ -226,9 +226,7 @@ let get_xy_pos_of_text_caret ~text_area_info ~box =
     let cursor_pos = Option.get text_area_info.cursor_pos in
     match text_area_info.text with
     | Some rope ->
-      let start_x = bbox.x + box.scroll_x_offset
-      and start_y = bbox.y + box.scroll_y_offset
-      and x = ref 0
+      let x = ref 0
       and y = ref 0 in
       ignore
         (Rope.traverse_rope
@@ -243,7 +241,7 @@ let get_xy_pos_of_text_caret ~text_area_info ~box =
                     x := acc.x;
                     y := acc.y)))
            ~result:
-             (Rope_types.Rope_Traversal_Info { x = start_x; y = start_y; rope_pos = 0 }));
+             (Rope_types.Rope_Traversal_Info { x = bbox.x; y = bbox.y; rope_pos = 0 }));
       Some (~x:!x, ~y:!y)
     | None -> None)
 ;;
@@ -283,6 +281,7 @@ let adjust_scrollbar_according_to_textarea_text_caret
   in
   match potential_xy with
   | Some (x, y) ->
+    let x, y = x + content.scroll_x_offset, y + content.scroll_y_offset in
     (match vertical_scroll_info with
      | Some
          { vertical_scroll = scroll; vertical_scrollbar_container = scrollbar_container }

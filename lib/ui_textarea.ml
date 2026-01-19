@@ -211,10 +211,12 @@ let handle_kbd_evt
            ; highlight_pos = None, None
            }
          | _ ->
-           let new_rope = Some (Rope.delete r ~start:(max 0 (cursor_pos - 1)) ~len:1) in
+           let new_cursor_pos = cursor_pos - 1 |> max 0 in
+           let len = if new_cursor_pos = 0 then 0 else 1 in
+           let new_rope = Some (Rope.delete r ~start:(max 0 new_cursor_pos) ~len) in
            { text_area_information with
              text = new_rope
-           ; cursor_pos = Some (cursor_pos - 1)
+           ; cursor_pos = Some new_cursor_pos
            ; highlight_pos = None, None
            })
        else text_area_information
