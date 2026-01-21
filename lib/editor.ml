@@ -66,7 +66,6 @@ let file_item_box (f : Files.file_tree) =
                  let opt = List.find_opt (fun f -> f.file_name = name) editor.files in
                  if opt = None
                  then (
-                   print_endline "NONE";
                    let text = open_file name in
                    let textarea_with_line_numbers =
                      Textarea_with_line_numbers.create_textarea_with_line_numbers
@@ -121,8 +120,6 @@ let editor_view =
   ; flow = Some Horizontal
   }
 ;;
-
-let () = Ui.print_box ~depth:4 editor_view |> fun b -> print_endline (Buffer.contents b)
 
 let () =
   editor_view.update

@@ -6,6 +6,7 @@ Priorities:
     also making every record type in ui, mutable is really messing with me. gotta rethink how im doing this entire thing
         gotta also think about whether it's really bad to have all of this mutability...
         i dont think it's necessarily that bad... i think it could work
+    implement padding
 
 
 look into freetype and harfbuzz
