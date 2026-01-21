@@ -34,6 +34,32 @@ let config_has_been_modified_during_runtime () =
 let default_editor : editor = { files = []; focused_file = None }
 let editor : editor = { default_editor with files = [] }
 
+(* this is called in sdl_menu_bar.m *)
+let save_file () =
+  match editor.focused_file with
+  | Some { textarea_with_line_numbers; file_name } ->
+    Printf.printf "saving file %s\n" file_name;
+    (match textarea_with_line_numbers.content with
+     | Some (Boxes [ _; textarea ]) ->
+       (match textarea.content with
+        | Some (Textarea info) ->
+          (match info.text with
+           | Some text ->
+             let rope_contents = Rope.to_string text in
+             (match
+                Out_channel.with_open_bin file_name (fun oc ->
+                  Out_channel.output_string oc rope_contents)
+              with
+              | exception _ -> print_endline "failed"
+              | _ -> print_endline "success")
+           | None -> print_endline "text_area_information text is None")
+        | _ -> failwith "should always have Boxes [line_numbers; textarea]")
+     | _ -> ())
+  | None -> print_endline "no file focused"
+;;
+
+let () = Callback.register "save_function_from_ocaml" save_file
+
 let file_item_box (f : Files.file_tree) =
   let name =
     match f with
@@ -77,7 +103,7 @@ let file_item_box (f : Files.file_tree) =
                    let file_info = { textarea_with_line_numbers; file_name = name } in
                    (match textarea_with_line_numbers.content with
                     | Some (Boxes [ _; textarea ]) ->
-                      Ui_globals.set_focused_element ~box:textarea;
+                      Ui_globals.set_focused_element ~box:textarea
                     | _ ->
                       failwith
                         "Should always have Boxes [line_numbers; textarea] as content \
@@ -88,7 +114,7 @@ let file_item_box (f : Files.file_tree) =
                    let file_info = Option.get opt in
                    (match file_info.textarea_with_line_numbers.content with
                     | Some (Boxes [ _; textarea ]) ->
-                      Ui_globals.set_focused_element ~box:textarea;
+                      Ui_globals.set_focused_element ~box:textarea
                     | _ ->
                       failwith
                         "Should always have Boxes [line_numbers; textarea] as content \

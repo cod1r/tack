@@ -1,16 +1,17 @@
 #include <Foundation/Foundation.h>
 #include <AppKit/AppKit.h>
+#include <caml/callback.h>
 
 @interface SaveMenuItem : NSMenuItem
     +(SaveMenuItem*)get_menu_item;
-    +(void) CHICKEN;
+    +(void) save_function;
 @end
 @implementation SaveMenuItem
-    +(void) CHICKEN {
-        NSLog(@"URMOM IS A FATASS");
+    +(void) save_function {
+        caml_callback(*caml_named_value("save_function_from_ocaml"), Val_unit);
     }
     +(SaveMenuItem*) get_menu_item {
-        SEL saveAction = @selector(CHICKEN);
+        SEL saveAction = @selector(save_function);
         SaveMenuItem* menuItem = [[SaveMenuItem alloc] initWithTitle:@"Save" action:saveAction keyEquivalent:@"s"];
         menuItem.target = self;
         menuItem.enabled = true;

@@ -1,1 +1,1 @@
-# tack - text editor written in ocaml
+# tack - text editor written in ocaml type shit
