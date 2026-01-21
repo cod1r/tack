@@ -1,6 +1,11 @@
 Priorities:
-    invest into "debugging-utilities"
-    there's a txt file for thoughts in debugging-utilities.txt
+    build out scuffed editor
+    borders
+    clamping content to width/height of window
+    really think about if relying on reference equality is good or not
+    also making every record type in ui, mutable is really messing with me. gotta rethink how im doing this entire thing
+        gotta also think about whether it's really bad to have all of this mutability...
+        i dont think it's necessarily that bad... i think it could work
 
 
 look into freetype and harfbuzz

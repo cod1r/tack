@@ -32,24 +32,6 @@ let is_within_box ~x ~y ~box ~from_sdl_evt =
   x >= left && x <= right && y <= bottom && y >= top
 ;;
 
-let default_textarea_event_handler =
-  fun ~(b : box option) ~e ->
-  match b with
-  | Some b ->
-    (match b.content with
-     | Some (Textarea _) ->
-       (match e with
-        | Sdl.MouseButtonEvt { x; y; _ } ->
-          (match b.bbox with
-           | Some _ ->
-             if is_within_box ~x ~y ~from_sdl_evt:true ~box:b && b.focusable
-             then Ui_globals.set_focused_element ~box:b
-           | None -> ())
-        | _ -> ())
-     | _ -> ())
-  | _ -> ()
-;;
-
 let default_box =
   { name = None
   ; content = None
@@ -312,7 +294,7 @@ let adjust_scrollbar_according_to_textarea_text_caret
                   + scrollbar_container_bbox.height
                   - bbox.height)
        then scroll.bbox <- Some { bbox with y = bbox.y + offset_amount }
-     | None -> "expected to have vertical_scroll_info; " ^ __LOC__ |> failwith);
+     | None -> ());
     (match horizontal_scroll_info with
      | Some
          { horizontal_scroll = scroll
@@ -340,7 +322,7 @@ let adjust_scrollbar_according_to_textarea_text_caret
                 < scrollbar_container_bbox.x + scrollbar_container_bbox.width - bbox.width
             )
        then scroll.bbox <- Some { bbox with x = bbox.x + offset_amount }
-     | None -> "expected to have horizontal_scroll_info; " ^ __LOC__ |> failwith)
+     | None -> ())
   | None -> ()
 ;;
 
@@ -672,22 +654,22 @@ let print_box ?(depth = 1) box =
              if i < List.length list - 1 then Format.pp_print_cut formatter ())
           list
       | Some (Textarea text_area_information) ->
-        Format.pp_print_break formatter 0 1;
         Format.pp_open_vbox formatter 0;
         Format.pp_print_string formatter "Text area information:";
-        Format.pp_print_break formatter 0 0;
+        Format.pp_print_break formatter 0 1;
+        Format.pp_print_string formatter "text: ";
         Format.pp_print_string
           formatter
           (Option.value text_area_information.text ~default:(Rope.of_string "None")
            |> Rope.to_string);
-        Format.pp_print_break formatter 0 0;
+        Format.pp_print_break formatter 0 1;
+        Format.pp_print_string formatter "cursor_pos: ";
         Format.pp_print_string
           formatter
           (match text_area_information.cursor_pos with
            | Some cp -> string_of_int cp
            | None -> "None");
-        Format.pp_close_box formatter ();
-        Format.pp_print_break formatter 0 0
+        Format.pp_close_box formatter ()
       | Some (Text s) -> Format.pp_print_string formatter ("Text of " ^ s.string)
       | None -> Format.pp_print_string formatter "None");
     Format.pp_close_box formatter ();

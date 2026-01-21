@@ -1,24 +1,6 @@
 open Tack
 
 let () = Sdl.sdl_gl_setswapinterval 0
-let rendering_content = Editor.open_file "lib/ui_rendering.ml"
-
-let textarea_with_line_numbers =
-  Textarea_with_line_numbers.create_textarea_with_line_numbers
-    ~text:rendering_content
-    ~textarea_width:1000
-    ~textarea_height:1000
-    ()
-;;
-
-let file_explorer =
-  { Ui.default_box with
-    bbox = Some { x = 0; y = 0; height = 0; width = 300 }
-  ; height_constraint = Some Max
-  ; content = Some (Boxes Tack.File_explorer.file_items)
-  ; flow = Some Vertical
-  }
-;;
 
 let box =
   { Ui.default_box with
@@ -50,23 +32,6 @@ let box =
   }
 ;;
 
-let box =
-  { Ui.default_box with
-    width_constraint = Some Min
-  ; height_constraint = Some Min
-  ; content = Some (Box textarea_with_line_numbers)
-  }
-;;
-
-let box =
-  { Ui.default_box with
-    bbox = Some { x = 0; y = 0; width = 2000; height = 0 }
-  ; height_constraint = Some Min
-  ; content = Some (Boxes [ file_explorer; box ])
-  ; flow = Some Horizontal
-  }
-;;
-
 (* let box =
   { Ui.default_box with
     background_color= (0.8, 0.8, 0.8, 1.)
@@ -87,11 +52,11 @@ let rec loop () =
     match evt with
     | Some Quit -> false
     | None ->
-      Ui_rendering.draw ~box;
+      Ui_rendering.draw ~box:Editor.editor_view;
       true
     | Some e ->
       Ui_events.emit_event ~e;
-      Ui_rendering.draw ~box;
+      Ui_rendering.draw ~box:Editor.editor_view;
       true
   in
   if continue then loop () else ()

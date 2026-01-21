@@ -119,7 +119,7 @@ let get_new_font_info_with_font_size ~(font_size : int) ~(face : ft_face) =
   let font_size = font_size * height_ratio in
   let glyph_info_with_char =
     Array.init
-      (126 - 32 + 1)
+      (126 - 32 + 1) (* range of ascii that I currently accept to render *)
       (fun i -> get_ascii_char_glyph_info_ face (i + 32) font_size)
   in
   let font_height = get_font_height face in

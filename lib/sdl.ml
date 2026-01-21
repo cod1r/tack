@@ -210,6 +210,7 @@ external sdl_create_renderer
   -> unit
   = "sdl_create_renderer" "sdl_create_renderer"
 
+(* the width and height are stuffed into a 64 bit long *)
 external sdl_gl_getdrawablesize : unit -> int = "sdl_gl_getdrawablesize" [@@noalloc]
 
 external sdl_create_and_set_system_cursor

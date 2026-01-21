@@ -17,37 +17,8 @@ let print_flattened () =
     flattened_file_tree
 ;;
 
-let file_item_box (f : Files.file_tree) =
-  let name =
-    match f with
-    | Directory { name; _ } -> name
-    | File f -> f
-  in
-  { Ui.default_box with
-    content = Some (Text { string = name })
-  ; width_constraint = Some Max
-  ; height_constraint = Some Max
-  ; on_event =
-      Some
-        (fun ~b ~e ->
-          match b with
-          | Some b ->
-            (match e with
-             | MouseMotionEvt { x; y; _ } ->
-               if Ui.is_within_box ~x ~y ~box:b ~from_sdl_evt:true
-               then b.background_color <- 0.5, 0.5, 0.5, 1.
-               else b.background_color <- 1., 1., 1., 1.
-             | _ -> ())
-          | None -> ())
-  ; name = Some name
-  ; clip_content = true
-  }
-;;
-
 let root_children =
   match file_tree with
   | Directory { children; _ } -> children
   | File _ -> []
 ;;
-
-let file_items = List.map (fun f -> file_item_box f) root_children

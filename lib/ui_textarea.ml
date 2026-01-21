@@ -10,7 +10,6 @@ let create_textarea_box ?(text : Rope_types.rope option) () =
   ; content = Some (Textarea { Ui.default_text_area_information with text })
   ; allow_vertical_scroll = true
   ; allow_horizontal_scroll = true
-  ; on_event = Some Ui.default_textarea_event_handler
   }
 ;;
 
