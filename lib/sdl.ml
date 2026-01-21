@@ -17,6 +17,8 @@ type mouseEvtState =
 type windowEvtType =
   | WindowClose
   | WindowResize
+  | WindowFocusGain
+  | WindowFocusLost
   | Unhandled
 
 let sdl_window_resizable = 0x00000020
@@ -75,11 +77,7 @@ type event =
 external sdl_delay : int -> unit = "SDL_Delay" "SDL_Delay"
 external init_sdl : unit -> (unit, string) result = "init_sdl" "init_sdl"
 external sdl_getticks : unit -> int = "sdl_getticks" "sdl_getticks"
-
-external sdl_pollevent
-  :  (unit[@untagged])
-  -> event option
-  = "sdl_pollevent" "sdl_pollevent"
+external sdl_pollevent : bool -> event option = "sdl_pollevent" "sdl_pollevent"
 
 type window =
   { id : int

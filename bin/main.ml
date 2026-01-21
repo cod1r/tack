@@ -46,20 +46,21 @@ let box =
   ; bbox= Some {x= 0; y= 0; width= 300; height= 200}
   ; content= Some (Box box) } *)
 
-let rec loop () =
-  let evt = Sdl.sdl_pollevent () in
-  let continue =
+let rec loop should_wait =
+  let evt = Sdl.sdl_pollevent should_wait in
+  let continue, should_wait =
     match evt with
-    | Some Quit -> false
+    | Some Quit -> false, false
     | None ->
       Ui_rendering.draw ~box:Editor.editor_view;
-      true
+      true, false
+    | Some (WindowEvt { event; _ }) when event = WindowFocusLost -> true, true
     | Some e ->
       Ui_events.emit_event ~e;
       Ui_rendering.draw ~box:Editor.editor_view;
-      true
+      true, false
   in
-  if continue then loop () else ()
+  if continue then loop should_wait else ()
 ;;
 
-let () = loop ()
+let () = loop false

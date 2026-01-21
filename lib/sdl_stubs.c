@@ -8,6 +8,7 @@
 #include <hb.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 
 CAMLprim value sdl_setup_macos_menu_bar() {
@@ -350,13 +351,14 @@ CAMLprim value init_sdl(value unit) {
   CAMLreturn(result);
 }
 
-CAMLprim value sdl_pollevent(value unit) {
-  CAMLparam1(unit);
+CAMLprim value sdl_pollevent(value should_wait_val) {
+  CAMLparam1(should_wait_val);
   CAMLlocal1(evt_type);
   CAMLlocal1(option_val);
   option_val = Val_none;
   SDL_Event e;
-  int poll_event_value = SDL_PollEvent(&e);
+  bool should_wait = Bool_val(should_wait_val);
+  int poll_event_value = should_wait ? SDL_WaitEvent(&e) : SDL_PollEvent(&e);
   if (poll_event_value == 1) {
     switch (e.type) {
       case SDL_KEYUP:
@@ -385,11 +387,24 @@ CAMLprim value sdl_pollevent(value unit) {
         option_val = caml_alloc_some(evt_type);
       } break;
       case SDL_WINDOWEVENT: {
-        int window_evt_type = 2;
-        if (e.window.event == SDL_WINDOWEVENT_CLOSE) {
-          window_evt_type = 0;
-        } else if (e.window.event == SDL_WINDOWEVENT_RESIZED || e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-          window_evt_type = 1;
+        int window_evt_type = 4;
+        switch (e.window.event) {
+          case SDL_WINDOWEVENT_CLOSE: {
+            window_evt_type = 0;
+          } break;
+          case SDL_WINDOWEVENT_RESIZED:
+          case SDL_WINDOWEVENT_SIZE_CHANGED: {
+            window_evt_type = 1;
+          } break;
+          case SDL_WINDOWEVENT_FOCUS_GAINED: {
+            window_evt_type = 2;
+            should_wait = false;
+          } break;
+          case SDL_WINDOWEVENT_FOCUS_LOST: {
+            window_evt_type = 3;
+            should_wait = true;
+          } break;
+          default: {}
         }
           // tag type is 2 because third variant
           evt_type = caml_alloc(3, 2);
