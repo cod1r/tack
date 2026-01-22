@@ -7,6 +7,8 @@ Priorities:
         gotta also think about whether it's really bad to have all of this mutability...
         i dont think it's necessarily that bad... i think it could work
     implement padding
+    parse ripgrep json output format for searching text
+    implement undo and redo functionality
 
 
 look into freetype and harfbuzz

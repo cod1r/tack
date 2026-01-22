@@ -15,6 +15,8 @@
 (rule
  (deps
   (source_tree sdl_menu_bar))
+ (enabled_if
+  (= %{system} macosx))
  (targets sdl_menu_bar.o)
  (action
   (no-infer

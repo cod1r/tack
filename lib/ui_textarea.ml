@@ -143,6 +143,28 @@ let find_closest_rope_pos_for_moving_cursor_in_vertical_range
   hor_pos
 ;;
 
+let copy_into_clipboard ~rope ~highlight_pos =
+  match highlight_pos with
+  | Some start, Some end' ->
+    Rope.substring rope ~start ~len:(end' - start)
+    |> Rope.to_string
+    |> Sdl.set_clipboard_text
+  | _ -> ()
+;;
+
+let paste_from_clipboard ~rope ~text_area_information =
+  let clipboard_contents = Sdl.get_clipboard_text () in
+  let new_rope =
+    Rope.insert
+      rope
+      (Option.value text_area_information.cursor_pos ~default:(Rope.length rope))
+      clipboard_contents
+  in
+  let cursor_pos = Option.value text_area_information.cursor_pos ~default:0 in
+  let cursor_pos = Some (cursor_pos + String.length clipboard_contents) in
+  { text_area_information with text = Some new_rope; cursor_pos }
+;;
+
 let handle_kbd_evt
       ~(font_info : Freetype.font_info)
       ~char_code
@@ -220,22 +242,10 @@ let handle_kbd_evt
            })
        else text_area_information
      | 'c' when kbd_evt_type = Keydown && !Ui_globals.holding_ctrl ->
-       (match text_area_information.highlight_pos with
-        | Some start, Some end' ->
-          Rope.substring r ~start ~len:(end' - start)
-          |> Rope.to_string
-          |> Sdl.set_clipboard_text
-        | _ -> ());
+       copy_into_clipboard ~rope:r ~highlight_pos:text_area_information.highlight_pos;
        text_area_information
      | 'v' when kbd_evt_type = Keydown && !Ui_globals.holding_ctrl ->
-       let clipboard_contents = Sdl.get_clipboard_text () in
-       let new_rope =
-         Rope.insert
-           r
-           (Option.value text_area_information.cursor_pos ~default:(Rope.length r))
-           clipboard_contents
-       in
-       { text_area_information with text = Some new_rope }
+       paste_from_clipboard ~rope:r ~text_area_information
      | ('\r' | '\n') when kbd_evt_type = Keydown ->
        (* on macos, the return key gives \r instead of \n *)
        let cursor_pos' =

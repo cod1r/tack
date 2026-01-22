@@ -12,17 +12,61 @@ So I just make an interface/class that extends or inherits from NSMenuItem
 and then implement the action function in that interface/class which
 allows the menuitem to be enabled.
 */
-@interface SaveMenuItem : NSMenuItem
-    +(SaveMenuItem*)get_menu_item;
+@interface FileMenuItem : NSMenuItem
     +(void) save_function;
+    +(FileMenuItem*)get_save_menu_item;
+
+    +(void) copy_function;
+    +(FileMenuItem*)get_copy_menu_item;
+
+    +(void) paste_function;
+    +(FileMenuItem*)get_paste_menu_item;
+
+    +(void) cut_function;
+    +(FileMenuItem*)get_cut_menu_item;
 @end
-@implementation SaveMenuItem
+@implementation FileMenuItem
     +(void) save_function {
         caml_callback(*caml_named_value("save_function_from_ocaml"), Val_unit);
     }
-    +(SaveMenuItem*) get_menu_item {
+    +(FileMenuItem*) get_save_menu_item {
         SEL saveAction = @selector(save_function);
-        SaveMenuItem* menuItem = [[SaveMenuItem alloc] initWithTitle:@"Save" action:saveAction keyEquivalent:@"s"];
+        FileMenuItem* menuItem = [[FileMenuItem alloc] initWithTitle:@"Save" action:saveAction keyEquivalent:@"s"];
+        menuItem.target = self;
+        menuItem.enabled = true;
+        menuItem.keyEquivalentModifierMask = NSEventModifierFlagCommand;
+        return menuItem;
+    }
+
+    +(void) copy_function {
+        caml_callback(*caml_named_value("copy_function_from_ocaml"), Val_unit);
+    }
+    +(FileMenuItem*) get_copy_menu_item {
+        SEL copyAction = @selector(copy_function);
+        FileMenuItem* menuItem = [[FileMenuItem alloc] initWithTitle:@"Copy" action:copyAction keyEquivalent:@"c"];
+        menuItem.target = self;
+        menuItem.enabled = true;
+        menuItem.keyEquivalentModifierMask = NSEventModifierFlagCommand;
+        return menuItem;
+    }
+
+    +(void) paste_function {
+        caml_callback(*caml_named_value("paste_function_from_ocaml"), Val_unit);
+    }
+    +(FileMenuItem*) get_paste_menu_item {
+        SEL copyAction = @selector(paste_function);
+        FileMenuItem* menuItem = [[FileMenuItem alloc] initWithTitle:@"Paste" action:copyAction keyEquivalent:@"v"];
+        menuItem.target = self;
+        menuItem.enabled = true;
+        menuItem.keyEquivalentModifierMask = NSEventModifierFlagCommand;
+        return menuItem;
+    }
+
+    +(void) cut_function {
+    }
+    +(FileMenuItem*) get_cut_menu_item {
+        SEL copyAction = @selector(cut_function);
+        FileMenuItem* menuItem = [[FileMenuItem alloc] initWithTitle:@"Cut" action:copyAction keyEquivalent:@"x"];
         menuItem.target = self;
         menuItem.enabled = true;
         menuItem.keyEquivalentModifierMask = NSEventModifierFlagCommand;
@@ -35,8 +79,12 @@ void setup_macos_menu_bar() {
     NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:@"Menu" action:NULL keyEquivalent:@""];
     NSMenu *submenu = [[NSMenu alloc] initWithTitle:@"File"];
     submenu.minimumWidth = 200;
-    SaveMenuItem *save = [SaveMenuItem get_menu_item];
+    FileMenuItem *save = [FileMenuItem get_save_menu_item];
     [submenu addItem:save];
+    FileMenuItem *copy = [FileMenuItem get_copy_menu_item];
+    [submenu addItem:copy];
+    FileMenuItem *paste = [FileMenuItem get_paste_menu_item];
+    [submenu addItem:paste];
     item.submenu = submenu;
     [menu insertItem:item atIndex:1];
 }

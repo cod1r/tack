@@ -34,31 +34,69 @@ let config_has_been_modified_during_runtime () =
 let default_editor : editor = { files = []; focused_file = None }
 let editor : editor = { default_editor with files = [] }
 
-(* this is called in sdl_menu_bar.m *)
-let save_file () =
+let get_information_from_focused_file () =
   match editor.focused_file with
   | Some { textarea_with_line_numbers; file_name } ->
-    Printf.printf "saving file %s\n" file_name;
     (match textarea_with_line_numbers.content with
      | Some (Boxes [ _; textarea ]) ->
        (match textarea.content with
-        | Some (Textarea info) ->
-          (match info.text with
-           | Some text ->
-             let rope_contents = Rope.to_string text in
-             (match
-                Out_channel.with_open_bin file_name (fun oc ->
-                  Out_channel.output_string oc rope_contents)
-              with
-              | exception _ -> print_endline "failed"
-              | _ -> print_endline "success")
-           | None -> print_endline "text_area_information text is None")
-        | _ -> failwith "should always have Boxes [line_numbers; textarea]")
-     | _ -> ())
-  | None -> print_endline "no file focused"
+        | Some (Textarea info) -> Some (info, file_name)
+        | _ -> failwith "should always have textarea info")
+     | _ -> failwith "should always have Boxes [line_numbers; textarea]")
+  | None -> None
+;;
+
+(* this is called in sdl_menu_bar.m *)
+let save_file () =
+  let textarea_information = get_information_from_focused_file () in
+  match textarea_information with
+  | Some ({ text; _ }, file_name) ->
+    (match text with
+     | Some text ->
+       let rope_contents = Rope.to_string text in
+       (match
+          Out_channel.with_open_bin file_name (fun oc ->
+            Out_channel.output_string oc rope_contents)
+        with
+        | exception _ -> print_endline "failed"
+        | _ -> print_endline "success")
+     | None -> print_endline "text_area_information text is None")
+  | None -> ()
 ;;
 
 let () = Callback.register "save_function_from_ocaml" save_file
+
+let copy_text_from_file () =
+  let info = get_information_from_focused_file () in
+  match info with
+  | Some ({ text; highlight_pos; _ }, _) ->
+    (match text with
+     | Some rope -> Ui_textarea.copy_into_clipboard ~rope ~highlight_pos
+     | None -> ())
+  | None -> ()
+;;
+
+let () = Callback.register "copy_function_from_ocaml" copy_text_from_file
+
+let paste_text_into_file () =
+  let info = get_information_from_focused_file () in
+  match info with
+  | Some (({ text; _ } as text_area_information), _) ->
+    (match text with
+     | Some rope ->
+       let new_textarea_information =
+         Ui_textarea.paste_from_clipboard ~rope ~text_area_information
+       in
+       let focused_file = Option.get editor.focused_file in
+       (match focused_file.textarea_with_line_numbers.content with
+        | Some (Boxes [ _; textarea ]) ->
+          textarea.content <- Some (Textarea new_textarea_information)
+        | _ -> "impossible " ^ __LOC__ |> failwith)
+     | None -> ())
+  | None -> ()
+;;
+
+let () = Callback.register "paste_function_from_ocaml" paste_text_into_file
 
 let file_item_box (f : Files.file_tree) =
   let name =
