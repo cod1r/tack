@@ -1,4 +1,7 @@
 Priorities:
+    currently there's an issue where the child box will try and max its size to the parents size and the parent will try and min its size to the child's size so neither gets the right size...
+        perhaps the answer to this is to introduce a min size and a max size if the box
+        cannot be clamped to it's parent or child size
     build out scuffed editor
     borders
     clamping content to width/height of window

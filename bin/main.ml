@@ -48,6 +48,9 @@ let box =
 
 let rec loop should_wait =
   let evt = Sdl.sdl_pollevent should_wait in
+  (* Ui.print_box ~depth:3 Editor.editor_view
+  |> fun b ->
+  print_endline (Buffer.contents b); *)
   let continue, should_wait =
     match evt with
     | Some Quit -> false, false

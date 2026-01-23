@@ -106,8 +106,8 @@ let file_item_box (f : Files.file_tree) =
   in
   { Ui.default_box with
     content = Some (Text { string = name })
-  ; width_constraint = Some Min
-  ; height_constraint = Some Min
+  ; width_constraint = Some Max
+  ; height_constraint = Some Max
   ; on_event =
       Some
         (fun ~b ~e ->
@@ -170,9 +170,16 @@ let file_items = List.map (fun f -> file_item_box f) File_explorer.root_children
 let file_explorer =
   { Ui.default_box with
     bbox = Some { x = 0; y = 0; height = 0; width = 300 }
-  ; height_constraint = Some Min
+  ; height_constraint = Some Max
   ; content = Some (Boxes file_items)
   ; flow = Some Vertical
+  }
+;;
+
+let place_holder_box_before_any_focused_file =
+  { Ui.default_box with
+    bbox = Some { x = 0; y = 0; width = 1000; height = 1000 }
+  ; background_color = 0.5, 0.5, 0.5, 1.
   }
 ;;
 
@@ -180,7 +187,7 @@ let editor_view =
   { Ui.default_box with
     bbox = Some { x = 0; y = 0; width = 2000; height = 0 }
   ; height_constraint = Some Min
-  ; content = Some (Boxes [ file_explorer ])
+  ; content = Some (Boxes [ file_explorer; place_holder_box_before_any_focused_file ])
   ; flow = Some Horizontal
   }
 ;;
@@ -197,5 +204,5 @@ let () =
                   match editor.focused_file with
                   | Some { textarea_with_line_numbers; _ } ->
                     [ textarea_with_line_numbers ]
-                  | None -> [])))
+                  | None -> [ place_holder_box_before_any_focused_file ])))
 ;;

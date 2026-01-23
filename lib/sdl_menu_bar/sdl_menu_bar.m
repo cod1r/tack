@@ -54,8 +54,8 @@ allows the menuitem to be enabled.
         caml_callback(*caml_named_value("paste_function_from_ocaml"), Val_unit);
     }
     +(FileMenuItem*) get_paste_menu_item {
-        SEL copyAction = @selector(paste_function);
-        FileMenuItem* menuItem = [[FileMenuItem alloc] initWithTitle:@"Paste" action:copyAction keyEquivalent:@"v"];
+        SEL pasteAction = @selector(paste_function);
+        FileMenuItem* menuItem = [[FileMenuItem alloc] initWithTitle:@"Paste" action:pasteAction keyEquivalent:@"v"];
         menuItem.target = self;
         menuItem.enabled = true;
         menuItem.keyEquivalentModifierMask = NSEventModifierFlagCommand;
@@ -65,8 +65,8 @@ allows the menuitem to be enabled.
     +(void) cut_function {
     }
     +(FileMenuItem*) get_cut_menu_item {
-        SEL copyAction = @selector(cut_function);
-        FileMenuItem* menuItem = [[FileMenuItem alloc] initWithTitle:@"Cut" action:copyAction keyEquivalent:@"x"];
+        SEL cutAction = @selector(cut_function);
+        FileMenuItem* menuItem = [[FileMenuItem alloc] initWithTitle:@"Cut" action:cutAction keyEquivalent:@"x"];
         menuItem.target = self;
         menuItem.enabled = true;
         menuItem.keyEquivalentModifierMask = NSEventModifierFlagCommand;

@@ -1,2 +1,0 @@
-I need to take out the scrollcontainer primitive in the ui lib and
-implement the same functionality without inserting anything to the object structure.
