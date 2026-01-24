@@ -224,6 +224,8 @@ external sdl_setup_macos_menu_bar
   -> unit
   = "sdl_setup_macos_menu_bar" "sdl_setup_macos_menu_bar"
 
+external sdl_setwindowtitle : string -> unit = "sdl_setwindowtitle" "sdl_setwindowtitle"
+
 let actually_init_sdl () =
   (match init_sdl () with
    | Ok () -> ()

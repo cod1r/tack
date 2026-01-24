@@ -1,6 +1,7 @@
 type file =
   { textarea_with_line_numbers : Ui_types.box
   ; file_name : string
+  ; prev_rope : Rope_types.rope option
   }
 
 type editor =
@@ -17,7 +18,10 @@ let open_file file_name =
   String.iter
     (fun c ->
        let code = Char.code c in
-       if (code > 126 || code < 32) && code <> 10 && code <> 9
+       if
+         (code > Char.code '~' || code < Char.code ' ')
+         && code <> Char.code '\n'
+         && code <> Char.code '\t'
        then
          failwith
            "only accepting files with ascii between 32-126 inclusive except for tabs and \
@@ -36,7 +40,7 @@ let editor : editor = { default_editor with files = [] }
 
 let get_information_from_focused_file () =
   match editor.focused_file with
-  | Some { textarea_with_line_numbers; file_name } ->
+  | Some { textarea_with_line_numbers; file_name; _ } ->
     (match textarea_with_line_numbers.content with
      | Some (Boxes [ _; textarea ]) ->
        (match textarea.content with
@@ -53,6 +57,8 @@ let save_file () =
   | Some ({ text; _ }, file_name) ->
     (match text with
      | Some text ->
+       let old_focused_file = Option.get editor.focused_file in
+       editor.focused_file <- Some { old_focused_file with prev_rope = Some text };
        let rope_contents = Rope.to_string text in
        (match
           Out_channel.with_open_bin file_name (fun oc ->
@@ -101,7 +107,7 @@ let () = Callback.register "paste_function_from_ocaml" paste_text_into_file
 let cut_text_from_file () =
   let info = get_information_from_focused_file () in
   match info with
-  | Some ({ text; highlight_pos; _ } as text_area_information, _) ->
+  | Some (({ text; highlight_pos; _ } as text_area_information), _) ->
     (match text with
      | Some rope ->
        Ui_textarea.copy_into_clipboard ~rope ~highlight_pos;
@@ -167,7 +173,12 @@ let file_item_box (f : Files.file_tree) =
                        ~textarea_height:1000
                        ()
                    in
-                   let file_info = { textarea_with_line_numbers; file_name = name } in
+                   let file_info =
+                     { textarea_with_line_numbers
+                     ; file_name = name
+                     ; prev_rope = Some text
+                     }
+                   in
                    (match textarea_with_line_numbers.content with
                     | Some (Boxes [ _; textarea ]) ->
                       Ui_globals.set_focused_element ~box:textarea
@@ -225,13 +236,21 @@ let () =
   editor_view.update
   <- Some
        (fun () ->
-         editor_view.content
-         <- Some
-              (Boxes
-                 ([ file_explorer ]
-                  @
-                  match editor.focused_file with
-                  | Some { textarea_with_line_numbers; _ } ->
-                    [ textarea_with_line_numbers ]
-                  | None -> [ place_holder_box_before_any_focused_file ])))
+         let box, prev_rope =
+           match editor.focused_file with
+           | Some { textarea_with_line_numbers; prev_rope; _ } ->
+             textarea_with_line_numbers, prev_rope
+           | None -> place_holder_box_before_any_focused_file, None
+         in
+         let textarea_info = get_information_from_focused_file () in
+         (match textarea_info with
+          | Some (textarea_info, _file_name) ->
+            (match prev_rope with
+             | Some rope ->
+               if rope != Option.get textarea_info.text
+               then Sdl.sdl_setwindowtitle "tack (unsaved)"
+               else Sdl.sdl_setwindowtitle "tack"
+             | None -> ())
+          | None -> ());
+         editor_view.content <- Some (Boxes [ file_explorer; box ]))
 ;;

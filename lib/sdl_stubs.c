@@ -10,13 +10,20 @@
 #include <string.h>
 #include <stdbool.h>
 
-
 CAMLprim value sdl_setup_macos_menu_bar() {
   CAMLparam0();
   #ifdef __APPLE__
   extern void setup_macos_menu_bar();
   setup_macos_menu_bar();
   #endif
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value sdl_setwindowtitle(value title) {
+  CAMLparam1(title);
+  SDL_Window* window = SDL_GL_GetCurrentWindow();
+  if (window == NULL) caml_failwith(SDL_GetError());
+  SDL_SetWindowTitle(window, String_val(title));
   CAMLreturn(Val_unit);
 }
 
