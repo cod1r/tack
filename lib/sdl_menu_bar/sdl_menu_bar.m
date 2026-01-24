@@ -63,6 +63,7 @@ allows the menuitem to be enabled.
     }
 
     +(void) cut_function {
+        caml_callback(*caml_named_value("cut_function_from_ocaml"), Val_unit);
     }
     +(FileMenuItem*) get_cut_menu_item {
         SEL cutAction = @selector(cut_function);
@@ -85,6 +86,8 @@ void setup_macos_menu_bar() {
     [submenu addItem:copy];
     FileMenuItem *paste = [FileMenuItem get_paste_menu_item];
     [submenu addItem:paste];
+    FileMenuItem *cut = [FileMenuItem get_cut_menu_item];
+    [submenu addItem:cut];
     item.submenu = submenu;
     [menu insertItem:item atIndex:1];
 }

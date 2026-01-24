@@ -98,6 +98,35 @@ let paste_text_into_file () =
 
 let () = Callback.register "paste_function_from_ocaml" paste_text_into_file
 
+let cut_text_from_file () =
+  let info = get_information_from_focused_file () in
+  match info with
+  | Some ({ text; highlight_pos; _ } as text_area_information, _) ->
+    (match text with
+     | Some rope ->
+       Ui_textarea.copy_into_clipboard ~rope ~highlight_pos;
+       (match highlight_pos with
+        | Some start, Some end' when end' - start > 0 ->
+          let new_rope = Some (Rope.delete rope ~start ~len:(end' - start)) in
+          let new_textarea_information =
+            { text_area_information with
+              text = new_rope
+            ; cursor_pos = Some start
+            ; highlight_pos = None, None
+            }
+          in
+          let focused_file = Option.get editor.focused_file in
+          (match focused_file.textarea_with_line_numbers.content with
+           | Some (Boxes [ _; textarea ]) ->
+             textarea.content <- Some (Textarea new_textarea_information)
+           | _ -> "impossible " ^ __LOC__ |> failwith)
+        | _ -> ())
+     | None -> ())
+  | None -> ()
+;;
+
+let () = Callback.register "cut_function_from_ocaml" cut_text_from_file
+
 let file_item_box (f : Files.file_tree) =
   let name =
     match f with
