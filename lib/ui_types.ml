@@ -33,9 +33,14 @@ type vertical_alignment =
   | Center
   | Bottom
 
-type size_constraint =
+type size_constraint_type =
   | Min
   | Max
+
+type size_constraint =
+  { constraint_type : size_constraint_type
+  ; fallback_size : int
+  }
 
 type box =
   { mutable name : string option

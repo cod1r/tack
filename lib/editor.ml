@@ -106,8 +106,8 @@ let file_item_box (f : Files.file_tree) =
   in
   { Ui.default_box with
     content = Some (Text { string = name })
-  ; width_constraint = Some Max
-  ; height_constraint = Some Max
+  ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
+  ; height_constraint = Some { constraint_type = Max; fallback_size = 0 }
   ; on_event =
       Some
         (fun ~b ~e ->
@@ -170,7 +170,7 @@ let file_items = List.map (fun f -> file_item_box f) File_explorer.root_children
 let file_explorer =
   { Ui.default_box with
     bbox = Some { x = 0; y = 0; height = 0; width = 300 }
-  ; height_constraint = Some Max
+  ; height_constraint = Some { constraint_type = Max; fallback_size = 0 }
   ; content = Some (Boxes file_items)
   ; flow = Some Vertical
   }
@@ -186,7 +186,7 @@ let place_holder_box_before_any_focused_file =
 let editor_view =
   { Ui.default_box with
     bbox = Some { x = 0; y = 0; width = 2000; height = 0 }
-  ; height_constraint = Some Min
+  ; height_constraint = Some { constraint_type = Min; fallback_size = 0 }
   ; content = Some (Boxes [ file_explorer; place_holder_box_before_any_focused_file ])
   ; flow = Some Horizontal
   }

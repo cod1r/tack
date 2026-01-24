@@ -118,7 +118,8 @@ let create_scrollbar_container ~(content : box) ~orientation =
     | Vertical ->
       { Ui.default_box with
         name = Some "V_SCROLLBAR_CONTAINER"
-      ; height_constraint = Some Max
+      ; height_constraint =
+          Some { constraint_type = Max; fallback_size = content_bbox.height }
       ; bbox =
           Some
             { content_bbox with width = Ui_globals.scrollbar_container_width; height = 0 }
@@ -129,7 +130,8 @@ let create_scrollbar_container ~(content : box) ~orientation =
     | Horizontal ->
       { Ui.default_box with
         name = Some "H_SCROLLBAR_CONTAINER"
-      ; width_constraint = Some Max
+      ; width_constraint =
+          Some { constraint_type = Max; fallback_size = content_bbox.width }
       ; bbox =
           Some
             { content_bbox with width = 0; height = Ui_globals.scrollbar_container_width }

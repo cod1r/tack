@@ -24,8 +24,8 @@ let box =
                           ; content = Some (Text { string = "20" })
                           ; bbox = Some { x = 0; y = 0; width = 20; height = 20 }
                           })))
-              ; width_constraint = Some Min
-              ; height_constraint = Some Min
+              ; width_constraint = Some { constraint_type = Min; fallback_size = 0 }
+              ; height_constraint = Some { constraint_type = Min; fallback_size = 0 }
               ; flow = Some Vertical
               })))
   ; flow = Some Horizontal

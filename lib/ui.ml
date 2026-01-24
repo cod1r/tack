@@ -356,15 +356,25 @@ let handle_maximizing_of_inner_content_size ~(parent_box : box) =
   match parent_box.content with
   | Some (Box b) ->
     (match b.width_constraint with
-     | Some Max ->
+     | Some { constraint_type; fallback_size } when constraint_type = Max ->
        let b_bbox = Option.value b.bbox ~default:default_bbox in
-       b.bbox <- Some { b_bbox with width = parent_bbox.width }
-     | Some Min | None -> ());
+       b.bbox
+       <- Some
+            { b_bbox with
+              width =
+                (if parent_box.bbox = None then fallback_size else parent_bbox.width)
+            }
+     | Some _ | None -> ());
     (match b.height_constraint with
-     | Some Max ->
+     | Some { constraint_type; fallback_size } when constraint_type = Max ->
        let b_bbox = Option.value b.bbox ~default:default_bbox in
-       b.bbox <- Some { b_bbox with height = parent_bbox.height }
-     | Some Min | None -> ())
+       b.bbox
+       <- Some
+            { b_bbox with
+              height =
+                (if parent_box.bbox = None then fallback_size else parent_bbox.height)
+            }
+     | Some _ | None -> ())
   | Some (Boxes list) ->
     let fixed_width_boxes =
       List.filter (fun b -> Option.is_none b.width_constraint) list
@@ -373,10 +383,20 @@ let handle_maximizing_of_inner_content_size ~(parent_box : box) =
       List.filter (fun b -> Option.is_none b.height_constraint) list
     in
     let constrained_width_boxes =
-      List.filter (fun b -> b.width_constraint = Some Max) list
+      List.filter
+        (fun b ->
+           match b.width_constraint with
+           | Some { constraint_type; _ } when constraint_type = Max -> true
+           | _ -> false)
+        list
     in
     let constrained_height_boxes =
-      List.filter (fun b -> b.height_constraint = Some Max) list
+      List.filter
+        (fun b ->
+           match b.height_constraint with
+           | Some { constraint_type; _ } when constraint_type = Max -> true
+           | _ -> false)
+        list
     in
     (match parent_box.flow with
      | Some Horizontal ->
@@ -444,9 +464,13 @@ let rec clamp_width_or_height_to_content_size
   =
   let bbox = Option.value box.bbox ~default:default_bbox in
   let width_constraint_is_min =
-    Option.is_some box.width_constraint && Option.get box.width_constraint == Min
+    match box.width_constraint with
+    | Some { constraint_type; _ } when constraint_type == Min -> true
+    | _ -> false
   and height_constraint_is_min =
-    Option.is_some box.height_constraint && Option.get box.height_constraint == Min
+    match box.height_constraint with
+    | Some { constraint_type; _ } when constraint_type == Min -> true
+    | _ -> false
   in
   match box.content with
   | Some (Box b) ->
@@ -611,12 +635,16 @@ let print_box ?(depth = 1) box =
        | Some n -> string_of_int n
        | None -> "None")
       (match box.width_constraint with
-       | Some Min -> "Some Min"
-       | Some Max -> "Some Max"
+       | Some { constraint_type = Min; fallback_size } ->
+         "Min; " ^ string_of_int fallback_size
+       | Some { constraint_type = Max; fallback_size } ->
+         "Max; " ^ string_of_int fallback_size
        | None -> "None")
       (match box.height_constraint with
-       | Some Min -> "Some Min"
-       | Some Max -> "Some Max"
+       | Some { constraint_type = Min; fallback_size } ->
+         "Min; " ^ string_of_int fallback_size
+       | Some { constraint_type = Max; fallback_size } ->
+         "Max; " ^ string_of_int fallback_size
        | None -> "None")
       box.clip_content
       (match box.position_type with
