@@ -169,8 +169,8 @@ let file_item_box (f : Files.file_tree) =
                    let textarea_with_line_numbers =
                      Textarea_with_line_numbers.create_textarea_with_line_numbers
                        ~text
-                       ~textarea_width:1000
-                       ~textarea_height:1000
+                       ~width_constraint:{ constraint_type = Max; fallback_size = 100 }
+                       ~height_constraint:{ constraint_type = Max; fallback_size = 100 }
                        ()
                    in
                    let file_info =
@@ -220,13 +220,16 @@ let place_holder_box_before_any_focused_file =
   { Ui.default_box with
     bbox = Some { x = 0; y = 0; width = 1000; height = 1000 }
   ; background_color = 0.5, 0.5, 0.5, 1.
+  ; width_constraint = Some { constraint_type = Max; fallback_size = 1000 }
+  ; height_constraint = Some { constraint_type = Max; fallback_size = 1000 }
   }
 ;;
 
 let editor_view =
   { Ui.default_box with
     bbox = Some { x = 0; y = 0; width = 2000; height = 0 }
-  ; height_constraint = Some { constraint_type = Min; fallback_size = 0 }
+  ; height_constraint = Some { constraint_type = Max; fallback_size = 0 }
+  ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
   ; content = Some (Boxes [ file_explorer; place_holder_box_before_any_focused_file ])
   ; flow = Some Horizontal
   }

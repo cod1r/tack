@@ -46,21 +46,37 @@ let box =
   ; bbox= Some {x= 0; y= 0; width= 300; height= 200}
   ; content= Some (Box box) } *)
 
+let window_box =
+  { Ui.default_box with
+    bbox = Some { x = 0; y = 0; width = 0; height = 0 }
+  ; content = Some (Box Editor.editor_view)
+  }
+;;
+
+let () =
+  window_box.update
+  <- Some
+       (fun () ->
+         let width_height = Sdl.sdl_gl_getdrawablesize () in
+         let width, height = width_height lsr 32, width_height land ((1 lsl 32) - 1) in
+         window_box.bbox <- Some { x = 0; y = 0; width; height })
+;;
+
 let rec loop should_wait =
   let evt = Sdl.sdl_pollevent should_wait in
-  (* Ui.print_box ~depth:3 Editor.editor_view
+  (* Ui.print_box ~depth:5 Editor.editor_view
   |> fun b ->
   print_endline (Buffer.contents b); *)
   let continue, should_wait =
     match evt with
     | Some Quit -> false, false
     | None ->
-      Ui_rendering.draw ~box:Editor.editor_view;
+      Ui_rendering.draw ~box:window_box;
       true, false
     | Some (WindowEvt { event; _ }) when event = WindowFocusLost -> true, true
     | Some e ->
       Ui_events.emit_event ~e;
-      Ui_rendering.draw ~box:Editor.editor_view;
+      Ui_rendering.draw ~box:window_box;
       true, false
   in
   if continue then loop should_wait else ()
