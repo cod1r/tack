@@ -278,6 +278,14 @@ let editor_view =
   ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
   ; content = Some (Boxes [ text_search; wrapper ])
   ; flow = Some Vertical
+    (*
+      This is the event handler for handling focus when the user
+        clicks on the textarea.
+      the reason the event handler for this is on the parent
+      component for the editor is because the editor can easily
+      set the focus on the `focused_file` property.
+
+      no need for z-index bullshit. *)
   ; on_event =
       Some
         (fun ~b ~e ->
