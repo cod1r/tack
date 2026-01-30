@@ -540,7 +540,7 @@ let rec clamp_width_or_height_to_content_size
     (match measurement with
      | `Width when width_constraint_is_min ->
        box.bbox <- Some { bbox with width = string_width }
-     | `Height when width_constraint_is_min ->
+     | `Height when height_constraint_is_min ->
        box.bbox <- Some { bbox with height = font_info.font_height }
      | _ -> ())
   | Some (Textarea _) when width_constraint_is_min || height_constraint_is_min ->

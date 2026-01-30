@@ -233,7 +233,7 @@ let handle_kbd_evt
            }
          | _ ->
            let new_cursor_pos = cursor_pos - 1 |> max 0 in
-           let len = if new_cursor_pos = 0 then 0 else 1 in
+           let len = if cursor_pos = 0 then 0 else 1 in
            let new_rope = Some (Rope.delete r ~start:(max 0 new_cursor_pos) ~len) in
            { text_area_information with
              text = new_rope

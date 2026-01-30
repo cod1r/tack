@@ -225,18 +225,81 @@ let place_holder_box_before_any_focused_file =
   }
 ;;
 
-let editor_view =
+let text_search =
   { Ui.default_box with
-    bbox = Some { x = 0; y = 0; width = 2000; height = 0 }
-  ; height_constraint = Some { constraint_type = Max; fallback_size = 0 }
+    width_constraint = Some { constraint_type = Max; fallback_size = 0 }
+  ; height_constraint = Some { constraint_type = Min; fallback_size = 0 }
+  ; bbox = Some { x = 0; y = 0; width = 0; height = 0 }
+  ; content =
+      Some
+        (Boxes
+           [ { Ui.default_box with
+               content = Some (Text { string = "Text Search" })
+             ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
+             ; height_constraint = Some { constraint_type = Min; fallback_size = 100 }
+             }
+           ; { Ui.default_box with
+               content = Some (Textarea Ui.default_text_area_information)
+             ; text_wrap = false
+             ; bbox = Some { x = 0; y = 0; width = 0; height = 100 }
+             ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
+             ; focusable = true
+             ; background_color = 0., 0.5, 0.5, 1.
+             ; on_event =
+                 Some
+                   (fun ~b ~e ->
+                     match b with
+                     | Some b ->
+                       (match e with
+                        | Sdl.MouseButtonEvt { mouse_evt_type = Mousedown; x; y; _ } ->
+                          if Ui.is_within_box ~x ~y ~from_sdl_evt:true ~box:b
+                          then Ui_globals.set_focused_element ~box:b
+                        | _ -> ())
+                     | None -> ())
+             }
+           ])
+  ; flow = Some Vertical
+  }
+;;
+
+let wrapper =
+  { Ui.default_box with
+    height_constraint = Some { constraint_type = Max; fallback_size = 0 }
   ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
   ; content = Some (Boxes [ file_explorer; place_holder_box_before_any_focused_file ])
   ; flow = Some Horizontal
   }
 ;;
 
+let editor_view =
+  { Ui.default_box with
+    bbox = Some { x = 0; y = 0; width = 2000; height = 0 }
+  ; height_constraint = Some { constraint_type = Max; fallback_size = 0 }
+  ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
+  ; content = Some (Boxes [ text_search; wrapper ])
+  ; flow = Some Vertical
+  ; on_event =
+      Some
+        (fun ~b ~e ->
+          let _ = b in
+          match e with
+          | Sdl.MouseButtonEvt { x; y; mouse_evt_type; _ } ->
+            (match editor.focused_file with
+             | Some { textarea_with_line_numbers; _ } ->
+               (match textarea_with_line_numbers.content with
+                | Some (Boxes [ _; textarea ]) ->
+                  if
+                    Ui.is_within_box ~x ~y ~from_sdl_evt:true ~box:textarea
+                    && mouse_evt_type = Mousedown
+                  then Ui_globals.set_focused_element ~box:textarea
+                | _ -> ())
+             | None -> ())
+          | _ -> ())
+  }
+;;
+
 let () =
-  editor_view.update
+  wrapper.update
   <- Some
        (fun () ->
          let box, prev_rope =
@@ -255,5 +318,5 @@ let () =
                else Sdl.sdl_setwindowtitle "tack"
              | None -> ())
           | None -> ());
-         editor_view.content <- Some (Boxes [ file_explorer; box ]))
+         wrapper.content <- Some (Boxes [ file_explorer; box ]))
 ;;
