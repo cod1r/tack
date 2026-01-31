@@ -1,8 +1,9 @@
 Priorities:
     build out scuffed editor
+        make it so that the file explorer is able to traverse the file structure
         implement undo and redo functionality
         parse ripgrep json output format for searching text
-        make it so that the file explorer is able to traverse the file structure
+            - this might be harder than literally just telling users to use ripgrep
     borders
     clamping content to width/height of window
     really think about if relying on reference equality is good or not

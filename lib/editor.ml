@@ -35,8 +35,7 @@ let config_has_been_modified_during_runtime () =
   Unix.time () -. s.st_mtime < 1.
 ;;
 
-let default_editor : editor = { files = []; focused_file = None }
-let editor : editor = { default_editor with files = [] }
+let editor : editor = { files = []; focused_file = None }
 
 let get_information_from_focused_file () =
   match editor.focused_file with
@@ -133,6 +132,12 @@ let cut_text_from_file () =
 
 let () = Callback.register "cut_function_from_ocaml" cut_text_from_file
 
+(* TODO:
+
+the event handler for what file item box thing the user clicks on
+needs to check a centralized box record type that has a "focused directory"
+
+*)
 let file_item_box (f : Files.file_tree) =
   let name =
     match f with
@@ -143,76 +148,129 @@ let file_item_box (f : Files.file_tree) =
     content = Some (Text { string = name })
   ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
   ; height_constraint = Some { constraint_type = Max; fallback_size = 0 }
-  ; on_event =
-      Some
-        (fun ~b ~e ->
-          match b with
-          | Some b ->
-            (match e with
-             | MouseMotionEvt { x; y; _ } ->
-               if Ui.is_within_box ~x ~y ~box:b ~from_sdl_evt:true
-               then b.background_color <- 0.5, 0.5, 0.5, 1.
-               else b.background_color <- 1., 1., 1., 1.
-             | MouseButtonEvt { x; y; mouse_evt_type; _ } ->
-               if
-                 Ui.is_within_box ~x ~y ~box:b ~from_sdl_evt:true
-                 && mouse_evt_type = Mousedown
-                 &&
-                 match f with
-                 | File _ -> true
-                 | _ -> false
-               then (
-                 let opt = List.find_opt (fun f -> f.file_name = name) editor.files in
-                 if opt = None
-                 then (
-                   let text = open_file name in
-                   let textarea_with_line_numbers =
-                     Textarea_with_line_numbers.create_textarea_with_line_numbers
-                       ~text
-                       ~width_constraint:{ constraint_type = Max; fallback_size = 100 }
-                       ~height_constraint:{ constraint_type = Max; fallback_size = 100 }
-                       ()
-                   in
-                   let file_info =
-                     { textarea_with_line_numbers
-                     ; file_name = name
-                     ; prev_rope = Some text
-                     }
-                   in
-                   (match textarea_with_line_numbers.content with
-                    | Some (Boxes [ _; textarea ]) ->
-                      Ui_globals.set_focused_element ~box:textarea
-                    | _ ->
-                      failwith
-                        "Should always have Boxes [line_numbers; textarea] as content \
-                         from create_textarea_with_line_numbers");
-                   editor.files <- file_info :: editor.files;
-                   editor.focused_file <- Some file_info)
-                 else (
-                   let file_info = Option.get opt in
-                   (match file_info.textarea_with_line_numbers.content with
-                    | Some (Boxes [ _; textarea ]) ->
-                      Ui_globals.set_focused_element ~box:textarea
-                    | _ ->
-                      failwith
-                        "Should always have Boxes [line_numbers; textarea] as content \
-                         from create_textarea_with_line_numbers");
-                   editor.focused_file <- Some file_info))
-             | _ -> ())
-          | None -> ())
   ; name = Some name
   ; clip_content = true
   }
 ;;
 
-let file_items = List.map (fun f -> file_item_box f) File_explorer.root_children
-
-let file_explorer =
+let file_explorer_view =
   { Ui.default_box with
     bbox = Some { x = 0; y = 0; height = 0; width = 300 }
   ; height_constraint = Some { constraint_type = Max; fallback_size = 0 }
-  ; content = Some (Boxes file_items)
+  ; content = None
   ; flow = Some Vertical
+  ; on_event =
+      Some
+        (fun ~b ~e ->
+          let file_item_boxes =
+            match b with
+            | Some b ->
+              (match b.content with
+               | Some (Boxes list) -> list
+               | None ->
+                 let files = Files.build_file_tree "." in
+                 let file_item_boxes =
+                   List.map
+                     file_item_box
+                     (match files with
+                      | Directory { children; _ } -> children
+                      | File _ -> assert false)
+                 in
+                 b.content <- Some (Boxes file_item_boxes);
+                 file_item_boxes
+               | _ ->
+                 failwith
+                   "should always be getting list of boxes for file_explorer_view content")
+            | None ->
+              failwith
+                "the box for the file_explorer_view should attached to the event handler"
+          in
+          match e with
+          | MouseMotionEvt { x; y; _ } ->
+            (match File_explorer.file_explorer.opened_directory with
+             | Some (Directory { children; _ }) ->
+               List.iteri
+                 (fun i _dir_item ->
+                    let corresponding_box_item = List.nth file_item_boxes i in
+                    if
+                      Ui.is_within_box
+                        ~x
+                        ~y
+                        ~box:corresponding_box_item
+                        ~from_sdl_evt:true
+                    then corresponding_box_item.background_color <- 0.5, 0.5, 0.5, 1.
+                    else corresponding_box_item.background_color <- 1., 1., 1., 1.)
+                 children
+             | Some (File _) -> ()
+             | None -> ())
+          | MouseButtonEvt { x; y; mouse_evt_type; _ } ->
+            (match File_explorer.file_explorer.opened_directory with
+             | Some (Directory { children; _ }) ->
+               List.iteri
+                 (fun i dir_item ->
+                    let corresponding_box_item = List.nth file_item_boxes i in
+                    if
+                      Ui.is_within_box
+                        ~x
+                        ~y
+                        ~box:corresponding_box_item
+                        ~from_sdl_evt:true
+                    then (
+                      match dir_item with
+                      | Files.Directory ({ name = _; _ } as _dir_info) -> ( (*TODO *) )
+                      | File name ->
+                        if
+                          Ui.is_within_box
+                            ~x
+                            ~y
+                            ~box:corresponding_box_item
+                            ~from_sdl_evt:true
+                          && mouse_evt_type = Mousedown
+                        then (
+                          let opt =
+                            List.find_opt (fun f -> f.file_name = name) editor.files
+                          in
+                          if opt = None
+                          then (
+                            let text = open_file name in
+                            let textarea_with_line_numbers =
+                              Textarea_with_line_numbers.create_textarea_with_line_numbers
+                                ~text
+                                ~width_constraint:
+                                  { constraint_type = Max; fallback_size = 100 }
+                                ~height_constraint:
+                                  { constraint_type = Max; fallback_size = 100 }
+                                ()
+                            in
+                            let file_info =
+                              { textarea_with_line_numbers
+                              ; file_name = name
+                              ; prev_rope = Some text
+                              }
+                            in
+                            (match textarea_with_line_numbers.content with
+                             | Some (Boxes [ _; textarea ]) ->
+                               Ui_globals.set_focused_element ~box:textarea
+                             | _ ->
+                               failwith
+                                 "Should always have Boxes [line_numbers; textarea] as \
+                                  content from create_textarea_with_line_numbers");
+                            editor.files <- file_info :: editor.files;
+                            editor.focused_file <- Some file_info)
+                          else (
+                            let file_info = Option.get opt in
+                            (match file_info.textarea_with_line_numbers.content with
+                             | Some (Boxes [ _; textarea ]) ->
+                               Ui_globals.set_focused_element ~box:textarea
+                             | _ ->
+                               failwith
+                                 "Should always have Boxes [line_numbers; textarea] as \
+                                  content from create_textarea_with_line_numbers");
+                            editor.focused_file <- Some file_info))))
+                 children
+             | Some (File _) -> ()
+             | None -> ())
+          | _ -> ())
   }
 ;;
 
@@ -266,7 +324,8 @@ let wrapper =
   { Ui.default_box with
     height_constraint = Some { constraint_type = Max; fallback_size = 0 }
   ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
-  ; content = Some (Boxes [ file_explorer; place_holder_box_before_any_focused_file ])
+  ; content =
+      Some (Boxes [ file_explorer_view; place_holder_box_before_any_focused_file ])
   ; flow = Some Horizontal
   }
 ;;
@@ -277,8 +336,9 @@ let editor_view =
   ; height_constraint = Some { constraint_type = Max; fallback_size = 0 }
   ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
   ; content = Some (Boxes [ text_search; wrapper ])
-  ; flow = Some Vertical
-    (*
+  ; flow =
+      Some Vertical
+      (*
       This is the event handler for handling focus when the user
         clicks on the textarea.
       the reason the event handler for this is on the parent
@@ -326,5 +386,5 @@ let () =
                else Sdl.sdl_setwindowtitle "tack"
              | None -> ())
           | None -> ());
-         wrapper.content <- Some (Boxes [ file_explorer; box ]))
+         wrapper.content <- Some (Boxes [ file_explorer_view; box ]))
 ;;
