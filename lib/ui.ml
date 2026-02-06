@@ -327,7 +327,7 @@ let adjust_scrollbar_according_to_textarea_text_caret
 ;;
 
 let get_available_size_for_maxed_constrained_inner_boxes
-      ~(fixed_sized_boxes : box list)
+      ~(non_maxed_boxes : box list)
       ~(parent_bbox : bounding_box)
       ~(measurement : [ `Width | `Height ])
       ~number_of_constrained
@@ -338,13 +338,13 @@ let get_available_size_for_maxed_constrained_inner_boxes
       ( List.fold_left
           (fun acc b -> (Option.value b.bbox ~default:default_bbox).width + acc)
           0
-          fixed_sized_boxes
+          non_maxed_boxes
       , parent_bbox.width )
     | `Height ->
       ( List.fold_left
           (fun acc b -> (Option.value b.bbox ~default:default_bbox).height + acc)
           0
-          fixed_sized_boxes
+          non_maxed_boxes
       , parent_bbox.height )
   in
   let left_over = get_max_int 0 (parent_measurement - summed_fixed) in
@@ -376,11 +376,19 @@ let handle_maximizing_of_inner_content_size ~(parent_box : box) =
             }
      | Some _ | None -> ())
   | Some (Boxes list) ->
-    let fixed_width_boxes =
-      List.filter (fun b -> Option.is_none b.width_constraint) list
+    let non_maxed_width_boxes =
+      List.filter
+        (fun b ->
+           Option.is_none b.width_constraint
+           || (Option.get b.width_constraint).constraint_type == Min)
+        list
     in
-    let fixed_height_boxes =
-      List.filter (fun b -> Option.is_none b.height_constraint) list
+    let non_maxed_height_boxes =
+      List.filter
+        (fun b ->
+           Option.is_none b.height_constraint
+           || (Option.get b.height_constraint).constraint_type == Min)
+        list
     in
     let constrained_width_boxes =
       List.filter
@@ -404,7 +412,7 @@ let handle_maximizing_of_inner_content_size ~(parent_box : box) =
        then (
          let width_for_each_constrained_box =
            get_available_size_for_maxed_constrained_inner_boxes
-             ~fixed_sized_boxes:fixed_width_boxes
+             ~non_maxed_boxes:non_maxed_width_boxes
              ~parent_bbox
              ~measurement:`Width
              ~number_of_constrained:(List.length constrained_width_boxes)
@@ -424,7 +432,7 @@ let handle_maximizing_of_inner_content_size ~(parent_box : box) =
        then (
          let height_for_each_constrained_box =
            get_available_size_for_maxed_constrained_inner_boxes
-             ~fixed_sized_boxes:fixed_height_boxes
+             ~non_maxed_boxes:non_maxed_height_boxes
              ~parent_bbox
              ~measurement:`Height
              ~number_of_constrained:(List.length constrained_height_boxes)
