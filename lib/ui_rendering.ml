@@ -1017,7 +1017,7 @@ and handle_if_content_overflows_or_not ~(box : box) ~(context : ui_traversal_con
     Ui.calculate_content_boundaries ~box
   in
   assert (box.bbox <> None);
-  let ({ width; height; _ } as bbox) = Option.get box.bbox in
+  let ({ width; height; _ } as _bbox) = Option.get box.bbox in
   if not context.in_scrollcontainer
   then (
     let has_horizontal_scroll_info =
@@ -1050,10 +1050,6 @@ and handle_if_content_overflows_or_not ~(box : box) ~(context : ui_traversal_con
       let new_scrollcontainer =
         Ui_scrollcontainers.create_horizontal_scrollcontainer ~content:box
       in
-      let new_bbox =
-        { bbox with width = bbox.width - Ui_globals.scrollbar_container_width }
-      in
-      box.bbox <- Some new_bbox;
       already_existing_or_default
       := { !already_existing_or_default with
            horizontal_scroll_info = Some new_scrollcontainer
@@ -1066,10 +1062,6 @@ and handle_if_content_overflows_or_not ~(box : box) ~(context : ui_traversal_con
       let new_scrollcontainer =
         Ui_scrollcontainers.create_vertical_scrollcontainer ~content:box
       in
-      let new_bbox =
-        { bbox with height = bbox.height - Ui_globals.scrollbar_container_width }
-      in
-      box.bbox <- Some new_bbox;
       already_existing_or_default
       := { !already_existing_or_default with
            vertical_scroll_info = Some new_scrollcontainer

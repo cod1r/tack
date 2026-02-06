@@ -351,10 +351,29 @@ let get_available_size_for_maxed_constrained_inner_boxes
   left_over / number_of_constrained
 ;;
 
+let amt_subtract_due_to_having_scrollcontainer ~box =
+  let scrollcontainer =
+    List.find_map
+      (fun (box', scrollcontainer) -> if box' == box then Some scrollcontainer else None)
+      !Ui_globals.scrollcontainers
+  in
+  match scrollcontainer with
+  | Some { horizontal_scroll_info = Some _; vertical_scroll_info = Some _ } ->
+    Ui_globals.scrollbar_container_width, Ui_globals.scrollbar_container_width
+  | Some { horizontal_scroll_info = Some _; vertical_scroll_info = None } ->
+    0, Ui_globals.scrollbar_container_width
+  | Some { horizontal_scroll_info = None; vertical_scroll_info = Some _ } ->
+    Ui_globals.scrollbar_container_width, 0
+  | _ -> 0, 0
+;;
+
 let handle_maximizing_of_inner_content_size ~(parent_box : box) =
   let parent_bbox = Option.value parent_box.bbox ~default:default_bbox in
   match parent_box.content with
   | Some (Box b) ->
+    let width_subtract, height_subtract =
+      amt_subtract_due_to_having_scrollcontainer ~box:b
+    in
     (match b.width_constraint with
      | Some { constraint_type; fallback_size } when constraint_type = Max ->
        let b_bbox = Option.value b.bbox ~default:default_bbox in
@@ -362,7 +381,9 @@ let handle_maximizing_of_inner_content_size ~(parent_box : box) =
        <- Some
             { b_bbox with
               width =
-                (if parent_box.bbox = None then fallback_size else parent_bbox.width)
+                (if parent_box.bbox = None
+                 then fallback_size
+                 else parent_bbox.width - width_subtract)
             }
      | Some _ | None -> ());
     (match b.height_constraint with
@@ -372,7 +393,9 @@ let handle_maximizing_of_inner_content_size ~(parent_box : box) =
        <- Some
             { b_bbox with
               height =
-                (if parent_box.bbox = None then fallback_size else parent_bbox.height)
+                (if parent_box.bbox = None
+                 then fallback_size
+                 else parent_bbox.height - height_subtract)
             }
      | Some _ | None -> ())
   | Some (Boxes list) ->
@@ -419,13 +442,17 @@ let handle_maximizing_of_inner_content_size ~(parent_box : box) =
          in
          List.iter
            (fun b ->
+              let width_subtract, _ = amt_subtract_due_to_having_scrollcontainer ~box:b in
               let bbox = Option.value b.bbox ~default:default_bbox in
-              b.bbox <- Some { bbox with width = width_for_each_constrained_box })
+              b.bbox
+              <- Some
+                   { bbox with width = width_for_each_constrained_box - width_subtract })
            constrained_width_boxes);
        List.iter
          (fun b ->
+            let _, height_subtract = amt_subtract_due_to_having_scrollcontainer ~box:b in
             let bbox = Option.value b.bbox ~default:default_bbox in
-            b.bbox <- Some { bbox with height = parent_bbox.height })
+            b.bbox <- Some { bbox with height = parent_bbox.height - height_subtract })
          constrained_height_boxes
      | Some Vertical ->
        if List.length constrained_height_boxes > 0
@@ -439,13 +466,21 @@ let handle_maximizing_of_inner_content_size ~(parent_box : box) =
          in
          List.iter
            (fun b ->
+              let _, height_subtract =
+                amt_subtract_due_to_having_scrollcontainer ~box:b
+              in
               let bbox = Option.value b.bbox ~default:default_bbox in
-              b.bbox <- Some { bbox with height = height_for_each_constrained_box })
+              b.bbox
+              <- Some
+                   { bbox with
+                     height = height_for_each_constrained_box - height_subtract
+                   })
            constrained_height_boxes);
        List.iter
          (fun b ->
+            let width_subtract, _ = amt_subtract_due_to_having_scrollcontainer ~box:b in
             let bbox = Option.value b.bbox ~default:default_bbox in
-            b.bbox <- Some { bbox with width = parent_bbox.width })
+            b.bbox <- Some { bbox with width = parent_bbox.width - width_subtract })
          constrained_width_boxes
      | _ -> ())
   | Some (Text _) -> ()
