@@ -2,7 +2,7 @@ open Tack
 
 let () = Sdl.sdl_gl_setswapinterval 0
 
-let box =
+(* let box =
   { Ui.default_box with
     bbox = Some { x = 0; y = 0; width = 2000; height = 2000 }
   ; clip_content = true
@@ -30,7 +30,7 @@ let box =
               })))
   ; flow = Some Horizontal
   }
-;;
+;; *)
 
 (* let box =
   { Ui.default_box with
@@ -59,7 +59,21 @@ let () =
        (fun () ->
          let width_height = Sdl.sdl_gl_getdrawablesize () in
          let width, height = width_height lsr 32, width_height land ((1 lsl 32) - 1) in
-         window_box.bbox <- Some { x = 0; y = 0; width; height })
+         (* Printf.printf "width: %d, height: %d\n" width height; flush_all (); *)
+         window_box.bbox
+         <- Some { x = 0; y = 0; width = width - 200; height = height - 200 })
+;;
+
+let () =
+  Ui_events.add_event_handler ~box:None ~event_handler:(fun ~b ~e ->
+    let _ = b in
+    match e with
+    | Sdl.MouseButtonEvt { x; y; mouse_evt_type; _ } ->
+      if mouse_evt_type = Mousedown
+      then (
+        Printf.printf "%d %d\n" (x * 2) (y * 2);
+        flush_all ())
+    | _ -> ())
 ;;
 
 let rec loop should_wait =
