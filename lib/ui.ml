@@ -263,7 +263,6 @@ let adjust_scrollbar_according_to_textarea_text_caret
   in
   match potential_xy with
   | Some (x, y) ->
-    let x, y = x + content.scroll_x_offset, y + content.scroll_y_offset in
     (match vertical_scroll_info with
      | Some
          { vertical_scroll = scroll; vertical_scrollbar_container = scrollbar_container }

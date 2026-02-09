@@ -1,5 +1,4 @@
 Priorities:
-    there is glitchy behavior when trying to highlight text in a textarea box
     scrollcontainers aren't removed even if the content is no longer scrollable
     scrollcontainers teleport quickly due to initial position calculations being
         different from subsequent renders/calculations
