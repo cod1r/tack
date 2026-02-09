@@ -1,5 +1,4 @@
 Priorities:
-    scrollcontainers aren't removed even if the content is no longer scrollable
     scrollcontainers teleport quickly due to initial position calculations being
         different from subsequent renders/calculations
     build out scuffed editor

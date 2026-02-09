@@ -1053,7 +1053,11 @@ and handle_if_content_overflows_or_not ~(box : box) ~(context : ui_traversal_con
       already_existing_or_default
       := { !already_existing_or_default with
            horizontal_scroll_info = Some new_scrollcontainer
-         });
+         })
+    else if content_right - content_left <= width || not box.allow_horizontal_scroll
+    then
+      already_existing_or_default
+      := { !already_existing_or_default with horizontal_scroll_info = None };
     if
       content_bottom - content_top > height
       && box.allow_vertical_scroll
@@ -1065,7 +1069,11 @@ and handle_if_content_overflows_or_not ~(box : box) ~(context : ui_traversal_con
       already_existing_or_default
       := { !already_existing_or_default with
            vertical_scroll_info = Some new_scrollcontainer
-         });
+         })
+    else if content_bottom - content_top <= height || not box.allow_vertical_scroll
+    then
+      already_existing_or_default
+      := { !already_existing_or_default with vertical_scroll_info = None };
     if
       (not has_horizontal_scroll_info)
       && (not has_vertical_scroll_info)
@@ -1073,7 +1081,17 @@ and handle_if_content_overflows_or_not ~(box : box) ~(context : ui_traversal_con
           || !already_existing_or_default.horizontal_scroll_info |> Option.is_some)
     then
       Ui_globals.scrollcontainers
-      := (box, !already_existing_or_default) :: !Ui_globals.scrollcontainers)
+      := (box, !already_existing_or_default) :: !Ui_globals.scrollcontainers
+    else if
+      (has_horizontal_scroll_info
+       && !already_existing_or_default.horizontal_scroll_info |> Option.is_none)
+      || (has_vertical_scroll_info
+          && !already_existing_or_default.vertical_scroll_info |> Option.is_none)
+    then
+      Ui_globals.scrollcontainers
+      := List.map
+           (fun (b, st) -> if b == box then b, !already_existing_or_default else b, st)
+           !Ui_globals.scrollcontainers)
 
 and adjust_scrollcontainer_if_needed ~(box : box) =
   let scrollcontainer_info =
