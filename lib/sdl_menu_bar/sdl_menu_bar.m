@@ -24,6 +24,9 @@ allows the menuitem to be enabled.
 
     +(void) cut_function;
     +(FileMenuItem*)get_cut_menu_item;
+
+    +(void) undo_function;
+    +(FileMenuItem*)get_undo_menu_item;
 @end
 @implementation FileMenuItem
     +(void) save_function {
@@ -73,6 +76,18 @@ allows the menuitem to be enabled.
         menuItem.keyEquivalentModifierMask = NSEventModifierFlagCommand;
         return menuItem;
     }
+
+    +(void) undo_function {
+        caml_callback(*caml_named_value("undo_function_from_ocaml"), Val_unit);
+    }
+    +(FileMenuItem*) get_undo_menu_item {
+        SEL undoAction = @selector(undo_function);
+        FileMenuItem* menuItem = [[FileMenuItem alloc] initWithTitle:@"Undo" action:undoAction keyEquivalent:@"z"];
+        menuItem.target = self;
+        menuItem.enabled = true;
+        menuItem.keyEquivalentModifierMask = NSEventModifierFlagCommand;
+        return menuItem;
+    }
 @end
 void setup_macos_menu_bar() {
     NSApplication *app = [NSApplication sharedApplication];
@@ -88,6 +103,8 @@ void setup_macos_menu_bar() {
     [submenu addItem:paste];
     FileMenuItem *cut = [FileMenuItem get_cut_menu_item];
     [submenu addItem:cut];
+    FileMenuItem *undo = [FileMenuItem get_undo_menu_item];
+    [submenu addItem:undo];
     item.submenu = submenu;
     [menu insertItem:item atIndex:1];
 }

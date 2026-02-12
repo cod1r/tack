@@ -88,9 +88,9 @@ let paste_text_into_file () =
   match info with
   | Some (({ text; _ } as text_area_information), _) ->
     (match text with
-     | Some rope ->
+     | Some _ ->
        let new_textarea_information =
-         Ui_textarea.paste_from_clipboard ~rope ~text_area_information
+         Ui_textarea.paste_from_clipboard ~text_area_information
        in
        let focused_file = Option.get editor.focused_file in
        (match focused_file.textarea_with_line_numbers.content with
@@ -112,12 +112,29 @@ let cut_text_from_file () =
        Ui_textarea.copy_into_clipboard ~rope ~highlight_pos;
        (match highlight_pos with
         | Some start, Some end' when end' - start > 0 ->
+          let substring =
+            Rope.substring rope ~start ~len:(end' - start) |> Rope.to_string
+          in
           let new_rope = Some (Rope.delete rope ~start ~len:(end' - start)) in
+          let new_undo_list =
+            Ui_types.Deletion { string = substring; pos = start }
+            ::
+            (if
+               List.length text_area_information.history.undo_list
+               > Ui_textarea.history_length
+             then
+               List.take
+                 Ui_textarea.history_length
+                 text_area_information.history.undo_list
+             else text_area_information.history.undo_list)
+          in
+          let new_history = Ui_types.{ undo_list = new_undo_list; redo_list = [] } in
           let new_textarea_information =
             { text_area_information with
               text = new_rope
             ; cursor_pos = Some start
             ; highlight_pos = None, None
+            ; history = new_history
             }
           in
           let focused_file = Option.get editor.focused_file in
@@ -131,6 +148,34 @@ let cut_text_from_file () =
 ;;
 
 let () = Callback.register "cut_function_from_ocaml" cut_text_from_file
+
+let undo_action () =
+  let info = get_information_from_focused_file () in
+  match info with
+  | Some (text_area_information, _) ->
+    let focused_file = Option.get editor.focused_file in
+    (match focused_file.textarea_with_line_numbers.content with
+     | Some (Boxes [ _; textarea ]) ->
+       let new_textarea_information = Ui_textarea.undo_action text_area_information in
+       textarea.content <- Some (Textarea new_textarea_information)
+     | _ -> "impossible " ^ __LOC__ |> failwith)
+  | None -> ()
+;;
+
+let () = Callback.register "undo_function_from_ocaml" undo_action
+
+let redo_action () =
+  let info = get_information_from_focused_file () in
+  match info with
+  | Some (text_area_information, _) ->
+    let focused_file = Option.get editor.focused_file in
+    (match focused_file.textarea_with_line_numbers.content with
+     | Some (Boxes [ _; textarea ]) ->
+       let new_textarea_information = Ui_textarea.redo_action text_area_information in
+       textarea.content <- Some (Textarea new_textarea_information)
+     | _ -> "impossible " ^ __LOC__ |> failwith)
+  | None -> ()
+;;
 
 (* TODO:
 

@@ -152,17 +152,83 @@ let copy_into_clipboard ~rope ~highlight_pos =
   | _ -> ()
 ;;
 
-let paste_from_clipboard ~rope ~text_area_information =
-  let clipboard_contents = Sdl.get_clipboard_text () in
-  let new_rope =
-    Rope.insert
-      rope
-      (Option.value text_area_information.cursor_pos ~default:(Rope.length rope))
-      clipboard_contents
+let history_length = 5000
+
+let handle_txt_evt ~(text_area_information : text_area_information) ~text =
+  let r = Option.value text_area_information.text ~default:(Rope.of_string "") in
+  let cursor_pos' =
+    Option.value text_area_information.cursor_pos ~default:(Rope.length r)
   in
-  let cursor_pos = Option.value text_area_information.cursor_pos ~default:0 in
-  let cursor_pos = Some (cursor_pos + String.length clipboard_contents) in
-  { text_area_information with text = Some new_rope; cursor_pos }
+  let cursor_pos', new_rope =
+    match text_area_information.highlight_pos with
+    | Some start, Some end' -> start, Rope.delete r ~start ~len:(end' - start)
+    | _ -> cursor_pos', r
+  in
+  let new_rope = Rope.insert new_rope cursor_pos' text in
+  let new_history =
+    { undo_list =
+        Insertion { string = text; pos = cursor_pos' }
+        :: text_area_information.history.undo_list
+    ; redo_list = []
+    }
+  in
+  { text = Some new_rope
+  ; highlight_pos = None, None
+  ; holding_mousedown_rope_pos = None
+  ; cursor_pos = Some (cursor_pos' + String.length text)
+  ; history = new_history
+  }
+;;
+
+let paste_from_clipboard ~text_area_information =
+  let clipboard_contents = Sdl.get_clipboard_text () in
+  handle_txt_evt ~text_area_information ~text:clipboard_contents
+;;
+
+let undo_action text_area_information =
+  let rope = Option.value text_area_information.text ~default:(Rope.of_string "") in
+  match text_area_information.history.undo_list with
+  | action :: tl ->
+    let history =
+      { undo_list = tl; redo_list = action :: text_area_information.history.redo_list }
+    in
+    (match action with
+     | Insertion { string; pos } ->
+       { text_area_information with
+         text = Rope.delete rope ~start:pos ~len:(String.length string) |> Option.some
+       ; history
+       ; cursor_pos = Some (pos - (String.length string - 1))
+       }
+     | Deletion { string; pos } ->
+       { text_area_information with
+         text = Rope.insert rope pos string |> Option.some
+       ; history
+       ; cursor_pos = Some (pos + String.length string)
+       })
+  | [] -> text_area_information
+;;
+
+let redo_action text_area_information =
+  let rope = Option.value text_area_information.text ~default:(Rope.of_string "") in
+  match text_area_information.history.redo_list with
+  | action :: tl ->
+    let history =
+      { undo_list = action :: text_area_information.history.undo_list; redo_list = tl }
+    in
+    (match action with
+     | Insertion { string; pos } ->
+       { text_area_information with
+         text = Rope.delete rope ~start:pos ~len:(String.length string) |> Option.some
+       ; history
+       ; cursor_pos = Some (pos - (String.length string - 1))
+       }
+     | Deletion { string; pos } ->
+       { text_area_information with
+         text = Rope.insert rope pos string |> Option.some
+       ; history
+       ; cursor_pos = Some (pos + String.length string)
+       })
+  | [] -> text_area_information
 ;;
 
 let handle_kbd_evt
@@ -225,27 +291,50 @@ let handle_kbd_evt
          in
          match text_area_information.highlight_pos with
          | Some start, Some end' when end' - start > 0 ->
+           let substring =
+             Rope.substring r ~start ~len:(end' - start) |> Rope.to_string
+           in
            let new_rope = Some (Rope.delete r ~start ~len:(end' - start)) in
+           let new_undo_list =
+             Deletion { string = substring; pos = start }
+             ::
+             (if List.length text_area_information.history.undo_list > history_length
+              then List.take history_length text_area_information.history.undo_list
+              else text_area_information.history.undo_list)
+           in
+           let new_history = { undo_list = new_undo_list; redo_list = [] } in
            { text_area_information with
              text = new_rope
            ; cursor_pos = Some start
            ; highlight_pos = None, None
+           ; history = new_history
            }
          | _ ->
            let new_cursor_pos = cursor_pos - 1 |> max 0 in
            let len = if cursor_pos = 0 then 0 else 1 in
-           let new_rope = Some (Rope.delete r ~start:(max 0 new_cursor_pos) ~len) in
+           let start = max 0 new_cursor_pos in
+           let substring = Rope.substring r ~start ~len |> Rope.to_string in
+           let new_rope = Some (Rope.delete r ~start ~len) in
+           let new_undo_list =
+             Deletion { string = substring; pos = start }
+             ::
+             (if List.length text_area_information.history.undo_list > history_length
+              then List.take history_length text_area_information.history.undo_list
+              else text_area_information.history.undo_list)
+           in
+           let new_history = { undo_list = new_undo_list; redo_list = [] } in
            { text_area_information with
              text = new_rope
            ; cursor_pos = Some new_cursor_pos
            ; highlight_pos = None, None
+           ; history = new_history
            })
        else text_area_information
      | 'c' when kbd_evt_type = Keydown && !Ui_globals.holding_ctrl ->
        copy_into_clipboard ~rope:r ~highlight_pos:text_area_information.highlight_pos;
        text_area_information
      | 'v' when kbd_evt_type = Keydown && !Ui_globals.holding_ctrl ->
-       paste_from_clipboard ~rope:r ~text_area_information
+       paste_from_clipboard ~text_area_information
      | ('\r' | '\n') when kbd_evt_type = Keydown ->
        (* on macos, the return key gives \r instead of \n *)
        let cursor_pos' =
@@ -261,24 +350,6 @@ let handle_kbd_evt
        let new_rope = Some (Rope.insert r cursor_pos' "  ") in
        { text_area_information with text = new_rope; cursor_pos = Some (cursor_pos' + 2) }
      | _ -> text_area_information)
-;;
-
-let handle_txt_evt ~(text_area_information : text_area_information) ~text =
-  let r = Option.value text_area_information.text ~default:(Rope.of_string "") in
-  let cursor_pos' =
-    Option.value text_area_information.cursor_pos ~default:(Rope.length r)
-  in
-  let cursor_pos', new_rope =
-    match text_area_information.highlight_pos with
-    | Some start, Some end' -> start, Rope.delete r ~start ~len:(end' - start)
-    | _ -> cursor_pos', r
-  in
-  let new_rope = Rope.insert new_rope cursor_pos' text in
-  { text = Some new_rope
-  ; highlight_pos = None, None
-  ; holding_mousedown_rope_pos = None
-  ; cursor_pos = Some (cursor_pos' + String.length text)
-  }
 ;;
 
 let handle_mouse_motion_evt

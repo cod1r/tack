@@ -16,6 +16,7 @@ let default_text_area_information =
   ; cursor_pos = None
   ; highlight_pos = None, None
   ; holding_mousedown_rope_pos = None
+  ; history = { undo_list = []; redo_list = [] }
   }
 ;;
 

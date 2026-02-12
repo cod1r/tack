@@ -68,11 +68,26 @@ type box =
 
 and event_handler_t = b:box option -> e:Sdl.event -> unit
 
+and string_action_info =
+  { string : string
+  ; pos : int
+  }
+
+and action =
+  | Insertion of string_action_info
+  | Deletion of string_action_info
+
+and history_entries =
+  { undo_list : action list
+  ; redo_list : action list
+  }
+
 and text_area_information =
   { text : Rope_types.rope option
   ; cursor_pos : int option
   ; highlight_pos : int option * int option
   ; holding_mousedown_rope_pos : int option
+  ; history : history_entries
   }
 
 and vertical_scroll_info =

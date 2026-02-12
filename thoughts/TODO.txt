@@ -1,20 +1,23 @@
 Priorities:
-    scrollcontainers teleport quickly due to initial position calculations being
-        different from subsequent renders/calculations
     build out scuffed editor
-        make it so that the file explorer is able to traverse the file structure
-            - file explorer is not scrollable and needs to be
-            - file explorer should show files under directories as a drop down list, and should
-                show all directories
-        implement undo and redo functionality
-        parse ripgrep json output format for searching text
-            - this might be harder than literally just telling users to use ripgrep
+			make it so that the file explorer is able to traverse the file structure
+					- file explorer is not scrollable and needs to be
+					- file explorer should show files under directories as a drop down list, and should
+							show all directories
+			implement undo and redo functionality
+			    - maybe have more than one undo/redo list
+			parse ripgrep json output format for searching text
+					- this might be harder than literally just telling users to use ripgrep
+		in the event of mousewheel or scrolling, the distance the scrollbar moves is the
+			same but the amount of content scrolled is relative to how much is scrollable
+    scrollcontainers teleport quickly due to initial position calculations being
+			different from subsequent renders/calculations
     borders
     clamping content to width/height of window
     really think about if relying on reference equality is good or not
     also making every record type in ui, mutable is really messing with me. gotta rethink how im doing this entire thing
-        gotta also think about whether it's really bad to have all of this mutability...
-        i dont think it's necessarily that bad... i think it could work
+			gotta also think about whether it's really bad to have all of this mutability...
+			i dont think it's necessarily that bad... i think it could work
     implement padding
 
 

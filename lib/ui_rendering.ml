@@ -1088,10 +1088,17 @@ and handle_if_content_overflows_or_not ~(box : box) ~(context : ui_traversal_con
       || (has_vertical_scroll_info
           && !already_existing_or_default.vertical_scroll_info |> Option.is_none)
     then
-      Ui_globals.scrollcontainers
-      := List.map
-           (fun (b, st) -> if b == box then b, !already_existing_or_default else b, st)
-           !Ui_globals.scrollcontainers)
+      if
+        !already_existing_or_default.vertical_scroll_info = None
+        && !already_existing_or_default.horizontal_scroll_info = None
+      then
+        Ui_globals.scrollcontainers
+        := List.filter (fun (b, _) -> b != box) !Ui_globals.scrollcontainers
+      else
+        Ui_globals.scrollcontainers
+        := List.map
+             (fun (b, st) -> if b == box then b, !already_existing_or_default else b, st)
+             !Ui_globals.scrollcontainers)
 
 and adjust_scrollcontainer_if_needed ~(box : box) =
   let scrollcontainer_info =
@@ -1113,7 +1120,8 @@ and calculate_ui_for_scrollcontainer ~(scrollcontainer_info : scrollcontainer_in
     (fun { vertical_scrollbar_container; _ } ->
        calculate_ui
          ~box:vertical_scrollbar_container
-         ~context:{ in_scrollcontainer = false; parent = None })
+         ~context:{ in_scrollcontainer = false; parent = None }
+    )
     vertical_scroll_info;
   Option.iter
     (fun { horizontal_scrollbar_container; _ } ->
