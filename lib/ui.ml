@@ -259,7 +259,7 @@ let adjust_scrollbar_according_to_textarea_text_caret
     | Some (x, y) -> Some (x, y)
     | None ->
       (match get_xy_pos_of_text_caret ~text_area_info ~box:content with
-       | Some (~x, ~y) -> Some (x, y)
+       | Some (~x, ~y) -> Some (x + content.scroll_x_offset, y + content.scroll_y_offset)
        | None -> None)
   in
   match potential_xy with

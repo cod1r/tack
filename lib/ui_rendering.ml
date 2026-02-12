@@ -1120,8 +1120,7 @@ and calculate_ui_for_scrollcontainer ~(scrollcontainer_info : scrollcontainer_in
     (fun { vertical_scrollbar_container; _ } ->
        calculate_ui
          ~box:vertical_scrollbar_container
-         ~context:{ in_scrollcontainer = false; parent = None }
-    )
+         ~context:{ in_scrollcontainer = false; parent = None })
     vertical_scroll_info;
   Option.iter
     (fun { horizontal_scrollbar_container; _ } ->
