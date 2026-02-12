@@ -1,4 +1,5 @@
 Priorities:
+    there is a bug where if you press a modifier key like cmd, the scroll will be glitched
     build out scuffed editor
 			make it so that the file explorer is able to traverse the file structure
 					- file explorer is not scrollable and needs to be
