@@ -177,6 +177,8 @@ let redo_action () =
   | None -> ()
 ;;
 
+let () = Callback.register "redo_function_from_ocaml" redo_action
+
 (* TODO:
 
 the event handler for what file item box thing the user clicks on

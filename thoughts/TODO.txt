@@ -5,6 +5,7 @@ Priorities:
 					- file explorer should show files under directories as a drop down list, and should
 							show all directories
 			implement undo and redo functionality
+				- typing performance with undo redo is awful
 			    - maybe have more than one undo/redo list
 			parse ripgrep json output format for searching text
 					- this might be harder than literally just telling users to use ripgrep

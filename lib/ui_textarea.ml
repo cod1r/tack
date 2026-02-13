@@ -218,15 +218,15 @@ let redo_action text_area_information =
     (match action with
      | Insertion { string; pos } ->
        { text_area_information with
-         text = Rope.delete rope ~start:pos ~len:(String.length string) |> Option.some
-       ; history
-       ; cursor_pos = Some (pos - (String.length string - 1))
-       }
-     | Deletion { string; pos } ->
-       { text_area_information with
          text = Rope.insert rope pos string |> Option.some
        ; history
        ; cursor_pos = Some (pos + String.length string)
+       }
+     | Deletion { string; pos } ->
+       { text_area_information with
+         text = Rope.delete rope ~start:pos ~len:(String.length string) |> Option.some
+       ; history
+       ; cursor_pos = Some (pos - (String.length string - 1))
        })
   | [] -> text_area_information
 ;;

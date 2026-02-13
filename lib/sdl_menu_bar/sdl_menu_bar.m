@@ -88,6 +88,19 @@ allows the menuitem to be enabled.
         menuItem.keyEquivalentModifierMask = NSEventModifierFlagCommand;
         return menuItem;
     }
+
+    +(void) redo_function {
+        caml_callback(*caml_named_value("redo_function_from_ocaml"), Val_unit);
+    }
+    +(FileMenuItem*) get_redo_menu_item {
+        SEL undoAction = @selector(redo_function);
+        FileMenuItem* menuItem = [[FileMenuItem alloc] initWithTitle:@"Redo" action:undoAction keyEquivalent:@"z"];
+        menuItem.target = self;
+        menuItem.enabled = true;
+        menuItem.keyEquivalentModifierMask = NSEventModifierFlagCommand
+            | NSEventModifierFlagShift;
+        return menuItem;
+    }
 @end
 void setup_macos_menu_bar() {
     NSApplication *app = [NSApplication sharedApplication];
@@ -105,6 +118,9 @@ void setup_macos_menu_bar() {
     [submenu addItem:cut];
     FileMenuItem *undo = [FileMenuItem get_undo_menu_item];
     [submenu addItem:undo];
+    item.submenu = submenu;
+    FileMenuItem *redo = [FileMenuItem get_redo_menu_item];
+    [submenu addItem:redo];
     item.submenu = submenu;
     [menu insertItem:item atIndex:1];
 }
