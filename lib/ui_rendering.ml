@@ -3,8 +3,8 @@ open Ui_types
 
 let _ = Opengl.gl_enable_texture_2d ()
 let _ = Opengl.gl_enable_blending ()
-let _EACH_POINT_FLOAT_AMOUNT = 6
-let _EACH_POINT_FLOAT_AMOUNT_TEXT = 7
+let each_point_float_amount = 6
+let each_point_float_amount_text = 7
 
 type render_buffer_wrapper =
   { buffer : Opengl.render_buffer
@@ -38,7 +38,7 @@ let ui_buffer : render_buffer_wrapper =
       Bigarray.Array1.create
         Bigarray.Float32
         Bigarray.c_layout
-        (1000 * 1000 * _EACH_POINT_FLOAT_AMOUNT)
+        (1000 * 1000 * each_point_float_amount)
   ; length = 0
   }
 ;;
@@ -48,7 +48,7 @@ let text_buffer : render_buffer_wrapper =
       Bigarray.Array1.create
         Bigarray.Float32
         Bigarray.c_layout
-        (1000 * 1000 * _EACH_POINT_FLOAT_AMOUNT_TEXT)
+        (1000 * 1000 * each_point_float_amount_text)
   ; length = 0
   }
 ;;
@@ -482,25 +482,25 @@ let draw_to_gl_buffer_text () =
   Opengl.gl_vertex_attrib_pointer_float_type
     ~location:vertex_text_location
     ~size:2
-    ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT
+    ~stride:each_point_float_amount_text
     ~normalized:false
     ~start_idx:0;
   Opengl.gl_vertex_attrib_pointer_float_type
     ~location:color_text_location
     ~size:3
-    ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT
+    ~stride:each_point_float_amount_text
     ~normalized:false
     ~start_idx:2;
   Opengl.gl_vertex_attrib_pointer_float_type
     ~location:tex_coord_text_location
     ~size:2
-    ~stride:_EACH_POINT_FLOAT_AMOUNT_TEXT
+    ~stride:each_point_float_amount_text
     ~normalized:false
     ~start_idx:5;
   Opengl.gl_buffer_subdata_big_array
     ~render_buffer:text_buffer.buffer
     ~length:text_buffer.length;
-  Opengl.gl_draw_arrays_with_quads (text_buffer.length / _EACH_POINT_FLOAT_AMOUNT_TEXT);
+  Opengl.gl_draw_arrays_with_quads (text_buffer.length / each_point_float_amount_text);
   text_buffer.length <- 0
 ;;
 
@@ -510,19 +510,19 @@ let draw_to_gl_buffer () =
   Opengl.gl_vertex_attrib_pointer_float_type
     ~location:location_point_vertex
     ~size:2
-    ~stride:_EACH_POINT_FLOAT_AMOUNT
+    ~stride:each_point_float_amount
     ~normalized:false
     ~start_idx:0;
   Opengl.gl_vertex_attrib_pointer_float_type
     ~location:location_color
     ~size:4
-    ~stride:_EACH_POINT_FLOAT_AMOUNT
+    ~stride:each_point_float_amount
     ~normalized:false
     ~start_idx:2;
   Opengl.gl_buffer_subdata_big_array
     ~render_buffer:ui_buffer.buffer
     ~length:ui_buffer.length;
-  Opengl.gl_draw_arrays_with_quads (ui_buffer.length / _EACH_POINT_FLOAT_AMOUNT);
+  Opengl.gl_draw_arrays_with_quads (ui_buffer.length / each_point_float_amount);
   ui_buffer.length <- 0
 ;;
 
@@ -581,7 +581,7 @@ let write_highlight_to_ui_buffer ~(points : int list) ~parent =
     ui_buffer.buffer.{!ui_buffer_idx + 4} <- 1.;
     ui_buffer.buffer.{!ui_buffer_idx + 5} <- 0.5;
     idx := !idx + 2;
-    ui_buffer_idx := !ui_buffer_idx + _EACH_POINT_FLOAT_AMOUNT
+    ui_buffer_idx := !ui_buffer_idx + each_point_float_amount
   done;
   ui_buffer.length <- !ui_buffer_idx
 ;;
@@ -669,7 +669,7 @@ let write_cursor_to_ui_buffer ~parent ~x ~y ~font_height =
     ui_buffer.buffer.{!ui_buffer_idx + 4} <- 0.;
     ui_buffer.buffer.{!ui_buffer_idx + 5} <- 1.;
     idx := !idx + 2;
-    ui_buffer_idx := !ui_buffer_idx + _EACH_POINT_FLOAT_AMOUNT
+    ui_buffer_idx := !ui_buffer_idx + each_point_float_amount
   done;
   ui_buffer.length <- !ui_buffer_idx
 ;;

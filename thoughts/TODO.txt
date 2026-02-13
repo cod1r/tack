@@ -21,6 +21,9 @@ Priorities:
     implement padding
 
 
+builtin terminal box? embedding libghostty? using neovim server over rpc to implement vim motions?
+
+
 look into freetype and harfbuzz
 think about statically linking things vs dynamically linking things
 
