@@ -179,216 +179,13 @@ let redo_action () =
 
 let () = Callback.register "redo_function_from_ocaml" redo_action
 
-(* TODO:
-
-the event handler for what file item box thing the user clicks on
-needs to check a centralized box record type that has a "focused directory"
-
-*)
-let file_item_box (f : Files.file_tree) =
-  let name =
-    match f with
-    | Directory { name; _ } -> name
-    | File f -> f
-  in
-  { Ui.default_box with
-    content = Some (Text { string = name })
-  ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
-  ; height_constraint = Some { constraint_type = Max; fallback_size = 0 }
-  ; name = Some name
-  ; clip_content = true
-  }
-;;
-
-let root_file_tree = Files.build_file_tree "."
-
-let handle_file_case_for_mouse_btn_evt name =
-  let opt = List.find_opt (fun f -> f.file_name = name) editor.files in
-  if opt = None
-  then (
-    let text = open_file name in
-    let textarea_with_line_numbers =
-      Textarea_with_line_numbers.create_textarea_with_line_numbers
-        ~text
-        ~width_constraint:{ constraint_type = Max; fallback_size = 100 }
-        ~height_constraint:{ constraint_type = Max; fallback_size = 100 }
-        ()
-    in
-    let file_info =
-      { textarea_with_line_numbers; file_name = name; prev_rope = Some text }
-    in
-    (match textarea_with_line_numbers.content with
-     | Some (Boxes [ _; textarea ]) -> Ui_globals.set_focused_element ~box:textarea
-     | _ ->
-       failwith
-         "Should always have Boxes [line_numbers; textarea] as content from \
-          create_textarea_with_line_numbers");
-    editor.files <- file_info :: editor.files;
-    editor.focused_file <- Some file_info)
-  else (
-    let file_info = Option.get opt in
-    (match file_info.textarea_with_line_numbers.content with
-     | Some (Boxes [ _; textarea ]) -> Ui_globals.set_focused_element ~box:textarea
-     | _ ->
-       failwith
-         "Should always have Boxes [line_numbers; textarea] as content from \
-          create_textarea_with_line_numbers");
-    editor.focused_file <- Some file_info)
-;;
-
-let () = File_explorer.file_explorer.opened_directory <- Some root_file_tree
-
-let file_explorer_view =
-  { Ui.default_box with
-    bbox = Some { x = 0; y = 0; height = 0; width = 300 }
-  ; height_constraint = Some { constraint_type = Max; fallback_size = 0 }
-  ; content = None
-  ; flow = Some Vertical
-  ; on_event =
-      Some
-        (fun ~b ~e ->
-          let file_item_boxes =
-            match b with
-            | Some b ->
-              (match b.content with
-               | Some (Boxes list) -> list
-               | None ->
-                 "the update function for this box should've already been called already \
-                  to initialize b.content"
-                 |> failwith
-               | _ ->
-                 failwith
-                   "should always be getting list of boxes for file_explorer_view content")
-            | None ->
-              failwith
-                "the box for the file_explorer_view should attached to the event handler"
-          in
-          match e with
-          | MouseMotionEvt { x; y; _ } ->
-            (match File_explorer.file_explorer.opened_directory with
-             | Some (Directory { children; _ }) ->
-               List.iteri
-                 (fun i _dir_item ->
-                    let corresponding_box_item = List.nth file_item_boxes i in
-                    if
-                      Ui.is_within_box
-                        ~x
-                        ~y
-                        ~box:corresponding_box_item
-                        ~from_sdl_evt:true
-                    then corresponding_box_item.background_color <- 0.5, 0.5, 0.5, 1.
-                    else corresponding_box_item.background_color <- 1., 1., 1., 1.)
-                 children
-             | Some (File _) -> failwith "opened_directory should never be File"
-             | None -> ())
-          | MouseButtonEvt { x; y; mouse_evt_type; _ } when mouse_evt_type = Mousedown ->
-            (match File_explorer.file_explorer.opened_directory with
-             | Some (Directory { children; _ }) ->
-               List.iteri
-                 (fun i dir_item ->
-                    let corresponding_box_item = List.nth file_item_boxes i in
-                    if
-                      Ui.is_within_box
-                        ~x
-                        ~y
-                        ~box:corresponding_box_item
-                        ~from_sdl_evt:true
-                    then (
-                      match dir_item with
-                      | Files.Directory ({ children = dir_children; _ } as dir_info) ->
-                        let parent = File_explorer.find_parent dir_item root_file_tree in
-                        (match parent with
-                         | Some (Directory parent_info) ->
-                           File_explorer.file_explorer.opened_directory_rendered <- false;
-                           File_explorer.file_explorer.opened_directory
-                           <- Some
-                                (Directory
-                                   { dir_info with
-                                     children =
-                                       Directory { parent_info with name = ".." }
-                                       :: dir_children
-                                   })
-                         | Some (File _) -> failwith "File is impossible here"
-                         | None ->
-                           ( (*
-                           current issue:
-                            if user clicks on ".." the wanted behavior is to go
-                            to the parent directory, BUT what if the file system
-                            changes and the parent directory doesn't exist anymore?
-
-                            the file explorer should be updated live to reflect
-                            file system changes.
-
-                            what if there is a file named ".."?
-                           *) ))
-                      | File name ->
-                        if mouse_evt_type = Mousedown
-                        then handle_file_case_for_mouse_btn_evt name))
-                 children
-             | Some (File _) -> failwith "opened_directory should never be File"
-             | None -> ())
-          | _ -> ())
-  ; allow_vertical_scroll = true
-  }
-;;
-
-let () =
-  file_explorer_view.update
-  <- Some
-       (fun () ->
-         if not File_explorer.file_explorer.opened_directory_rendered
-         then (
-           match File_explorer.file_explorer.opened_directory with
-           | Some (Directory { children; _ }) ->
-             file_explorer_view.content <- Some (Boxes (List.map file_item_box children));
-             File_explorer.file_explorer.opened_directory_rendered <- true
-           | Some (File _) -> "impossible;" ^ __LOC__ |> failwith
-           | None -> ()))
-;;
-
 let place_holder_box_before_any_focused_file =
   { Ui.default_box with
     bbox = Some { x = 0; y = 0; width = 1000; height = 1000 }
   ; background_color = 0.5, 0.5, 0.0, 1.
   ; width_constraint = Some { constraint_type = Max; fallback_size = 1000 }
   ; height_constraint = Some { constraint_type = Max; fallback_size = 1000 }
-  }
-;;
-
-let text_search =
-  { Ui.default_box with
-    width_constraint = Some { constraint_type = Max; fallback_size = 0 }
-  ; height_constraint = Some { constraint_type = Min; fallback_size = 0 }
-  ; bbox = Some { x = 0; y = 0; width = 0; height = 0 }
-  ; content =
-      Some
-        (Boxes
-           [ { Ui.default_box with
-               content = Some (Text { string = "Text Search" })
-             ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
-             ; height_constraint = Some { constraint_type = Min; fallback_size = 100 }
-             }
-           ; { Ui.default_box with
-               content = Some (Textarea Ui.default_text_area_information)
-             ; text_wrap = false
-             ; bbox = Some { x = 0; y = 0; width = 0; height = 100 }
-             ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
-             ; focusable = true
-             ; background_color = 0., 0.5, 0.5, 1.
-             ; on_event =
-                 Some
-                   (fun ~b ~e ->
-                     match b with
-                     | Some b ->
-                       (match e with
-                        | Sdl.MouseButtonEvt { mouse_evt_type = Mousedown; x; y; _ } ->
-                          if Ui.is_within_box ~x ~y ~from_sdl_evt:true ~box:b
-                          then Ui_globals.set_focused_element ~box:b
-                        | _ -> ())
-                     | None -> ())
-             }
-           ])
-  ; flow = Some Vertical
+  ; name = Some "WTF"
   }
 ;;
 
@@ -396,8 +193,7 @@ let wrapper =
   { Ui.default_box with
     height_constraint = Some { constraint_type = Max; fallback_size = 0 }
   ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
-  ; content =
-      Some (Boxes [ file_explorer_view; place_holder_box_before_any_focused_file ])
+  ; content = Some (Boxes [ place_holder_box_before_any_focused_file ])
   ; flow = Some Horizontal
   }
 ;;
@@ -407,7 +203,7 @@ let editor_view =
     bbox = Some { x = 0; y = 0; width = 0; height = 0 }
   ; height_constraint = Some { constraint_type = Max; fallback_size = 0 }
   ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
-  ; content = Some (Boxes [ text_search; wrapper ])
+  ; content = Some (Box wrapper)
   ; flow =
       Some Vertical
       (*
@@ -459,5 +255,5 @@ let () =
                else Sdl.sdl_setwindowtitle "tack"
              | None -> ())
           | None -> ());
-         wrapper.content <- Some (Boxes [ file_explorer_view; box ]))
+         wrapper.content <- Some (Boxes [ box ]))
 ;;
