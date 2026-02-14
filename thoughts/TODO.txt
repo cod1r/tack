@@ -1,4 +1,10 @@
 Priorities:
+    when the contents of the file change on disk, it needs to reflect in the editor
+        as well. I'm thinking if there's unsaved changes in the editor and the
+        contents of the file change on disk, then the editor won't show the changes.
+        If there aren't any unsaved changes, and the disk contents change, THEN
+        show the changed contents.
+    there is a delay when spamming characters and then pressing enter/return
     build out scuffed editor
 			make it so that the file explorer is able to traverse the file structure
 					- file explorer is not scrollable and needs to be

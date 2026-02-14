@@ -1,8 +1,6 @@
 open Sdl
 open Ui_types
 
-let _LINE_NUMBER_RIGHT_PADDING = 20
-
 let create_textarea_box ?(text : Rope_types.rope option) () =
   { Ui.default_box with
     focusable = true
