@@ -651,63 +651,57 @@ let rec clamp_width_or_height_to_content_size
   match box.content with
   | Some (Box b) ->
     constrain_width_height ~box:b ~context:{ context with parent = Some box };
-    print_endline (print_box ~depth:2 b |> Buffer.contents);
-    assert (Option.is_some b.bbox);
-    let inner_bbox = Option.get b.bbox in
-    (match measurement with
-     | `Width when width_constraint_is_min ->
-       box.bbox <- Some { bbox with width = inner_bbox.width }
-     | `Height when height_constraint_is_min ->
-       box.bbox <- Some { bbox with height = inner_bbox.height }
-     | _ -> ())
+    if width_constraint_is_min || height_constraint_is_min
+    then (
+      assert (Option.is_some b.bbox);
+      let inner_bbox = Option.get b.bbox in
+      match measurement with
+      | `Width -> box.bbox <- Some { bbox with width = inner_bbox.width }
+      | `Height -> box.bbox <- Some { bbox with height = inner_bbox.height })
   | Some (Boxes list) ->
     List.iter
       (fun b -> constrain_width_height ~box:b ~context:{ context with parent = Some box })
       list;
-    (match box.flow with
-     | Some Vertical ->
-       let summed_size =
-         List.fold_left
-           (fun acc b -> acc + (Option.value b.bbox ~default:default_bbox).height)
-           0
-           list
-       in
-       let max_width =
-         List.fold_left
-           (fun acc b ->
-              get_max_int acc (Option.value b.bbox ~default:default_bbox).width)
-           0
-           list
-       in
-       (match measurement with
-        | `Width when width_constraint_is_min ->
-          box.bbox <- Some { bbox with width = max_width }
-        | `Height when height_constraint_is_min ->
-          box.bbox <- Some { bbox with height = summed_size }
-        | _ -> ())
-     | Some Horizontal ->
-       let summed_size =
-         List.fold_left
-           (fun acc b -> acc + (Option.value b.bbox ~default:default_bbox).width)
-           0
-           list
-       in
-       let max_height =
-         List.fold_left
-           (fun acc b ->
-              let b_height = (Option.value b.bbox ~default:default_bbox).height in
-              get_max_int acc b_height)
-           0
-           list
-       in
-       (match measurement with
-        | `Width when width_constraint_is_min ->
-          box.bbox <- Some { bbox with width = summed_size }
-        | `Height when height_constraint_is_min ->
-          box.bbox <- Some { bbox with height = max_height }
-        | _ -> ())
-     | None -> ())
-  | Some (Text { string }) ->
+    if width_constraint_is_min || height_constraint_is_min
+    then (
+      match box.flow with
+      | Some Vertical ->
+        let summed_size =
+          List.fold_left
+            (fun acc b -> acc + (Option.value b.bbox ~default:default_bbox).height)
+            0
+            list
+        in
+        let max_width =
+          List.fold_left
+            (fun acc b ->
+               get_max_int acc (Option.value b.bbox ~default:default_bbox).width)
+            0
+            list
+        in
+        (match measurement with
+         | `Width -> box.bbox <- Some { bbox with width = max_width }
+         | `Height -> box.bbox <- Some { bbox with height = summed_size })
+      | Some Horizontal ->
+        let summed_size =
+          List.fold_left
+            (fun acc b -> acc + (Option.value b.bbox ~default:default_bbox).width)
+            0
+            list
+        in
+        let max_height =
+          List.fold_left
+            (fun acc b ->
+               let b_height = (Option.value b.bbox ~default:default_bbox).height in
+               get_max_int acc b_height)
+            0
+            list
+        in
+        (match measurement with
+         | `Width -> box.bbox <- Some { bbox with width = summed_size }
+         | `Height -> box.bbox <- Some { bbox with height = max_height })
+      | None -> ())
+  | Some (Text { string }) when width_constraint_is_min || height_constraint_is_min ->
     let ~font_info, .. =
       TextTextureInfo.get_or_add_font_size_text_texture
         ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
@@ -715,11 +709,8 @@ let rec clamp_width_or_height_to_content_size
     let string_width = calculate_string_width ~s:string ~font_info in
     (* this doesn't handle the case of text wrapping *)
     (match measurement with
-     | `Width when width_constraint_is_min ->
-       box.bbox <- Some { bbox with width = string_width }
-     | `Height when height_constraint_is_min ->
-       box.bbox <- Some { bbox with height = font_info.font_height }
-     | _ -> ())
+     | `Width -> box.bbox <- Some { bbox with width = string_width }
+     | `Height -> box.bbox <- Some { bbox with height = font_info.font_height })
   | Some (Textarea _) when width_constraint_is_min || height_constraint_is_min ->
     let { left; right; top; bottom } = calculate_content_boundaries ~box in
     box.bbox <- Some { x = left; y = top; width = right - left; height = bottom - top }

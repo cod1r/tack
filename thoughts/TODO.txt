@@ -1,4 +1,6 @@
 Priorities:
+    borders
+        border radius etc
     when the contents of the file change on disk, it needs to reflect in the editor
         as well. I'm thinking if there's unsaved changes in the editor and the
         contents of the file change on disk, then the editor won't show the changes.
@@ -19,7 +21,6 @@ Priorities:
 			same but the amount of content scrolled is relative to how much is scrollable
     scrollcontainers teleport quickly due to initial position calculations being
 			different from subsequent renders/calculations
-    borders
     clamping content to width/height of window
     really think about if relying on reference equality is good or not
     also making every record type in ui, mutable is really messing with me. gotta rethink how im doing this entire thing
