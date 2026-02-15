@@ -12,7 +12,7 @@ let print_box ?(depth = 1) box =
        bbox: %s@,\
        text_wrap: %b@,\
        background_color: %s@,\
-       border: %b@,\
+       border: %s@,\
        flow: %s@,\
        font_size: %s@,\
        width_constraint: %s@,\
@@ -45,7 +45,10 @@ let print_box ?(depth = 1) box =
       box.text_wrap
       (let r, g, b, a = box.background_color in
        Printf.sprintf "%f %f %f %f" r g b a)
-      box.border
+      (match box.border with
+       | Some { thickness; vertical_radius; horizontal_radius } ->
+         Printf.sprintf "%d %d %d" thickness vertical_radius horizontal_radius
+       | None -> "None")
       (match box.flow with
        | Some Horizontal -> "horizontal"
        | Some Vertical -> "vertical"
@@ -172,7 +175,7 @@ let default_box =
   ; bbox = None
   ; text_wrap = true
   ; background_color = 1., 1., 1., 0.
-  ; border = false
+  ; border = None
   ; font_size = None
   ; width_constraint = None
   ; height_constraint = None

@@ -42,6 +42,12 @@ type size_constraint =
   ; fallback_size : int
   }
 
+type border_options =
+  { thickness : int
+  ; vertical_radius : int
+  ; horizontal_radius : int
+  }
+
 type box =
   { mutable name : string option
   ; mutable update : (unit -> unit) option
@@ -49,7 +55,7 @@ type box =
   ; mutable bbox : bounding_box option
   ; mutable text_wrap : bool
   ; mutable background_color : float * float * float * float
-  ; mutable border : bool
+  ; mutable border : border_options option
   ; mutable flow : direction option
   ; mutable font_size : int option
   ; mutable width_constraint : size_constraint option
