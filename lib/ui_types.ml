@@ -42,10 +42,21 @@ type size_constraint =
   ; fallback_size : int
   }
 
-type border_options =
-  { thickness : int
-  ; vertical_radius : int
+type corner_options =
+  { vertical_radius : int
   ; horizontal_radius : int
+  }
+
+type border_options =
+  { top_thickness : int
+  ; right_thickness : int
+  ; left_thickness : int
+  ; bottom_thickness : int
+  ; top_left_corner_options : corner_options
+  ; top_right_corner_options : corner_options
+  ; bottom_left_corner_options : corner_options
+  ; bottom_right_corner_options : corner_options
+  ; color : float * float * float * float
   }
 
 type box =

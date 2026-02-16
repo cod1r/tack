@@ -1,6 +1,10 @@
 Priorities:
     borders
         border radius etc
+        - it seems like in opengl, there is no way to batch calls
+            that involve different types of primitves (like GL_POLYGON and GL_QUADS)
+            so i might have to annotate the ui_buffer and specify which slices
+            are GL_POLYGON and which are GL_QUADS...
     when the contents of the file change on disk, it needs to reflect in the editor
         as well. I'm thinking if there's unsaved changes in the editor and the
         contents of the file change on disk, then the editor won't show the changes.

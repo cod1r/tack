@@ -69,7 +69,12 @@ external gl_vertex_attrib_pointer_float_type
 [@@noalloc]
 
 external gl_draw_arrays_with_quads : int -> unit = "gl_draw_arrays_with_quads" [@@noalloc]
-external gl_draw_arrays : int -> unit = "gl_draw_arrays" "gl_draw_arrays"
+
+external gl_draw_array_with_polygon
+  :  int
+  -> unit
+  = "gl_draw_array_with_polygon" "gl_draw_array_with_polygon"
+
 external gl_bind_buffer : int -> unit = "gl_bind_buffer" [@@noalloc]
 
 external gl_getuniformlocation

@@ -46,8 +46,51 @@ let print_box ?(depth = 1) box =
       (let r, g, b, a = box.background_color in
        Printf.sprintf "%f %f %f %f" r g b a)
       (match box.border with
-       | Some { thickness; vertical_radius; horizontal_radius } ->
-         Printf.sprintf "%d %d %d" thickness vertical_radius horizontal_radius
+       | Some
+           { top_thickness
+           ; right_thickness
+           ; bottom_thickness
+           ; left_thickness
+           ; top_left_corner_options
+           ; top_right_corner_options
+           ; bottom_left_corner_options
+           ; bottom_right_corner_options
+           ; color = r, g, b, a
+           } ->
+         Printf.sprintf
+           "top_thickness: %d\n\
+            right_thickness: %d\n\
+            bottom_thickness: %d\n\
+            left_thickness: %d\n\
+            top_left_corner_options:\n\
+            vertical_radius: %d\n\
+            horizontal_radius: %d\n\
+            top_right_corner_options:\n\
+            vertical_radius: %d\n\
+            horizontal_radius: %d\n\
+            bottom_left_corner_options:\n\
+            vertical_radius: %d\n\
+            horizontal_radius: %d\n\
+            bottom_right_corner_options:\n\
+            vertical_radius: %d\n\
+            horizontal_radius: %d\n\
+            color: %f %f %f %f"
+           top_thickness
+           right_thickness
+           bottom_thickness
+           left_thickness
+           top_left_corner_options.vertical_radius
+           top_left_corner_options.horizontal_radius
+           top_right_corner_options.vertical_radius
+           top_right_corner_options.horizontal_radius
+           bottom_left_corner_options.vertical_radius
+           bottom_left_corner_options.horizontal_radius
+           bottom_right_corner_options.vertical_radius
+           bottom_right_corner_options.horizontal_radius
+           r
+           g
+           b
+           a
        | None -> "None")
       (match box.flow with
        | Some Horizontal -> "horizontal"

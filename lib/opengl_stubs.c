@@ -247,9 +247,9 @@ CAMLprim value gl_draw_arrays_with_quads(value num_points) {
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value gl_draw_arrays(value num_points) {
+CAMLprim value gl_draw_array_with_polygon(value num_points) {
   CAMLparam1(num_points);
-  glDrawArrays(GL_POINTS, 0, Int_val(num_points));
+  glDrawArrays(GL_POLYGON, 0, Int_val(num_points));
   CAMLreturn(Val_unit);
 }
 
