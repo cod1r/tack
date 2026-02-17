@@ -6,7 +6,22 @@ let _ = Opengl.gl_enable_blending ()
 let each_point_float_amount = 6
 let each_point_float_amount_text = 7
 
-type render_buffer_wrapper =
+type interval =
+  { start : int
+  ; length : int
+  }
+
+type primitive_to_use_annotation =
+  | Quad of interval
+  | Polygon of interval
+
+type ui_buffer_wrapper =
+  { buffer : Opengl.render_buffer
+  ; mutable length : int
+  ; annotations : primitive_to_use_annotation Dynarray.t
+  }
+
+type text_buffer_wrapper =
   { buffer : Opengl.render_buffer
   ; mutable length : int
   }
@@ -33,17 +48,18 @@ let get_tex_coords
   left, right, 0., Float.of_int glyph_info.rows /. height_float
 ;;
 
-let ui_buffer : render_buffer_wrapper =
+let ui_buffer : ui_buffer_wrapper =
   { buffer =
       Bigarray.Array1.create
         Bigarray.Float32
         Bigarray.c_layout
         (1000 * 1000 * each_point_float_amount)
   ; length = 0
+  ; annotations = Dynarray.create ()
   }
 ;;
 
-let text_buffer : render_buffer_wrapper =
+let text_buffer : text_buffer_wrapper =
   { buffer =
       Bigarray.Array1.create
         Bigarray.Float32
@@ -269,6 +285,125 @@ let get_potential_clipped_points ~parent ~points =
   clipped_points
 ;;
 
+let adjust_or_append_quad_annotation ~start ~final_idx =
+  let last = Dynarray.pop_last_opt ui_buffer.annotations in
+  match last with
+  | Some (Quad { start = last_start; _ }) ->
+    Dynarray.add_last
+      ui_buffer.annotations
+      (Quad { start = last_start; length = final_idx - last_start })
+  | _ ->
+    (match last with
+     | Some (Polygon _) -> Dynarray.add_last ui_buffer.annotations (Option.get last)
+     | _ -> ());
+    Dynarray.add_last ui_buffer.annotations (Quad { start; length = final_idx - start })
+;;
+
+let write_points_border_to_ui_buffer points (r, g, b, a) =
+  let float_array_idx = ref 0 in
+  let ui_buffer_idx = ref ui_buffer.length in
+  let start = ui_buffer.length in
+  while !float_array_idx < Float.Array.length points do
+    let x = Float.Array.get points !float_array_idx
+    and y = Float.Array.get points (!float_array_idx + 1) in
+    let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
+    ui_buffer.buffer.{!ui_buffer_idx} <- x;
+    ui_buffer.buffer.{!ui_buffer_idx + 1} <- y;
+    ui_buffer.buffer.{!ui_buffer_idx + 2} <- r;
+    ui_buffer.buffer.{!ui_buffer_idx + 3} <- g;
+    ui_buffer.buffer.{!ui_buffer_idx + 4} <- b;
+    ui_buffer.buffer.{!ui_buffer_idx + 5} <- a;
+    ui_buffer_idx := !ui_buffer_idx + each_point_float_amount;
+    float_array_idx := !float_array_idx + 2
+  done;
+  ui_buffer.length <- !ui_buffer_idx;
+  adjust_or_append_quad_annotation ~start ~final_idx:!ui_buffer_idx
+;;
+
+(* let get_top_left_elliptical_arc_points
+      top
+      left
+      corner_options
+      top_thickness
+      left_thickness
+  =
+  let origin_x, origin_y =
+    left - corner_options.horizontal_radius, top - corner_options.vertical_radius
+  and inner_left, inner_top =
+    ( left - (corner_options.horizontal_radius - left_thickness)
+    , top - (corner_options.vertical_radius - top_thickness) )
+  in
+  ()
+;; *)
+
+let write_border_values_to_ui_buffer ~(box : box) ~(_parent : box option) =
+  match box.border with
+  | Some border_options ->
+    (match box.bbox with
+     | Some _ ->
+       let { left; right; top; bottom } = Ui.get_box_sides ~box in
+       let r, g, b, a = border_options.color in
+       let top_border =
+         List.map
+           (fun n -> Float.of_int n)
+           [ left + border_options.top_left_corner_options.horizontal_radius
+           ; top + border_options.top_thickness
+           ; left + border_options.top_left_corner_options.horizontal_radius
+           ; top
+           ; right - border_options.top_right_corner_options.horizontal_radius
+           ; top
+           ; right
+           ; top + border_options.top_thickness
+           ]
+         |> Float.Array.of_list
+       and right_border =
+         List.map
+           (fun n -> Float.of_int n)
+           [ right - border_options.right_thickness
+           ; bottom - border_options.bottom_right_corner_options.vertical_radius
+           ; right - border_options.right_thickness
+           ; top + border_options.top_right_corner_options.vertical_radius
+           ; right
+           ; top + border_options.top_right_corner_options.vertical_radius
+           ; right
+           ; bottom - border_options.bottom_right_corner_options.vertical_radius
+           ]
+         |> Float.Array.of_list
+       and bottom_border =
+         List.map
+           (fun n -> Float.of_int n)
+           [ left + border_options.bottom_left_corner_options.horizontal_radius
+           ; bottom
+           ; left - border_options.bottom_left_corner_options.horizontal_radius
+           ; bottom - border_options.bottom_thickness
+           ; right - border_options.bottom_right_corner_options.horizontal_radius
+           ; bottom - border_options.bottom_thickness
+           ; right - border_options.bottom_right_corner_options.horizontal_radius
+           ; bottom
+           ]
+         |> Float.Array.of_list
+       and left_border =
+         List.map
+           (fun n -> Float.of_int n)
+           [ left
+           ; bottom - border_options.bottom_left_corner_options.vertical_radius
+           ; left
+           ; top + border_options.top_left_corner_options.vertical_radius
+           ; left + border_options.left_thickness
+           ; top + border_options.top_left_corner_options.vertical_radius
+           ; left + border_options.left_thickness
+           ; bottom - border_options.bottom_left_corner_options.vertical_radius
+           ]
+         |> Float.Array.of_list
+       in
+       write_points_border_to_ui_buffer top_border (r, g, b, a);
+       write_points_border_to_ui_buffer right_border (r, g, b, a);
+       write_points_border_to_ui_buffer bottom_border (r, g, b, a);
+       write_points_border_to_ui_buffer left_border (r, g, b, a)
+     | None -> ())
+  | None -> ()
+;;
+
 let write_container_values_to_ui_buffer ~(box : box) ~(parent : box option) =
   assert (box.bbox <> None);
   let { width; height; x; y; _ } = Option.get box.bbox
@@ -289,22 +424,7 @@ let write_container_values_to_ui_buffer ~(box : box) ~(parent : box option) =
     | Some parent when parent.clip_content -> get_potential_clipped_points ~parent ~points
     | _ -> points
   in
-  let idx = ref ui_buffer.length in
-  let float_array_index = ref 0 in
-  while !float_array_index < Float.Array.length points do
-    let x = Float.Array.get points !float_array_index
-    and y = Float.Array.get points (!float_array_index + 1) in
-    let x, y = transform_xy_coords_to_opengl_viewport_coords ~x ~y in
-    ui_buffer.buffer.{!idx} <- x;
-    ui_buffer.buffer.{!idx + 1} <- y;
-    ui_buffer.buffer.{!idx + 2} <- r;
-    ui_buffer.buffer.{!idx + 3} <- g;
-    ui_buffer.buffer.{!idx + 4} <- b;
-    ui_buffer.buffer.{!idx + 5} <- alpha;
-    idx := !idx + 6;
-    float_array_index := !float_array_index + 2
-  done;
-  ui_buffer.length <- !idx
+  write_points_border_to_ui_buffer points (r, g, b, alpha)
 ;;
 
 let gl_text_buffer = Opengl.gl_gen_one_buffer ()
@@ -519,10 +639,20 @@ let draw_to_gl_buffer () =
     ~stride:each_point_float_amount
     ~normalized:false
     ~start_idx:2;
-  Opengl.gl_buffer_subdata_big_array
-    ~render_buffer:ui_buffer.buffer
-    ~length:ui_buffer.length;
-  Opengl.gl_draw_arrays_with_quads (ui_buffer.length / each_point_float_amount);
+  Dynarray.iter
+    (fun annotation ->
+       match annotation with
+       | Quad { start; length } ->
+         Opengl.gl_buffer_subdata_big_array
+           ~render_buffer:(Bigarray.Array1.sub ui_buffer.buffer start length)
+           ~length;
+         Opengl.gl_draw_arrays_with_quads (length / each_point_float_amount)
+       | Polygon { start; length } ->
+         Opengl.gl_buffer_subdata_big_array
+           ~render_buffer:(Bigarray.Array1.sub ui_buffer.buffer start length)
+           ~length;
+         Opengl.gl_draw_array_with_polygon (length / each_point_float_amount))
+    ui_buffer.annotations;
   ui_buffer.length <- 0
 ;;
 
@@ -620,6 +750,11 @@ let draw_highlight
             ; (next_y + if wraps then font_info.font_height else 0)
             ]
           in
+          (* append isnt bad for performance here because
+            the implementation of the @ operator, recursively matches
+            on the first list passed in and prepends all of
+            the first list's elements to the second list. so in
+           this case, the points list only has a couple of elements *)
           entire_points_of_highlight_quads
           := List.append points !entire_points_of_highlight_quads)
     in
