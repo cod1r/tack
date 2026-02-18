@@ -1,10 +1,9 @@
 Priorities:
     borders
         border radius etc
-        - it seems like in opengl, there is no way to batch calls
-            that involve different types of primitves (like GL_POLYGON and GL_QUADS)
-            so i might have to annotate the ui_buffer and specify which slices
-            are GL_POLYGON and which are GL_QUADS...
+        - need to refactor rendering code to use GL_TRIANGLES instead because GL_QUAD and
+            GL_POLYGON are removed in modern versions of opengl and i dont think it's productive for myknowledge
+            to rely on deprecated interfaces...
         - also i need to do corner clipping...
     when the contents of the file change on disk, it needs to reflect in the editor
         as well. I'm thinking if there's unsaved changes in the editor and the

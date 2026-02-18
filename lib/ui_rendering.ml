@@ -336,7 +336,8 @@ let write_points_border_to_ui_buffer points (r, g, b, a) =
   ()
 ;; *)
 
-let write_border_values_to_ui_buffer ~(box : box) ~(_parent : box option) =
+let write_border_values_to_ui_buffer ~(box : box) ~(parent : box option) =
+  let _ = parent in
   match box.border with
   | Some border_options ->
     (match box.bbox with
@@ -1117,6 +1118,7 @@ let rec draw_box ~(box : box) ~(context : draw_context) =
        | Some (_, scrollcontainer_info) -> render_scrollcontainer ~scrollcontainer_info
        | None -> ());
       write_container_values_to_ui_buffer ~box ~parent;
+      write_border_values_to_ui_buffer ~box ~parent;
       match box.content with
       | Some (Box b) ->
         draw_box ~box:b ~context:{ parent = Some box; previous_context = Some context }
