@@ -679,20 +679,38 @@ let calculate_string_width ~s ~font_info =
     s
 ;;
 
+(*
+when the constraint_type is Min, sometimes the content can be bigger than the parent/box
+size, which can cause box size to increase acting as if it was being Max'd.
+So, when constraining the box to it's content size, it will be clamped so that the box
+size will never be bigger than the box's parent's size
+
+in the case that the box's parent's size is also dependent on the child's size, then the fallback size
+will be used
+*)
 let rec clamp_width_or_height_to_content_size
           ~(box : box)
           ~(measurement : [ `Width | `Height ])
           ~context
   =
+  let parent_bbox =
+    if context.parent = None
+    then default_bbox
+    else (
+      let parent = Option.get context.parent in
+      Option.value parent.bbox ~default:default_bbox)
+  in
   let bbox = Option.value box.bbox ~default:default_bbox in
-  let width_constraint_is_min =
+  let width_constraint_is_min, width_fallback_size =
     match box.width_constraint with
-    | Some { constraint_type; _ } when constraint_type == Min -> true
-    | _ -> false
-  and height_constraint_is_min =
+    | Some { constraint_type; fallback_size } when constraint_type == Min ->
+      true, fallback_size
+    | _ -> false, 0
+  and height_constraint_is_min, height_fallback_size =
     match box.height_constraint with
-    | Some { constraint_type; _ } when constraint_type == Min -> true
-    | _ -> false
+    | Some { constraint_type; fallback_size } when constraint_type == Min ->
+      true, fallback_size
+    | _ -> false, 0
   in
   match box.content with
   | Some (Box b) ->
@@ -702,8 +720,29 @@ let rec clamp_width_or_height_to_content_size
       assert (Option.is_some b.bbox);
       let inner_bbox = Option.get b.bbox in
       match measurement with
-      | `Width -> box.bbox <- Some { bbox with width = inner_bbox.width }
-      | `Height -> box.bbox <- Some { bbox with height = inner_bbox.height })
+      | `Width when width_constraint_is_min ->
+        box.bbox
+        <- Some
+             { bbox with
+               width =
+                 (if box.bbox <> None
+                  then min bbox.width inner_bbox.width
+                  else if context.parent = None || (Option.get context.parent).bbox = None
+                  then width_fallback_size
+                  else min parent_bbox.width inner_bbox.width)
+             }
+      | `Height when height_constraint_is_min ->
+        box.bbox
+        <- Some
+             { bbox with
+               height =
+                 (if box.bbox <> None
+                  then min bbox.height inner_bbox.height
+                  else if context.parent = None || (Option.get context.parent).bbox = None
+                  then height_fallback_size
+                  else min parent_bbox.height inner_bbox.height)
+             }
+      | _ -> ())
   | Some (Boxes list) ->
     List.iter
       (fun b -> constrain_width_height ~box:b ~context:{ context with parent = Some box })
@@ -726,8 +765,21 @@ let rec clamp_width_or_height_to_content_size
             list
         in
         (match measurement with
-         | `Width -> box.bbox <- Some { bbox with width = max_width }
-         | `Height -> box.bbox <- Some { bbox with height = summed_size })
+         | `Width when width_constraint_is_min ->
+           box.bbox <- Some { bbox with width = max_width }
+         | `Height when height_constraint_is_min ->
+           box.bbox
+           <- Some
+                { bbox with
+                  height =
+                    (if box.bbox <> None
+                     then min bbox.height summed_size
+                     else if
+                       context.parent = None || (Option.get context.parent).bbox = None
+                     then height_fallback_size
+                     else min parent_bbox.height summed_size)
+                }
+         | _ -> ())
       | Some Horizontal ->
         let summed_size =
           List.fold_left
@@ -744,8 +796,21 @@ let rec clamp_width_or_height_to_content_size
             list
         in
         (match measurement with
-         | `Width -> box.bbox <- Some { bbox with width = summed_size }
-         | `Height -> box.bbox <- Some { bbox with height = max_height })
+         | `Width when width_constraint_is_min ->
+           box.bbox
+           <- Some
+                { bbox with
+                  width =
+                    (if box.bbox <> None
+                     then min bbox.width summed_size
+                     else if
+                       context.parent = None || (Option.get context.parent).bbox = None
+                     then height_fallback_size
+                     else min parent_bbox.width summed_size)
+                }
+         | `Height when height_constraint_is_min ->
+           box.bbox <- Some { bbox with height = max_height }
+         | _ -> ())
       | None -> ())
   | Some (Text { string }) when width_constraint_is_min || height_constraint_is_min ->
     let ~font_info, .. =
@@ -755,11 +820,19 @@ let rec clamp_width_or_height_to_content_size
     let string_width = calculate_string_width ~s:string ~font_info in
     (* this doesn't handle the case of text wrapping *)
     (match measurement with
-     | `Width -> box.bbox <- Some { bbox with width = string_width }
-     | `Height -> box.bbox <- Some { bbox with height = font_info.font_height })
+     | `Width when width_constraint_is_min ->
+       box.bbox <- Some { bbox with width = string_width }
+     | `Height when height_constraint_is_min ->
+       box.bbox <- Some { bbox with height = font_info.font_height }
+     | _ -> ())
   | Some (Textarea _) when width_constraint_is_min || height_constraint_is_min ->
     let { left; right; top; bottom } = calculate_content_boundaries ~box in
-    box.bbox <- Some { x = left; y = top; width = right - left; height = bottom - top }
+    box.bbox
+    <- Some
+         { bbox with
+           width = (if width_constraint_is_min then right - left else bbox.width)
+         ; height = (if height_constraint_is_min then bottom - top else bbox.height)
+         }
   | None -> ()
   | _ -> ()
 
@@ -788,7 +861,8 @@ and calculate_box_position
    the container. Originally I thought that having elements/boxes being absolutely
    positioned would be fine but that leaves problems like child contents being outside of
    the parent container which poses the question of, what should the min width/height be?
-   Perhaps, restricting this functionality when child elements are only positioned relatively *)
+   Perhaps, restricting this functionality when child elements are only positioned relatively
+   - absolutely positioned boxes will need to have their sizes specified *)
 and constrain_width_height ~(box : box) ~context =
   clamp_width_or_height_to_content_size ~box ~measurement:`Width ~context;
   clamp_width_or_height_to_content_size ~box ~measurement:`Height ~context;

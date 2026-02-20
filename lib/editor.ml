@@ -35,7 +35,21 @@ let config_has_been_modified_during_runtime () =
   Unix.time () -. s.st_mtime < 1.
 ;;
 
-let editor : editor = { files = []; focused_file = None }
+let editor : editor =
+  { files = []
+  ; focused_file =
+      Some
+        { textarea_with_line_numbers =
+            Textarea_with_line_numbers.create_textarea_with_line_numbers
+              ~text:(open_file "./lib/ui_rendering.ml")
+              ~textarea_width:1000
+              ~textarea_height:1000
+              ()
+        ; file_name = "test"
+        ; prev_rope = None
+        }
+  }
+;;
 
 let get_information_from_focused_file () =
   match editor.focused_file with
@@ -192,10 +206,10 @@ let place_holder_box_before_any_focused_file =
         ; right_thickness = 10
         ; bottom_thickness = 10
         ; left_thickness = 10
-        ; top_left_corner_options = { vertical_radius = 10; horizontal_radius = 10 }
-        ; top_right_corner_options = { vertical_radius = 10; horizontal_radius = 10 }
-        ; bottom_left_corner_options = { vertical_radius = 10; horizontal_radius = 10 }
-        ; bottom_right_corner_options = { vertical_radius = 10; horizontal_radius = 10 }
+        ; top_left_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
+        ; top_right_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
+        ; bottom_left_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
+        ; bottom_right_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
         ; color = 0., 0., 0., 1.
         }
   }

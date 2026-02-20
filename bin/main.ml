@@ -46,10 +46,38 @@ let box =
   ; bbox= Some {x= 0; y= 0; width= 300; height= 200}
   ; content= Some (Box box) } *)
 
+(* let window_box =
+  { Ui.default_box with
+    bbox = Some { x = 0; y = 0; width = 0; height = 0 }
+  ; content = Some (Box {
+    Ui.default_box with
+    bbox = Some { x = 0; y = 0; width = 100; height = 100 }
+    ; background_color = 0.3, 0., 0., 0.3
+    ; content = Some (Text { string = "HEHEhdf;alskdjf;alsdkjf;alskdjf;asldkfja;sldkfja;dddddddd" })
+    ; font_size = Some 26
+  })
+  ; background_color = 0., 0.3, 0., 0.5
+  ; clip_content = true
+  }
+;;
+
+let () =
+  window_box.update
+  <- Some
+       (fun () ->
+         let width_height = Sdl.sdl_gl_getdrawablesize () in
+         let width, _ = width_height lsr 32, width_height land ((1 lsl 32) - 1) in
+         (* Printf.printf "width: %d, height: %d\n" width height; flush_all (); *)
+         window_box.bbox
+         <- Some { x = 0; y = 0; width = width - 250; height = 35 })
+;; *)
+
 let window_box =
   { Ui.default_box with
     bbox = Some { x = 0; y = 0; width = 0; height = 0 }
   ; content = Some (Box Editor.editor_view)
+  ; background_color = 0., 0.3, 0., 0.5
+  ; clip_content = true
   }
 ;;
 

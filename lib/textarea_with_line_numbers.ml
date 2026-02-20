@@ -77,8 +77,9 @@ let create_textarea_with_line_numbers
       clip_content = true
     ; background_color = 0.4, 0.4, 0.4, 1.
     ; flow = Some Vertical
-    ; height_constraint = Some { constraint_type = Max; fallback_size = 0 }
+    ; height_constraint = Some { constraint_type = Min; fallback_size = 0 }
     ; width_constraint = Some { constraint_type = Min; fallback_size = 0 }
+    ; name = Some "LINE_NUMBERS_CONTAINER"
     }
   in
   let textarea =

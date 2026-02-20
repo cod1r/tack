@@ -6,15 +6,6 @@ let _ = Opengl.gl_enable_blending ()
 let each_point_float_amount = 6
 let each_point_float_amount_text = 7
 
-type interval =
-  { start : int
-  ; length : int
-  }
-
-type primitive_to_use_annotation =
-  | Quad of interval
-  | Polygon of interval
-
 type render_buffer_wrapper =
   { buffer : Opengl.render_buffer
   ; mutable length : int
