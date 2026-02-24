@@ -32,8 +32,8 @@ let get_line_number_boxes ~rope ~box_containing_textarea =
     (List.map
        (fun s ->
           { Ui.default_box with
-            height_constraint = Some { constraint_type = Min; fallback_size = 0 }
-          ; width_constraint = Some { constraint_type = Min; fallback_size = 0 }
+            height_constraint = Some (Content { fallback_size = 0 })
+          ; width_constraint = Some (Content { fallback_size = 0 })
           ; horizontal_align = Some Right
           ; content = Some (Text { string = s })
           ; name = Some "LINE_NUM"
@@ -66,8 +66,8 @@ let create_textarea_with_line_numbers
   =
   let container =
     { Ui.default_box with
-      height_constraint = Some { constraint_type = Max; fallback_size = 0 }
-    ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
+      height_constraint = Some (Parent { fallback_size = 0 })
+    ; width_constraint = Some (Parent { fallback_size = 0 })
     ; flow = Some Horizontal
     ; clip_content = true
     }
@@ -77,8 +77,8 @@ let create_textarea_with_line_numbers
       clip_content = true
     ; background_color = 0.4, 0.4, 0.4, 1.
     ; flow = Some Vertical
-    ; height_constraint = Some { constraint_type = Min; fallback_size = 0 }
-    ; width_constraint = Some { constraint_type = Min; fallback_size = 0 }
+    ; height_constraint = Some (Content { fallback_size = 0 })
+    ; width_constraint = Some (Content { fallback_size = 0 })
     ; name = Some "LINE_NUMBERS_CONTAINER"
     }
   in

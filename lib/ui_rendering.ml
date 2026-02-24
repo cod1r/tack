@@ -1230,7 +1230,7 @@ and calculate_ui_for_scrollcontainer ~(scrollcontainer_info : scrollcontainer_in
 
 and calculate_ui ~(box : box) ~context =
   Option.iter (fun update -> update ()) box.update;
-  Ui.constrain_width_height ~box ~context;
+  Ui.constrain_width_height ~box ~context ();
   handle_if_content_overflows_or_not ~box ~context;
   assert (Option.is_some box.bbox);
   let scrollcontainer =

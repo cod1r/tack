@@ -1,4 +1,5 @@
 Priorities:
+    request 4.1 opengl version with SDL_GL attributes
     borders
         border radius etc
         - need to refactor rendering code to use GL_TRIANGLES instead because GL_QUAD and

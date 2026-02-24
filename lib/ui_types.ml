@@ -33,14 +33,38 @@ type vertical_alignment =
   | Center
   | Bottom
 
-type size_constraint_type =
-  | Min
-  | Max
+type dimension =
+  | Width
+  | Height
 
 type size_constraint =
-  { constraint_type : size_constraint_type
-  ; fallback_size : int
-  }
+  (* clamp to content size *)
+  | Content of { fallback_size : int }
+  (* clamp to parent size *)
+  | Parent of { fallback_size : int }
+  (* clamp to content size but there is a minimum/maximum constraint *)
+  | MinMaxContent of
+      { min : int
+      ; max : int
+      }
+  (* clamp to parent size but there is a minimum/maximum constraint *)
+  | MinMaxParent of
+      { min : int
+      ; max : int
+      }
+  (* clamp to content size but there is a maximum constraint *)
+  | MaxContent of { max : int }
+  (* clamp to content size but there is a minimum constraint *)
+  | MinContent of { min : int }
+  (* clamp to parent size but there is a maximum constraint *)
+  | MaxParent of { max : int }
+  (* clamp to parent size but there is a minimum constraint *)
+  | MinParent of { min : int }
+  (* fixed number *)
+  | Number of int
+  (* in the case of child expanding to parent size and parent wanting to clamp to child size
+ there needs to be fallback *)
+  | ExpandAsMuchPossible of { fallback_size : int }
 
 type corner_options =
   { vertical_radius : int
@@ -63,6 +87,7 @@ type box =
   { mutable name : string option
   ; mutable update : (unit -> unit) option
   ; mutable content : box_content option
+    (* im thinking that bbox should be something that the user never writes to directly *)
   ; mutable bbox : bounding_box option
   ; mutable text_wrap : bool
   ; mutable background_color : float * float * float * float

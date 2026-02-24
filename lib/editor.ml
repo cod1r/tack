@@ -197,8 +197,8 @@ let place_holder_box_before_any_focused_file =
   { Ui.default_box with
     bbox = Some { x = 0; y = 0; width = 1000; height = 1000 }
   ; background_color = 0.5, 0.5, 0.0, 1.
-  ; width_constraint = Some { constraint_type = Max; fallback_size = 1000 }
-  ; height_constraint = Some { constraint_type = Max; fallback_size = 1000 }
+  ; width_constraint = Some (Number 1000)
+  ; height_constraint = Some (Number 1000)
   ; name = Some "WTF"
   ; border =
       Some
@@ -217,8 +217,8 @@ let place_holder_box_before_any_focused_file =
 
 let wrapper =
   { Ui.default_box with
-    height_constraint = Some { constraint_type = Max; fallback_size = 0 }
-  ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
+    height_constraint = Some (Parent { fallback_size = 0 })
+  ; width_constraint = Some (Parent { fallback_size = 0 })
   ; content = Some (Boxes [ place_holder_box_before_any_focused_file ])
   ; flow = Some Horizontal
   }
@@ -227,8 +227,8 @@ let wrapper =
 let editor_view =
   { Ui.default_box with
     bbox = Some { x = 0; y = 0; width = 0; height = 0 }
-  ; height_constraint = Some { constraint_type = Max; fallback_size = 0 }
-  ; width_constraint = Some { constraint_type = Max; fallback_size = 0 }
+  ; height_constraint = Some (Parent { fallback_size = 0 })
+  ; width_constraint = Some (Parent { fallback_size = 0 })
   ; content = Some (Box wrapper)
   ; flow =
       Some Vertical
