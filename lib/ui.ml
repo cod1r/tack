@@ -740,96 +740,95 @@ let rec size_each_box_in_list ~context ~list =
        | Some (Number n) -> b.bbox <- Some { bbox with height = n }
        | _ -> ())
     list;
-  (match context.parent with
-   | Some parent ->
-     let fixed_sized_total_width, fixed_sized_total_height =
-       List.fold_left
-         (fun (width, height) b ->
-            ( (match b.width_constraint with
-               | Some (Number n) -> width + n
-               | _ -> width)
-            , match b.height_constraint with
-              | Some (Number n) -> height + n
-              | _ -> height ))
-         (0, 0)
-         list
-     in
-     let num_expands_width, num_expands_height =
-       List.fold_left
-         (fun (width, height) b ->
-            ( (match b.width_constraint with
-               | Some (ExpandAsMuchPossible _) -> width + 1
-               | _ -> width)
-            , match b.height_constraint with
-              | Some (ExpandAsMuchPossible _) -> height + 1
-              | _ -> height ))
-         (0, 0)
-         list
-     in
-     if
-       num_expands_width > 0
-       &&
-       match parent.width_constraint with
-       | Some (Content _ | MinContent _ | MaxContent _ | MinMaxContent _) -> true
-       | _ -> false
-     then
-       failwith
-         "width; contents of parent is list but contents of list are trying to expand to \
-          an unknown size of parent";
-     if
-       num_expands_height > 0
-       &&
-       match parent.height_constraint with
-       | Some (Content _ | MinContent _ | MaxContent _ | MinMaxContent _) -> true
-       | _ -> false
-     then
-       failwith
-         "height; contents of parent is list but contents of list are trying to expand \
-          to an unknown size of parent";
-     if num_expands_width > 0 || num_expands_height > 0
-     then (
-       assert (parent.bbox <> None);
-       let { width = parent_width; height = parent_height; _ } : bounding_box =
-         Option.get parent.bbox
-       in
-       if num_expands_width > 0
-       then (
-         if parent_width < fixed_sized_total_width
-         then
-           failwith
-             "WHY THE FUCK IS THE PARENT WIDTH LESS THAN THE TOTAL FIXED SIZE OF LIST \
-              CHILDREN";
-         let even_spread_amt_width =
-           (parent_width - fixed_sized_total_width) / num_expands_width
-         in
-         List.iter
-           (fun b ->
-              let b_bbox = Option.value b.bbox ~default:default_bbox in
-              match b.width_constraint with
-              | Some (ExpandAsMuchPossible _) ->
-                b.bbox <- Some { b_bbox with width = even_spread_amt_width }
-              | _ -> ())
-           list);
-       if num_expands_height > 0
-       then (
-         if parent_height < fixed_sized_total_height
-         then
-           failwith
-             "WHY THE FUCK IS THE PARENT height LESS THAN THE TOTAL FIXED SIZE OF LIST \
-              CHILDREN";
-         let even_spread_amt_height =
-           (parent_height - fixed_sized_total_height) / num_expands_height
-         in
-         List.iter
-           (fun b ->
-              let b_bbox = Option.value b.bbox ~default:default_bbox in
-              match b.height_constraint with
-              | Some (ExpandAsMuchPossible _) ->
-                b.bbox <- Some { b_bbox with height = even_spread_amt_height }
-              | _ -> ())
-           list))
-   | None -> ());
-  List.iter (fun b -> constrain_width_height ~box:b ~context ()) list
+  match context.parent with
+  | Some parent ->
+    let fixed_sized_total_width, fixed_sized_total_height =
+      List.fold_left
+        (fun (width, height) b ->
+           ( (match b.width_constraint with
+              | Some (Number n) -> width + n
+              | _ -> width)
+           , match b.height_constraint with
+             | Some (Number n) -> height + n
+             | _ -> height ))
+        (0, 0)
+        list
+    in
+    let num_expands_width, num_expands_height =
+      List.fold_left
+        (fun (width, height) b ->
+           ( (match b.width_constraint with
+              | Some (ExpandAsMuchPossible _) -> width + 1
+              | _ -> width)
+           , match b.height_constraint with
+             | Some (ExpandAsMuchPossible _) -> height + 1
+             | _ -> height ))
+        (0, 0)
+        list
+    in
+    if
+      num_expands_width > 0
+      &&
+      match parent.width_constraint with
+      | Some (Content _ | MinContent _ | MaxContent _ | MinMaxContent _) -> true
+      | _ -> false
+    then
+      failwith
+        "width; contents of parent is list but contents of list are trying to expand to \
+         an unknown size of parent";
+    if
+      num_expands_height > 0
+      &&
+      match parent.height_constraint with
+      | Some (Content _ | MinContent _ | MaxContent _ | MinMaxContent _) -> true
+      | _ -> false
+    then
+      failwith
+        "height; contents of parent is list but contents of list are trying to expand to \
+         an unknown size of parent";
+    if num_expands_width > 0 || num_expands_height > 0
+    then (
+      assert (parent.bbox <> None);
+      let { width = parent_width; height = parent_height; _ } : bounding_box =
+        Option.get parent.bbox
+      in
+      if num_expands_width > 0
+      then (
+        if parent_width < fixed_sized_total_width
+        then
+          failwith
+            "WHY THE FUCK IS THE PARENT WIDTH LESS THAN THE TOTAL FIXED SIZE OF LIST \
+             CHILDREN";
+        let even_spread_amt_width =
+          (parent_width - fixed_sized_total_width) / num_expands_width
+        in
+        List.iter
+          (fun b ->
+             let b_bbox = Option.value b.bbox ~default:default_bbox in
+             match b.width_constraint with
+             | Some (ExpandAsMuchPossible _) ->
+               b.bbox <- Some { b_bbox with width = even_spread_amt_width }
+             | _ -> ())
+          list);
+      if num_expands_height > 0
+      then (
+        if parent_height < fixed_sized_total_height
+        then
+          failwith
+            "WHY THE FUCK IS THE PARENT height LESS THAN THE TOTAL FIXED SIZE OF LIST \
+             CHILDREN";
+        let even_spread_amt_height =
+          (parent_height - fixed_sized_total_height) / num_expands_height
+        in
+        List.iter
+          (fun b ->
+             let b_bbox = Option.value b.bbox ~default:default_bbox in
+             match b.height_constraint with
+             | Some (ExpandAsMuchPossible _) ->
+               b.bbox <- Some { b_bbox with height = even_spread_amt_height }
+             | _ -> ())
+          list))
+  | None -> ()
 
 and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
   (* the reason parent is considered first is so that I don't have to do some weird recursion
@@ -841,6 +840,9 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
      let new_width = get_box_size_if_constraint_is_parent context constraint' Width in
      let bbox = Option.value box.bbox ~default:default_bbox in
      box.bbox <- Some { bbox with width = new_width }
+   | Some (Number n) ->
+     let bbox = Option.value box.bbox ~default:default_bbox in
+     box.bbox <- Some { bbox with width = n }
    | _ -> ());
   (match box.height_constraint with
    | Some ((Parent _ | MinMaxParent _ | MinParent _ | MaxParent _) as constraint')
@@ -848,6 +850,9 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
      let new_height = get_box_size_if_constraint_is_parent context constraint' Height in
      let bbox = Option.value box.bbox ~default:default_bbox in
      box.bbox <- Some { bbox with height = new_height }
+   | Some (Number n) ->
+     let bbox = Option.value box.bbox ~default:default_bbox in
+     box.bbox <- Some { bbox with height = n }
    | _ -> ());
   match box.content with
   | Some (Box b) ->
@@ -905,6 +910,14 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
       list;
     (match box.flow with
      | Some Horizontal ->
+       let max_height =
+         List.fold_left
+           (fun acc b ->
+              let b_bbox = Option.value b.bbox ~default:default_bbox in
+              max b_bbox.height acc)
+           0
+           list
+       in
        let summed_width =
          List.fold_left
            (fun acc b -> acc + (Option.value b.bbox ~default:default_bbox).width)
@@ -921,6 +934,17 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
         | Some (MinMaxContent { min = min'; max = max' }) ->
           box.bbox <- Some { bbox with width = max min' summed_width |> min max' }
         | Some (Number n) -> box.bbox <- Some { bbox with width = n }
+        | _ -> ());
+       let bbox = Option.value box.bbox ~default:default_bbox in
+       (match box.height_constraint with
+        | Some (Content _) -> box.bbox <- Some { bbox with height = max_height }
+        | Some (MinContent { min = min' }) ->
+          box.bbox <- Some { bbox with height = max min' max_height }
+        | Some (MaxContent { max = max' }) ->
+          box.bbox <- Some { bbox with height = min max' max_height }
+        | Some (MinMaxContent { min = min'; max = max' }) ->
+          box.bbox <- Some { bbox with height = max min' max_height |> min max' }
+        | Some (Number n) -> box.bbox <- Some { bbox with height = n }
         | _ -> ())
      | Some Vertical ->
        let max_width =
@@ -928,6 +952,12 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
            (fun acc b ->
               let b_bbox = Option.value b.bbox ~default:default_bbox in
               max b_bbox.width acc)
+           0
+           list
+       in
+       let summed_height =
+         List.fold_left
+           (fun acc b -> acc + (Option.value b.bbox ~default:default_bbox).height)
            0
            list
        in
@@ -941,6 +971,17 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
         | Some (MinMaxContent { min = min'; max = max' }) ->
           box.bbox <- Some { bbox with width = max min' max_width |> min max' }
         | Some (Number n) -> box.bbox <- Some { bbox with width = n }
+        | _ -> ());
+       let bbox = Option.value box.bbox ~default:default_bbox in
+       (match box.height_constraint with
+        | Some (Content _) -> box.bbox <- Some { bbox with height = summed_height }
+        | Some (MinContent { min = min' }) ->
+          box.bbox <- Some { bbox with height = max min' summed_height }
+        | Some (MaxContent { max = max' }) ->
+          box.bbox <- Some { bbox with height = min max' summed_height }
+        | Some (MinMaxContent { min = min'; max = max' }) ->
+          box.bbox <- Some { bbox with height = max min' summed_height |> min max' }
+        | Some (Number n) -> box.bbox <- Some { bbox with height = n }
         | _ -> ())
      | None -> ())
   | Some (Text { string }) ->
@@ -951,18 +992,28 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
     let string_width = calculate_string_width ~s:string ~font_info in
     let bbox = Option.value box.bbox ~default:default_bbox in
     (match box.width_constraint with
-     | Some (Content _) ->
-       box.bbox <- Some { bbox with width = string_width; height = font_info.font_height }
+     | Some (Content _) -> box.bbox <- Some { bbox with width = string_width }
      | Some (MinContent { min = min' }) ->
        box.bbox <- Some { bbox with width = max min' string_width }
      | Some (MaxContent { max = max' }) ->
        box.bbox <- Some { bbox with width = min max' string_width }
      | Some (MinMaxContent { min = min'; max = max' }) ->
        box.bbox <- Some { bbox with width = max min' string_width |> min max' }
+     | _ -> ());
+    let bbox = Option.value box.bbox ~default:default_bbox in
+    (match box.height_constraint with
+     | Some (Content _) -> box.bbox <- Some { bbox with height = font_info.font_height }
+     | Some (MinContent { min = min' }) ->
+       box.bbox <- Some { bbox with height = max min' font_info.font_height }
+     | Some (MaxContent { max = max' }) ->
+       box.bbox <- Some { bbox with height = min max' font_info.font_height }
+     | Some (MinMaxContent { min = min'; max = max' }) ->
+       box.bbox <- Some { bbox with height = max min' font_info.font_height |> min max' }
      | _ -> ())
   | Some (Textarea _) ->
-    let { left; right; _ } = calculate_content_boundaries ~box in
+    let { left; right; top; bottom } = calculate_content_boundaries ~box in
     let textarea_width = right - left in
+    let textarea_height = bottom - top in
     let bbox = Option.value box.bbox ~default:default_bbox in
     (match box.width_constraint with
      | Some (Content _) -> box.bbox <- Some { bbox with width = textarea_width }
@@ -972,6 +1023,16 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
        box.bbox <- Some { bbox with width = min max' textarea_width }
      | Some (MinMaxContent { min = min'; max = max' }) ->
        box.bbox <- Some { bbox with width = max min' textarea_width |> min max' }
+     | _ -> ());
+    let bbox = Option.value box.bbox ~default:default_bbox in
+    (match box.height_constraint with
+     | Some (Content _) -> box.bbox <- Some { bbox with height = textarea_height }
+     | Some (MinContent { min = min' }) ->
+       box.bbox <- Some { bbox with height = max min' textarea_height }
+     | Some (MaxContent { max = max' }) ->
+       box.bbox <- Some { bbox with height = min max' textarea_height }
+     | Some (MinMaxContent { min = min'; max = max' }) ->
+       box.bbox <- Some { bbox with height = max min' textarea_height |> min max' }
      | _ -> ())
   | None ->
     (match box.width_constraint with

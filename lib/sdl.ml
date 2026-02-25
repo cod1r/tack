@@ -257,6 +257,7 @@ let actually_init_sdl () =
 ;;
 
 let w = actually_init_sdl ()
+let () = sdl_gl_setswapinterval 0
 let () = Opengl.glew_init ()
 
 let get_logical_to_opengl_window_dims_ratio () =
