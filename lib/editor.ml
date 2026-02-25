@@ -221,6 +221,7 @@ let wrapper =
   ; width_constraint = Some (Parent { fallback_size = 0 })
   ; content = Some (Boxes [ place_holder_box_before_any_focused_file ])
   ; flow = Some Horizontal
+  ; name = Some "URMOM"
   }
 ;;
 
