@@ -42,8 +42,8 @@ let editor : editor =
         { textarea_with_line_numbers =
             Textarea_with_line_numbers.create_textarea_with_line_numbers
               ~text:(open_file "./lib/ui_rendering.ml")
-              ~textarea_width:1000
-              ~textarea_height:1000
+              ~width_constraint:(Number 1000)
+              ~height_constraint:(Number 1000)
               ()
         ; file_name = "test"
         ; prev_rope = None
@@ -282,5 +282,6 @@ let () =
                else Sdl.sdl_setwindowtitle "tack"
              | None -> ())
           | None -> ());
-         wrapper.content <- Some (Boxes [ box ]))
+         box.name <- Some "FUCK";
+         wrapper.content <- Some (Box box))
 ;;

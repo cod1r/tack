@@ -56,18 +56,17 @@ let adjust_textarea_with_line_numbers ~(textarea : box) ~(line_numbers : box) =
   | _ -> failwith "impossible"
 ;;
 
-let create_textarea_with_line_numbers
-      ?text
-      ?textarea_width
-      ?textarea_height
-      ?width_constraint
-      ?height_constraint
-      ()
-  =
+let create_textarea_with_line_numbers ?text ?width_constraint ?height_constraint () =
   let container =
     { Ui.default_box with
-      height_constraint = Some (Parent { fallback_size = 0 })
-    ; width_constraint = Some (Parent { fallback_size = 0 })
+      height_constraint =
+        (match height_constraint with
+         | Some constraint' -> Some constraint'
+         | None -> Some (Parent { fallback_size = 0 }))
+    ; width_constraint =
+        (match width_constraint with
+         | Some constraint' -> Some constraint'
+         | None -> Some (Parent { fallback_size = 0 }))
     ; flow = Some Horizontal
     ; clip_content = true
     }
@@ -84,25 +83,28 @@ let create_textarea_with_line_numbers
   in
   let textarea =
     match text with
-    | Some text -> Ui_textarea.create_textarea_box ~text ()
-    | None -> Ui_textarea.create_textarea_box ()
+    | Some text ->
+      Ui_textarea.create_textarea_box
+        ~text
+        (match width_constraint with
+         | Some constraint' -> Some constraint'
+         | None -> Some (Number 200))
+        (match height_constraint with
+         | Some constraint' -> Some constraint'
+         | None -> Some (Number 200))
+        ()
+    | None ->
+      Ui_textarea.create_textarea_box
+        (match width_constraint with
+         | Some constraint' -> Some constraint'
+         | None -> Some (Number 200))
+        (match height_constraint with
+         | Some constraint' -> Some constraint'
+         | None -> Some (Number 200))
+        ()
   in
   textarea.text_wrap <- false;
-  textarea.bbox
-  <- Some
-       { x = 0
-       ; y = 0
-       ; width =
-           (match textarea_width with
-            | Some n -> n
-            | None -> 0)
-       ; height =
-           (match textarea_height with
-            | Some n -> n
-            | None -> 0)
-       };
-  textarea.width_constraint <- width_constraint;
-  textarea.height_constraint <- height_constraint;
+  textarea.name <- Some "TEXTAREA_BOX";
   container.content <- Some (Boxes [ line_numbers; textarea ]);
   container.update <- Some (adjust_textarea_with_line_numbers ~textarea ~line_numbers);
   container

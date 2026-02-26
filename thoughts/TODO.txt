@@ -19,6 +19,9 @@ Priorities:
 							show all directories
 			implement undo and redo functionality
 				- typing performance with undo redo is awful
+				- sometimes undo/redo needs to group actions together. like in the case of formatters
+				    altering the contents of the file externally and the user tries to undo. tack should undo
+					the entire format in one go
 			    - maybe have more than one undo/redo list
 			parse ripgrep json output format for searching text
 					- this might be harder than literally just telling users to use ripgrep

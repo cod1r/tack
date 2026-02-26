@@ -1,6 +1,6 @@
 open Tack
 
-let box =
+(* let box =
   { Ui.default_box with
     clip_content = true
   ; content =
@@ -31,7 +31,7 @@ let box =
   ; height_constraint = Some (Number 1000)
   ; background_color = 0.5, 0.1, 0., 0.5
   }
-;;
+;; *)
 
 let window_box =
   { Ui.default_box with
@@ -61,12 +61,12 @@ let rec loop should_wait =
     match evt with
     | Some Quit -> false, false
     | None ->
-      Ui_rendering.draw ~box;
+      Ui_rendering.draw ~box:window_box;
       true, false
     | Some (WindowEvt { event; _ }) when event = WindowFocusLost -> true, true
     | Some e ->
       Ui_events.emit_event ~e;
-      Ui_rendering.draw ~box;
+      Ui_rendering.draw ~box:window_box;
       true, false
   in
   if continue then loop should_wait else ()

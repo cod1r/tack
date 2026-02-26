@@ -1,13 +1,20 @@
 open Sdl
 open Ui_types
 
-let create_textarea_box ?(text : Rope_types.rope option) () =
+let create_textarea_box
+      ?(text : Rope_types.rope option)
+      width_constraint
+      height_constraint
+      ()
+  =
   { Ui.default_box with
     focusable = true
   ; clip_content = true
   ; content = Some (Textarea { Ui.default_text_area_information with text })
   ; allow_vertical_scroll = true
   ; allow_horizontal_scroll = true
+  ; width_constraint
+  ; height_constraint
   }
 ;;
 
