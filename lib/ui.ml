@@ -845,6 +845,7 @@ let rec size_each_box_in_list ~context ~list =
   | None -> ()
 
 and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
+  let amt_sub_width, amt_sub_height = amt_subtract_due_to_having_scrollcontainer ~box in
   (* the reason parent is considered first is so that I don't have to do some weird recursion
     whenever the child tries to get the parent's size but the parent's size is dependent on
     the parent's parent's size etc *)
@@ -853,20 +854,20 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
      when not in_list ->
      let new_width = get_box_size_if_constraint_is_parent context constraint' Width in
      let bbox = Option.value box.bbox ~default:default_bbox in
-     box.bbox <- Some { bbox with width = new_width }
+     box.bbox <- Some { bbox with width = new_width - amt_sub_width }
    | Some (Number n) ->
      let bbox = Option.value box.bbox ~default:default_bbox in
-     box.bbox <- Some { bbox with width = n }
+     box.bbox <- Some { bbox with width = n - amt_sub_width }
    | _ -> ());
   (match box.height_constraint with
    | Some ((Parent _ | MinMaxParent _ | MinParent _ | MaxParent _) as constraint')
      when not in_list ->
      let new_height = get_box_size_if_constraint_is_parent context constraint' Height in
      let bbox = Option.value box.bbox ~default:default_bbox in
-     box.bbox <- Some { bbox with height = new_height }
+     box.bbox <- Some { bbox with height = new_height - amt_sub_height }
    | Some (Number n) ->
      let bbox = Option.value box.bbox ~default:default_bbox in
-     box.bbox <- Some { bbox with height = n }
+     box.bbox <- Some { bbox with height = n - amt_sub_height }
    | _ -> ());
   match box.content with
   | Some (Box b) ->
@@ -877,25 +878,30 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
     then (
       let bbox = Option.value box.bbox ~default:default_bbox in
       (match box.width_constraint with
-       | Some (Content _) -> box.bbox <- Some { bbox with width = b_bbox.width }
+       | Some (Content _) ->
+         box.bbox <- Some { bbox with width = b_bbox.width - amt_sub_width }
        | Some (MinMaxContent { min = min'; max = max' }) ->
-         box.bbox <- Some { bbox with width = max min' b_bbox.width |> min max' }
+         box.bbox
+         <- Some { bbox with width = (max min' b_bbox.width |> min max') - amt_sub_width }
        | Some (MaxContent { max = max' }) ->
-         box.bbox <- Some { bbox with width = min max' b_bbox.width }
+         box.bbox <- Some { bbox with width = min max' b_bbox.width - amt_sub_width }
        | Some (MinContent { min = min' }) ->
-         box.bbox <- Some { bbox with width = max min' b_bbox.width }
-       | Some (Number n) -> box.bbox <- Some { bbox with width = n }
+         box.bbox <- Some { bbox with width = max min' b_bbox.width - amt_sub_width }
+       | Some (Number n) -> box.bbox <- Some { bbox with width = n - amt_sub_width }
        | _ -> ());
       let bbox = Option.value box.bbox ~default:default_bbox in
       match box.height_constraint with
-      | Some (Content _) -> box.bbox <- Some { bbox with width = b_bbox.height }
+      | Some (Content _) ->
+        box.bbox <- Some { bbox with width = b_bbox.height - amt_sub_height }
       | Some (MinMaxContent { min = min'; max = max' }) ->
-        box.bbox <- Some { bbox with height = max min' b_bbox.height |> min max' }
+        box.bbox
+        <- Some
+             { bbox with height = (max min' b_bbox.height |> min max') - amt_sub_height }
       | Some (MaxContent { max = max' }) ->
-        box.bbox <- Some { bbox with height = min max' b_bbox.height }
+        box.bbox <- Some { bbox with height = min max' b_bbox.height - amt_sub_height }
       | Some (MinContent { min = min' }) ->
-        box.bbox <- Some { bbox with height = max min' b_bbox.height }
-      | Some (Number n) -> box.bbox <- Some { bbox with height = n }
+        box.bbox <- Some { bbox with height = max min' b_bbox.height - amt_sub_height }
+      | Some (Number n) -> box.bbox <- Some { bbox with height = n - amt_sub_height }
       | _ -> ())
   | Some (Boxes list) ->
     (* what do i do here? list of boxes where each box needs to know about other boxes so i
@@ -928,25 +934,31 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
        in
        let bbox = Option.value box.bbox ~default:default_bbox in
        (match box.width_constraint with
-        | Some (Content _) -> box.bbox <- Some { bbox with width = summed_width }
+        | Some (Content _) ->
+          box.bbox <- Some { bbox with width = summed_width - amt_sub_width }
         | Some (MinContent { min = min' }) ->
-          box.bbox <- Some { bbox with width = max min' summed_width }
+          box.bbox <- Some { bbox with width = max min' summed_width - amt_sub_width }
         | Some (MaxContent { max = max' }) ->
-          box.bbox <- Some { bbox with width = min max' summed_width }
+          box.bbox <- Some { bbox with width = min max' summed_width - amt_sub_width }
         | Some (MinMaxContent { min = min'; max = max' }) ->
-          box.bbox <- Some { bbox with width = max min' summed_width |> min max' }
-        | Some (Number n) -> box.bbox <- Some { bbox with width = n }
+          box.bbox
+          <- Some
+               { bbox with width = (max min' summed_width |> min max') - amt_sub_width }
+        | Some (Number n) -> box.bbox <- Some { bbox with width = n - amt_sub_width }
         | _ -> ());
        let bbox = Option.value box.bbox ~default:default_bbox in
        (match box.height_constraint with
-        | Some (Content _) -> box.bbox <- Some { bbox with height = max_height }
+        | Some (Content _) ->
+          box.bbox <- Some { bbox with height = max_height - amt_sub_height }
         | Some (MinContent { min = min' }) ->
-          box.bbox <- Some { bbox with height = max min' max_height }
+          box.bbox <- Some { bbox with height = max min' max_height - amt_sub_height }
         | Some (MaxContent { max = max' }) ->
-          box.bbox <- Some { bbox with height = min max' max_height }
+          box.bbox <- Some { bbox with height = min max' max_height - amt_sub_height }
         | Some (MinMaxContent { min = min'; max = max' }) ->
-          box.bbox <- Some { bbox with height = max min' max_height |> min max' }
-        | Some (Number n) -> box.bbox <- Some { bbox with height = n }
+          box.bbox
+          <- Some
+               { bbox with height = (max min' max_height |> min max') - amt_sub_height }
+        | Some (Number n) -> box.bbox <- Some { bbox with height = n - amt_sub_height }
         | _ -> ())
      | Some Vertical ->
        let max_width =
@@ -965,25 +977,32 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
        in
        let bbox = Option.value box.bbox ~default:default_bbox in
        (match box.width_constraint with
-        | Some (Content _) -> box.bbox <- Some { bbox with width = max_width }
+        | Some (Content _) ->
+          box.bbox <- Some { bbox with width = max_width - amt_sub_width }
         | Some (MinContent { min = min' }) ->
-          box.bbox <- Some { bbox with width = max min' max_width }
+          box.bbox <- Some { bbox with width = max min' max_width - amt_sub_width }
         | Some (MaxContent { max = max' }) ->
-          box.bbox <- Some { bbox with width = min max' max_width }
+          box.bbox <- Some { bbox with width = min max' max_width - amt_sub_width }
         | Some (MinMaxContent { min = min'; max = max' }) ->
-          box.bbox <- Some { bbox with width = max min' max_width |> min max' }
-        | Some (Number n) -> box.bbox <- Some { bbox with width = n }
+          box.bbox
+          <- Some { bbox with width = (max min' max_width |> min max') - amt_sub_width }
+        | Some (Number n) -> box.bbox <- Some { bbox with width = n - amt_sub_width }
         | _ -> ());
        let bbox = Option.value box.bbox ~default:default_bbox in
        (match box.height_constraint with
-        | Some (Content _) -> box.bbox <- Some { bbox with height = summed_height }
+        | Some (Content _) ->
+          box.bbox <- Some { bbox with height = summed_height - amt_sub_height }
         | Some (MinContent { min = min' }) ->
-          box.bbox <- Some { bbox with height = max min' summed_height }
+          box.bbox <- Some { bbox with height = max min' summed_height - amt_sub_height }
         | Some (MaxContent { max = max' }) ->
-          box.bbox <- Some { bbox with height = min max' summed_height }
+          box.bbox <- Some { bbox with height = min max' summed_height - amt_sub_height }
         | Some (MinMaxContent { min = min'; max = max' }) ->
-          box.bbox <- Some { bbox with height = max min' summed_height |> min max' }
-        | Some (Number n) -> box.bbox <- Some { bbox with height = n }
+          box.bbox
+          <- Some
+               { bbox with
+                 height = (max min' summed_height |> min max') - amt_sub_height
+               }
+        | Some (Number n) -> box.bbox <- Some { bbox with height = n - amt_sub_height }
         | _ -> ())
      | None -> ())
   | Some (Text { string }) ->
@@ -994,23 +1013,32 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
     let string_width = calculate_string_width ~s:string ~font_info in
     let bbox = Option.value box.bbox ~default:default_bbox in
     (match box.width_constraint with
-     | Some (Content _) -> box.bbox <- Some { bbox with width = string_width }
+     | Some (Content _) ->
+       box.bbox <- Some { bbox with width = string_width - amt_sub_width }
      | Some (MinContent { min = min' }) ->
-       box.bbox <- Some { bbox with width = max min' string_width }
+       box.bbox <- Some { bbox with width = max min' string_width - amt_sub_width }
      | Some (MaxContent { max = max' }) ->
-       box.bbox <- Some { bbox with width = min max' string_width }
+       box.bbox <- Some { bbox with width = min max' string_width - amt_sub_width }
      | Some (MinMaxContent { min = min'; max = max' }) ->
-       box.bbox <- Some { bbox with width = max min' string_width |> min max' }
+       box.bbox
+       <- Some { bbox with width = (max min' string_width |> min max') - amt_sub_width }
      | _ -> ());
     let bbox = Option.value box.bbox ~default:default_bbox in
     (match box.height_constraint with
-     | Some (Content _) -> box.bbox <- Some { bbox with height = font_info.font_height }
+     | Some (Content _) ->
+       box.bbox <- Some { bbox with height = font_info.font_height - amt_sub_height }
      | Some (MinContent { min = min' }) ->
-       box.bbox <- Some { bbox with height = max min' font_info.font_height }
+       box.bbox
+       <- Some { bbox with height = max min' font_info.font_height - amt_sub_height }
      | Some (MaxContent { max = max' }) ->
-       box.bbox <- Some { bbox with height = min max' font_info.font_height }
+       box.bbox
+       <- Some { bbox with height = min max' font_info.font_height - amt_sub_height }
      | Some (MinMaxContent { min = min'; max = max' }) ->
-       box.bbox <- Some { bbox with height = max min' font_info.font_height |> min max' }
+       box.bbox
+       <- Some
+            { bbox with
+              height = (max min' font_info.font_height |> min max') - amt_sub_height
+            }
      | _ -> ())
   | Some (Textarea _) ->
     if Option.is_none box.bbox
@@ -1026,31 +1054,42 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
     and textarea_height = max_y - min_y in
     let bbox = Option.value box.bbox ~default:default_bbox in
     (match box.width_constraint with
-     | Some (Content _) -> box.bbox <- Some { bbox with width = textarea_width }
+     | Some (Content _) ->
+       box.bbox <- Some { bbox with width = textarea_width - amt_sub_width }
      | Some (MinContent { min = min' }) ->
-       box.bbox <- Some { bbox with width = max min' textarea_width }
+       box.bbox <- Some { bbox with width = max min' textarea_width - amt_sub_width }
      | Some (MaxContent { max = max' }) ->
-       box.bbox <- Some { bbox with width = min max' textarea_width }
+       box.bbox <- Some { bbox with width = min max' textarea_width - amt_sub_width }
      | Some (MinMaxContent { min = min'; max = max' }) ->
-       box.bbox <- Some { bbox with width = max min' textarea_width |> min max' }
-     | Some (Number n) -> box.bbox <- Some { bbox with width = n }
+       box.bbox
+       <- Some { bbox with width = (max min' textarea_width |> min max') - amt_sub_width }
+     | Some (Number n) -> box.bbox <- Some { bbox with width = n - amt_sub_width }
      | _ -> ());
     let bbox = Option.value box.bbox ~default:default_bbox in
     (match box.height_constraint with
-     | Some (Content _) -> box.bbox <- Some { bbox with height = textarea_height }
+     | Some (Content _) ->
+       box.bbox <- Some { bbox with height = textarea_height - amt_sub_height }
      | Some (MinContent { min = min' }) ->
-       box.bbox <- Some { bbox with height = max min' textarea_height }
+       box.bbox <- Some { bbox with height = max min' textarea_height - amt_sub_height }
      | Some (MaxContent { max = max' }) ->
-       box.bbox <- Some { bbox with height = min max' textarea_height }
+       box.bbox <- Some { bbox with height = min max' textarea_height - amt_sub_height }
      | Some (MinMaxContent { min = min'; max = max' }) ->
-       box.bbox <- Some { bbox with height = max min' textarea_height |> min max' }
-     | Some (Number n) -> box.bbox <- Some { bbox with height = n }
+       box.bbox
+       <- Some
+            { bbox with height = (max min' textarea_height |> min max') - amt_sub_height }
+     | Some (Number n) -> box.bbox <- Some { bbox with height = n - amt_sub_height }
      | _ -> ())
   | None ->
     (match box.width_constraint with
      | Some (Number n) ->
        let bbox = Option.value box.bbox ~default:default_bbox in
-       box.bbox <- Some { bbox with width = n }
+       box.bbox <- Some { bbox with width = n - amt_sub_width }
+     | Some (Parent _ | MinParent _ | MaxParent _ | MinMaxParent _) -> ()
+     | _ -> ());
+    (match box.width_constraint with
+     | Some (Number n) ->
+       let bbox = Option.value box.bbox ~default:default_bbox in
+       box.bbox <- Some { bbox with width = n - amt_sub_height }
      | Some (Parent _ | MinParent _ | MaxParent _ | MinMaxParent _) -> ()
      | _ -> ())
 ;;
