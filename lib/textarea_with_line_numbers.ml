@@ -76,7 +76,10 @@ let create_textarea_with_line_numbers ?text ?width_constraint ?height_constraint
       clip_content = true
     ; background_color = 0.4, 0.4, 0.4, 1.
     ; flow = Some Vertical
-    ; height_constraint = Some (Content { fallback_size = 0 })
+    ; height_constraint =
+        (match height_constraint with
+         | Some constraint' -> Some constraint'
+         | None -> Some (Number 200))
     ; width_constraint = Some (Content { fallback_size = 0 })
     ; name = Some "LINE_NUMBERS_CONTAINER"
     }

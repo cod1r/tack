@@ -515,6 +515,7 @@ let adjust_scrollbar_according_to_textarea_text_caret
   | None -> ()
 ;;
 
+(* width, height tuple *)
 let amt_subtract_due_to_having_scrollcontainer ~box =
   let scrollcontainer =
     List.find_map

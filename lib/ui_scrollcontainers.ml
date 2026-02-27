@@ -93,17 +93,19 @@ let get_scrollbar_event_logic ~content ~orientation =
 ;;
 
 let create_scrollbar ~(content : box) ~(orientation : direction) =
-  let content_bbox = Option.value content.bbox ~default:Ui.default_bbox in
   let evt_handler = get_scrollbar_event_logic ~content ~orientation in
   let scrollbar =
     { Ui.default_box with
-      bbox =
-        Some
-          (match orientation with
-           | Vertical -> { content_bbox with width = 8; height = 0 }
-           | Horizontal -> { content_bbox with width = 0; height = 8 })
-    ; background_color = 0., 0., 0., 1.
+      background_color = 0., 0., 0., 1.
     ; on_event = Some evt_handler
+    ; width_constraint =
+        (match orientation with
+         | Vertical -> Some (Number 8)
+         | Horizontal -> None)
+    ; height_constraint =
+        (match orientation with
+         | Vertical -> None
+         | Horizontal -> Some (Number 8))
     }
   in
   Ui_events.add_event_handler ~box:(Some scrollbar) ~event_handler:evt_handler;
@@ -171,7 +173,7 @@ let adjust_scrollbar_container_according_to_content_size ~scrollcontainer_info ~
      assert (scrollbar_container.bbox <> None);
      let scrollbar_container_bbox = Option.get scrollbar_container.bbox in
      scrollbar_container.bbox
-     <- Some { scrollbar_container_bbox with x = right; height = bottom - top };
+     <- Some { scrollbar_container_bbox with x = right; y = top; height = bottom - top };
      assert (scroll.bbox <> None);
      let bbox = Option.get scroll.bbox in
      let content_height = content_bottom - content_top
@@ -201,7 +203,7 @@ let adjust_scrollbar_container_according_to_content_size ~scrollcontainer_info ~
     assert (scrollbar_container.bbox <> None);
     let scrollbar_container_bbox = Option.get scrollbar_container.bbox in
     scrollbar_container.bbox
-    <- Some { scrollbar_container_bbox with y = bottom; width = right - left };
+    <- Some { scrollbar_container_bbox with y = bottom; x = left; width = right - left };
     assert (scroll.bbox <> None);
     let bbox = Option.get scroll.bbox in
     let content_width = content_right - content_left
