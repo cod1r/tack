@@ -1,11 +1,8 @@
 Priorities:
-    request 4.1 opengl version with SDL_GL attributes
     borders
         border radius etc
-        - need to refactor rendering code to use GL_TRIANGLES instead because GL_QUAD and
-            GL_POLYGON are removed in modern versions of opengl and i dont think it's productive for myknowledge
-            to rely on deprecated interfaces...
         - also i need to do corner clipping...
+    request 4.1 opengl version with SDL_GL attributes
     when the contents of the file change on disk, it needs to reflect in the editor
         as well. I'm thinking if there's unsaved changes in the editor and the
         contents of the file change on disk, then the editor won't show the changes.
@@ -35,6 +32,8 @@ Priorities:
 			gotta also think about whether it's really bad to have all of this mutability...
 			i dont think it's necessarily that bad... i think it could work
     implement padding
+    arrow key movement in textareas dont behave ideally: when moving up or down, the column position
+        isnt saved so if moving to a shorter or longer line, the cursor/caret column position changes
 
 
 builtin terminal box? embedding libghostty? using neovim server over rpc to implement vim motions?

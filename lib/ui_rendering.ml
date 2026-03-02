@@ -288,21 +288,110 @@ let write_points_to_ui_buffer points (r, g, b, a) =
   ui_buffer.length <- !ui_buffer_idx
 ;;
 
-(* let get_top_left_elliptical_arc_points
+let elliptical_fn flt_horizontal_radius flt_vertical_radius x =
+  flt_vertical_radius
+  *. Float.sqrt (1. -. (x *. x /. (flt_horizontal_radius *. flt_horizontal_radius)))
+;;
+
+let get_arc_points
+      (flt_horizontal_radius, flt_vertical_radius)
+      (origin_x, origin_y)
+      step
+      x
+      step_limit
+  =
+  let rec get_arc_points_acc step_count x acc =
+    if step_count == step_limit
+    then acc
+    else (
+      let y = elliptical_fn flt_horizontal_radius flt_vertical_radius x in
+      let new_acc = (x, -.y) :: acc in
+      get_arc_points_acc (step_count + 1) (x +. step) new_acc)
+  in
+  let arc_points = get_arc_points_acc 0 x [] in
+  List.map (fun (x, y) -> x +. origin_x, y +. origin_y) arc_points
+;;
+
+let group_points_into_triangles outer_arc inner_arc =
+  assert (
+    List.length outer_arc == List.length inner_arc && List.length outer_arc mod 2 == 0);
+  let rec group_points outer_arc inner_arc acc =
+    match outer_arc, inner_arc with
+    | first_outer :: second_outer :: outer_tl, first_inner :: second_inner :: inner_tl ->
+      let new_acc =
+        (first_outer, first_inner, second_outer)
+        :: (first_inner, second_outer, second_inner)
+        :: acc
+      in
+      group_points (second_outer :: outer_tl) (second_inner :: inner_tl) new_acc
+    (* the final match will always have one element left over because I match on two elements per
+    recursive call and pass the second element into each call *)
+    | _ :: [], _ :: [] -> acc
+    | _ ->
+      "the lists should be an even length and equal so the lists should always be equal \
+       length if I match on two each time"
+      ^ __LOC__
+      |> failwith
+  in
+  group_points outer_arc inner_arc []
+;;
+
+let get_top_left_elliptical_arc_points
       top
       left
       corner_options
       top_thickness
       left_thickness
   =
-  let origin_x, origin_y =
-    left - corner_options.horizontal_radius, top - corner_options.vertical_radius
-  and inner_left, inner_top =
-    ( left - (corner_options.horizontal_radius - left_thickness)
-    , top - (corner_options.vertical_radius - top_thickness) )
+  let flt_horizontal_radius, flt_vertical_radius =
+    ( Float.of_int corner_options.horizontal_radius
+    , Float.of_int corner_options.vertical_radius )
   in
-  ()
-;; *)
+  let origin_x, origin_y =
+    left + corner_options.horizontal_radius, top + corner_options.vertical_radius
+  and inner_left, inner_top = left + left_thickness, top + top_thickness in
+  let step_limit = 100. in
+  let step = Float.of_int corner_options.horizontal_radius /. step_limit in
+  let outer_arc_points =
+    get_arc_points
+      (flt_horizontal_radius, flt_vertical_radius)
+      (Float.of_int origin_x, Float.of_int origin_y)
+      step
+      (Float.of_int left -. Float.of_int origin_x)
+      (Int.of_float step_limit)
+  in
+  let inner_arc_points =
+    if
+      left_thickness > corner_options.horizontal_radius
+      || top_thickness > corner_options.vertical_radius
+    then [ Float.of_int inner_left, Float.of_int inner_top ]
+    else (
+      let flt_horizontal_radius, flt_vertical_radius =
+        ( Float.of_int (corner_options.horizontal_radius - left_thickness)
+        , Float.of_int (corner_options.vertical_radius - top_thickness) )
+      in
+      get_arc_points
+        (flt_horizontal_radius, flt_vertical_radius)
+        (Float.of_int origin_x, Float.of_int origin_y)
+        step
+        (Float.of_int inner_left -. Float.of_int origin_x)
+        (Int.of_float step_limit))
+  in
+  (*
+two points on one arc and one point on the other arc, then alternate
+but keeping the points overlapping.
+
+like two outer, one inner, one outer, two inner and make sure the one outer uses the last point of the
+two outer etc
+    *)
+  let triangles = group_points_into_triangles outer_arc_points inner_arc_points in
+  List.fold_left
+    (fun acc triple ->
+       let (x1, y1), (x2, y2), (x3, y3) = triple in
+       x1 :: y1 :: x2 :: y2 :: x3 :: y3 :: acc)
+    []
+    triangles
+;;
 
 let write_border_values_to_ui_buffer ~(box : box) ~(parent : box option) =
   let _ = parent in
@@ -382,6 +471,17 @@ let write_border_values_to_ui_buffer ~(box : box) ~(parent : box option) =
          |> Float.Array.of_list
        in
        write_points_to_ui_buffer top_border (r, g, b, a);
+       let top_left_elliptical_arc_points =
+         get_top_left_elliptical_arc_points
+           top
+           left
+           border_options.top_left_corner_options
+           border_options.top_thickness
+           border_options.left_thickness
+       in
+       write_points_to_ui_buffer
+         (Float.Array.of_list top_left_elliptical_arc_points)
+         (r, g, b, a);
        write_points_to_ui_buffer right_border (r, g, b, a);
        write_points_to_ui_buffer bottom_border (r, g, b, a);
        write_points_to_ui_buffer left_border (r, g, b, a)
@@ -1080,30 +1180,30 @@ let rec draw_box ~(box : box) ~(context : draw_context) =
        | Some (_, scrollcontainer_info) -> render_scrollcontainer ~scrollcontainer_info
        | None -> ());
       write_container_values_to_ui_buffer ~box ~parent;
-      write_border_values_to_ui_buffer ~box ~parent;
-      match box.content with
-      | Some (Box b) ->
-        draw_box ~box:b ~context:{ parent = Some box; previous_context = Some context }
-      | Some (Boxes list) ->
-        List.iter
-          (fun b ->
-             draw_box
-               ~box:b
-               ~context:{ parent = Some box; previous_context = Some context })
-          list
-      | Some (Text { string; _ }) ->
-        draw_text
-          ~s:string
-          ~box
-          ~context:{ parent = Some box; previous_context = Some context }
-      | Some (Textarea { text; cursor_pos; highlight_pos; _ }) ->
-        let ~font_info, ~gl_texture_id =
-          Ui.TextTextureInfo.get_or_add_font_size_text_texture
-            ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
-        in
-        Opengl.gl_bind_texture ~texture_id:gl_texture_id;
-        draw_textarea ~rope:text ~cursor_pos ~highlight:highlight_pos ~font_info ~box
-      | None -> ())
+      (match box.content with
+       | Some (Box b) ->
+         draw_box ~box:b ~context:{ parent = Some box; previous_context = Some context }
+       | Some (Boxes list) ->
+         List.iter
+           (fun b ->
+              draw_box
+                ~box:b
+                ~context:{ parent = Some box; previous_context = Some context })
+           list
+       | Some (Text { string; _ }) ->
+         draw_text
+           ~s:string
+           ~box
+           ~context:{ parent = Some box; previous_context = Some context }
+       | Some (Textarea { text; cursor_pos; highlight_pos; _ }) ->
+         let ~font_info, ~gl_texture_id =
+           Ui.TextTextureInfo.get_or_add_font_size_text_texture
+             ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
+         in
+         Opengl.gl_bind_texture ~texture_id:gl_texture_id;
+         draw_textarea ~rope:text ~cursor_pos ~highlight:highlight_pos ~font_info ~box
+       | None -> ());
+      write_border_values_to_ui_buffer ~box ~parent)
   | None -> ()
 
 and handle_if_content_overflows_or_not ~(box : box) ~(context : ui_traversal_context) =

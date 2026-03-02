@@ -222,6 +222,18 @@ let wrapper =
   ; content = Some (Boxes [ place_holder_box_before_any_focused_file ])
   ; flow = Some Horizontal
   ; name = Some "URMOM"
+  ; border =
+      Some
+        { top_thickness = 10
+        ; right_thickness = 10
+        ; bottom_thickness = 10
+        ; left_thickness = 10
+        ; top_left_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
+        ; top_right_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
+        ; bottom_left_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
+        ; bottom_right_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
+        ; color = 0., 0., 0., 1.
+        }
   }
 ;;
 
