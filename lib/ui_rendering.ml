@@ -319,6 +319,13 @@ let get_arc_points
   List.map (fun (x, y) -> x +. origin_x, y +. origin_y) arc_points
 ;;
 
+(*
+two points on one arc and one point on the other arc, then alternate
+but keeping the points overlapping.
+
+like two outer, one inner, one outer, two inner and make sure the one outer uses the last point of the
+two outer etc
+  *)
 let group_points_into_triangles outer_arc inner_arc =
   assert (
     List.length outer_arc == List.length inner_arc && List.length outer_arc mod 2 == 0);
@@ -379,6 +386,10 @@ let get_outer_inner_arc_points
       || vertical_thickness > corner_options.vertical_radius
     then [ inner_x, inner_y ]
     else (
+      let step =
+        Float.of_int (corner_options.horizontal_radius - horizontal_thickness)
+        /. step_limit
+      in
       let flt_horizontal_radius, flt_vertical_radius =
         ( Float.of_int (corner_options.horizontal_radius - horizontal_thickness)
         , Float.of_int (corner_options.vertical_radius - vertical_thickness) )
@@ -405,13 +416,6 @@ let get_top_left_elliptical_arc_points
   let origin_x, origin_y =
     left + corner_options.horizontal_radius, top + corner_options.vertical_radius
   and inner_left, inner_top = left + horizontal_thickness, top + vertical_thickness in
-  (*
-two points on one arc and one point on the other arc, then alternate
-but keeping the points overlapping.
-
-like two outer, one inner, one outer, two inner and make sure the one outer uses the last point of the
-two outer etc
-    *)
   let outer_arc_points, inner_arc_points =
     get_outer_inner_arc_points
       true
@@ -435,13 +439,6 @@ let get_top_right_elliptical_arc_points
   let origin_x, origin_y =
     right - corner_options.horizontal_radius, top + corner_options.vertical_radius
   and inner_right, inner_top = right - horizontal_thickness, top + vertical_thickness in
-  (*
-two points on one arc and one point on the other arc, then alternate
-but keeping the points overlapping.
-
-like two outer, one inner, one outer, two inner and make sure the one outer uses the last point of the
-two outer etc
-    *)
   let outer_arc_points, inner_arc_points =
     get_outer_inner_arc_points
       true
@@ -467,13 +464,6 @@ let get_bottom_left_elliptical_arc_points
   and inner_left, inner_bottom =
     left + horizontal_thickness, bottom - vertical_thickness
   in
-  (*
-two points on one arc and one point on the other arc, then alternate
-but keeping the points overlapping.
-
-like two outer, one inner, one outer, two inner and make sure the one outer uses the last point of the
-two outer etc
-    *)
   let outer_arc_points, inner_arc_points =
     get_outer_inner_arc_points
       false
@@ -499,13 +489,6 @@ let get_bottom_right_elliptical_arc_points
   and inner_right, inner_bottom =
     right - horizontal_thickness, bottom - vertical_thickness
   in
-  (*
-two points on one arc and one point on the other arc, then alternate
-but keeping the points overlapping.
-
-like two outer, one inner, one outer, two inner and make sure the one outer uses the last point of the
-two outer etc
-    *)
   let outer_arc_points, inner_arc_points =
     get_outer_inner_arc_points
       false
