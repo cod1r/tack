@@ -294,6 +294,7 @@ let elliptical_fn flt_horizontal_radius flt_vertical_radius x =
 ;;
 
 let get_arc_points
+      flip_y
       (flt_horizontal_radius, flt_vertical_radius)
       (origin_x, origin_y)
       step
@@ -305,7 +306,13 @@ let get_arc_points
     then acc
     else (
       let y = elliptical_fn flt_horizontal_radius flt_vertical_radius x in
-      let new_acc = (x, -.y) :: acc in
+      let new_acc =
+        ( x
+        , match flip_y with
+          | true -> -.y
+          | false -> y )
+        :: acc
+      in
       get_arc_points_acc (step_count + 1) (x +. step) new_acc)
   in
   let arc_points = get_arc_points_acc 0 x [] in
@@ -334,48 +341,131 @@ let group_points_into_triangles outer_arc inner_arc =
       |> failwith
   in
   group_points outer_arc inner_arc []
+  |> List.fold_left
+       (fun acc triple ->
+          let (x1, y1), (x2, y2), (x3, y3) = triple in
+          x1 :: y1 :: x2 :: y2 :: x3 :: y3 :: acc)
+       []
+;;
+
+let get_outer_inner_arc_points
+      flip_y
+      (origin_x, origin_y)
+      outer_x
+      (inner_x, inner_y)
+      horizontal_thickness
+      vertical_thickness
+      corner_options
+  =
+  let flt_horizontal_radius, flt_vertical_radius =
+    ( Float.of_int corner_options.horizontal_radius
+    , Float.of_int corner_options.vertical_radius )
+  in
+  let step_limit = 100. in
+  let step = Float.of_int corner_options.horizontal_radius /. step_limit in
+  let sign = Float.of_int (-1 * Float.compare outer_x origin_x) in
+  let outer_arc_points =
+    get_arc_points
+      flip_y
+      (flt_horizontal_radius, flt_vertical_radius)
+      (origin_x, origin_y)
+      (step *. sign)
+      (outer_x -. origin_x)
+      (Int.of_float step_limit)
+  in
+  let inner_arc_points =
+    if
+      horizontal_thickness > corner_options.horizontal_radius
+      || vertical_thickness > corner_options.vertical_radius
+    then [ inner_x, inner_y ]
+    else (
+      let flt_horizontal_radius, flt_vertical_radius =
+        ( Float.of_int (corner_options.horizontal_radius - horizontal_thickness)
+        , Float.of_int (corner_options.vertical_radius - vertical_thickness) )
+      in
+      let sign = Float.of_int (-1 * Float.compare inner_x origin_x) in
+      get_arc_points
+        flip_y
+        (flt_horizontal_radius, flt_vertical_radius)
+        (origin_x, origin_y)
+        (step *. sign)
+        (inner_x -. origin_x)
+        (Int.of_float step_limit))
+  in
+  outer_arc_points, inner_arc_points
 ;;
 
 let get_top_left_elliptical_arc_points
       top
       left
       corner_options
-      top_thickness
-      left_thickness
+      vertical_thickness
+      horizontal_thickness
   =
-  let flt_horizontal_radius, flt_vertical_radius =
-    ( Float.of_int corner_options.horizontal_radius
-    , Float.of_int corner_options.vertical_radius )
-  in
   let origin_x, origin_y =
     left + corner_options.horizontal_radius, top + corner_options.vertical_radius
-  and inner_left, inner_top = left + left_thickness, top + top_thickness in
-  let step_limit = 100. in
-  let step = Float.of_int corner_options.horizontal_radius /. step_limit in
-  let outer_arc_points =
-    get_arc_points
-      (flt_horizontal_radius, flt_vertical_radius)
+  and inner_left, inner_top = left + horizontal_thickness, top + vertical_thickness in
+  (*
+two points on one arc and one point on the other arc, then alternate
+but keeping the points overlapping.
+
+like two outer, one inner, one outer, two inner and make sure the one outer uses the last point of the
+two outer etc
+    *)
+  let outer_arc_points, inner_arc_points =
+    get_outer_inner_arc_points
+      true
       (Float.of_int origin_x, Float.of_int origin_y)
-      step
-      (Float.of_int left -. Float.of_int origin_x)
-      (Int.of_float step_limit)
+      (Float.of_int left)
+      (Float.of_int inner_left, Float.of_int inner_top)
+      horizontal_thickness
+      vertical_thickness
+      corner_options
   in
-  let inner_arc_points =
-    if
-      left_thickness > corner_options.horizontal_radius
-      || top_thickness > corner_options.vertical_radius
-    then [ Float.of_int inner_left, Float.of_int inner_top ]
-    else (
-      let flt_horizontal_radius, flt_vertical_radius =
-        ( Float.of_int (corner_options.horizontal_radius - left_thickness)
-        , Float.of_int (corner_options.vertical_radius - top_thickness) )
-      in
-      get_arc_points
-        (flt_horizontal_radius, flt_vertical_radius)
-        (Float.of_int origin_x, Float.of_int origin_y)
-        step
-        (Float.of_int inner_left -. Float.of_int origin_x)
-        (Int.of_float step_limit))
+  group_points_into_triangles outer_arc_points inner_arc_points
+;;
+
+let get_top_right_elliptical_arc_points
+      top
+      right
+      corner_options
+      vertical_thickness
+      horizontal_thickness
+  =
+  let origin_x, origin_y =
+    right - corner_options.horizontal_radius, top + corner_options.vertical_radius
+  and inner_right, inner_top = right - horizontal_thickness, top + vertical_thickness in
+  (*
+two points on one arc and one point on the other arc, then alternate
+but keeping the points overlapping.
+
+like two outer, one inner, one outer, two inner and make sure the one outer uses the last point of the
+two outer etc
+    *)
+  let outer_arc_points, inner_arc_points =
+    get_outer_inner_arc_points
+      true
+      (Float.of_int origin_x, Float.of_int origin_y)
+      (Float.of_int right)
+      (Float.of_int inner_right, Float.of_int inner_top)
+      horizontal_thickness
+      vertical_thickness
+      corner_options
+  in
+  group_points_into_triangles outer_arc_points inner_arc_points
+;;
+
+let get_bottom_left_elliptical_arc_points
+      bottom
+      left
+      corner_options
+      vertical_thickness
+      horizontal_thickness
+  =
+  let origin_x, origin_y =
+    left + corner_options.horizontal_radius, bottom - corner_options.vertical_radius
+  and inner_left, inner_bottom =
+    left + horizontal_thickness, bottom - vertical_thickness
   in
   (*
 two points on one arc and one point on the other arc, then alternate
@@ -384,13 +474,49 @@ but keeping the points overlapping.
 like two outer, one inner, one outer, two inner and make sure the one outer uses the last point of the
 two outer etc
     *)
-  let triangles = group_points_into_triangles outer_arc_points inner_arc_points in
-  List.fold_left
-    (fun acc triple ->
-       let (x1, y1), (x2, y2), (x3, y3) = triple in
-       x1 :: y1 :: x2 :: y2 :: x3 :: y3 :: acc)
-    []
-    triangles
+  let outer_arc_points, inner_arc_points =
+    get_outer_inner_arc_points
+      false
+      (Float.of_int origin_x, Float.of_int origin_y)
+      (Float.of_int left)
+      (Float.of_int inner_left, Float.of_int inner_bottom)
+      horizontal_thickness
+      vertical_thickness
+      corner_options
+  in
+  group_points_into_triangles outer_arc_points inner_arc_points
+;;
+
+let get_bottom_right_elliptical_arc_points
+      bottom
+      right
+      corner_options
+      vertical_thickness
+      horizontal_thickness
+  =
+  let origin_x, origin_y =
+    right - corner_options.horizontal_radius, bottom - corner_options.vertical_radius
+  and inner_right, inner_bottom =
+    right - horizontal_thickness, bottom - vertical_thickness
+  in
+  (*
+two points on one arc and one point on the other arc, then alternate
+but keeping the points overlapping.
+
+like two outer, one inner, one outer, two inner and make sure the one outer uses the last point of the
+two outer etc
+    *)
+  let outer_arc_points, inner_arc_points =
+    get_outer_inner_arc_points
+      false
+      (Float.of_int origin_x, Float.of_int origin_y)
+      (Float.of_int right)
+      (Float.of_int inner_right, Float.of_int inner_bottom)
+      horizontal_thickness
+      vertical_thickness
+      corner_options
+  in
+  group_points_into_triangles outer_arc_points inner_arc_points
 ;;
 
 let write_border_values_to_ui_buffer ~(box : box) ~(parent : box option) =
@@ -471,6 +597,9 @@ let write_border_values_to_ui_buffer ~(box : box) ~(parent : box option) =
          |> Float.Array.of_list
        in
        write_points_to_ui_buffer top_border (r, g, b, a);
+       write_points_to_ui_buffer right_border (r, g, b, a);
+       write_points_to_ui_buffer bottom_border (r, g, b, a);
+       write_points_to_ui_buffer left_border (r, g, b, a);
        let top_left_elliptical_arc_points =
          get_top_left_elliptical_arc_points
            top
@@ -482,9 +611,39 @@ let write_border_values_to_ui_buffer ~(box : box) ~(parent : box option) =
        write_points_to_ui_buffer
          (Float.Array.of_list top_left_elliptical_arc_points)
          (r, g, b, a);
-       write_points_to_ui_buffer right_border (r, g, b, a);
-       write_points_to_ui_buffer bottom_border (r, g, b, a);
-       write_points_to_ui_buffer left_border (r, g, b, a)
+       let top_right_elliptical_arc_points =
+         get_top_right_elliptical_arc_points
+           top
+           right
+           border_options.top_right_corner_options
+           border_options.top_thickness
+           border_options.right_thickness
+       in
+       write_points_to_ui_buffer
+         (Float.Array.of_list top_right_elliptical_arc_points)
+         (r, g, b, a);
+       let bottom_left_elliptical_arc_points =
+         get_bottom_left_elliptical_arc_points
+           bottom
+           left
+           border_options.bottom_left_corner_options
+           border_options.bottom_thickness
+           border_options.left_thickness
+       in
+       write_points_to_ui_buffer
+         (Float.Array.of_list bottom_left_elliptical_arc_points)
+         (r, g, b, a);
+       let bottom_right_elliptical_arc_points =
+         get_bottom_right_elliptical_arc_points
+           bottom
+           right
+           border_options.bottom_right_corner_options
+           border_options.bottom_thickness
+           border_options.right_thickness
+       in
+       write_points_to_ui_buffer
+         (Float.Array.of_list bottom_right_elliptical_arc_points)
+         (r, g, b, a)
      | None -> ())
   | None -> ()
 ;;

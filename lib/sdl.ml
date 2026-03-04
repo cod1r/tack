@@ -121,18 +121,6 @@ external sdl_gl_create_context
   -> (unit, string) result
   = "sdl_gl_create_context" "sdl_gl_create_context"
 
-external sdl_renderer_fill_rect_float
-  :  window
-  -> rect
-  -> unit
-  = "sdl_renderer_fill_rect_float" "sdl_renderer_fill_rect_float"
-
-external sdl_renderer_draw_rect_float
-  :  window
-  -> rect
-  -> unit
-  = "sdl_renderer_draw_rect_float" "sdl_renderer_draw_rect_float"
-
 external sdl_get_renderer_size
   :  window
   -> int * int
@@ -156,18 +144,6 @@ external sdl_render_draw_point_f
   -> unit
   = "sdl_render_draw_point_f_bytec" "sdl_render_draw_point_f"
 
-external sdl_render_draw_points_float
-  :  window
-  -> pointf list
-  -> unit
-  = "sdl_render_draw_points_float" "sdl_render_draw_points_float"
-
-external sdl_render_draw_points
-  :  window
-  -> point list
-  -> unit
-  = "sdl_render_draw_points" "sdl_render_draw_points"
-
 external sdl_create_window
   :  string
   -> int
@@ -180,18 +156,6 @@ external sdl_create_window
 
 external sdl_render_present : window -> unit = "sdl_render_present" "sdl_render_present"
 external sdl_render_clear : window -> unit = "sdl_render_clear" "sdl_render_clear"
-
-external sdl_renderer_fill_rect
-  :  window
-  -> rect
-  -> unit
-  = "sdl_renderer_fill_rect" "sdl_renderer_fill_rect"
-
-external sdl_renderer_draw_rect
-  :  window
-  -> rect
-  -> unit
-  = "sdl_renderer_draw_rect" "sdl_renderer_draw_rect"
 
 external sdl_set_render_draw_color
   :  window
