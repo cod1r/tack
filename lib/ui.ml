@@ -273,6 +273,7 @@ module TextTextureInfo = struct
       := { gl_texture_id = gl_buffer_glyph_texture_atlas; font_size; font_info }
          :: !text_textures_with_different_font_sizes;
       Opengl.gl_bind_texture ~texture_id:gl_buffer_glyph_texture_atlas;
+      (* Opengl.gl_generate_mipmap (); *)
       Opengl.set_gl_tex_parameters_ui_text ();
       Opengl.gl_teximage_2d
         ~bytes:font_info.font_texture_atlas.bytes

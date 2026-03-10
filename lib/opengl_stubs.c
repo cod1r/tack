@@ -1,6 +1,6 @@
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
-#include <OpenGL/gl.h>
+#include <OpenGL/gl3.h>
 #endif
 #ifdef __linux__
 #include <GL/glew.h>
@@ -29,40 +29,25 @@ case GL_INVALID_VALUE:
      caml_failwith("A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag."); break;
 case GL_INVALID_OPERATION:
      caml_failwith("The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag."); break;
-case GL_STACK_OVERFLOW:
-     caml_failwith("This command would cause a stack overflow. The offending command is ignored and has no other side effect than to set the error flag."); break;
-case GL_STACK_UNDERFLOW:
-     caml_failwith("This command would cause a stack underflow. The offending command is ignored and has no other side effect than to set the error flag."); break;
 case GL_OUT_OF_MEMORY:
      caml_failwith("There is not enough memory left to execute the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded."); break;
-case GL_TABLE_TOO_LARGE:
-    caml_failwith("GL ERROR"); break;
+default: caml_failwith("NO HANDLED GL ERROR");
   }
-}
-
-CAMLprim value gl_scissor(value x, value y, value width, value height) {
-  CAMLparam4(x, y, width, height);
-  glScissor(Int_val(x), Int_val(y), Int_val(width), Int_val(height));
-  CAMLreturn(Val_unit);
 }
 
 CAMLprim value set_gl_tex_parameters_ui_text() {
   CAMLparam0();
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+  // glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
   CAMLreturn(Val_unit);
 }
 
-CAMLprim value set_gl_tex_parameters() {
+CAMLprim value gl_generate_mipmap() {
   CAMLparam0();
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+  glGenerateMipmap(GL_TEXTURE_2D);
   CAMLreturn(Val_unit);
 }
 
@@ -123,32 +108,16 @@ CAMLprim value gl_teximage_2d(value bytes, value width, value height) {
   glTexImage2D(
     GL_TEXTURE_2D,
     0,
-    GL_ALPHA,
+    GL_RED,
     Int_val(width),
     Int_val(height),
     0,
-    GL_ALPHA,
+    GL_RED,
     GL_UNSIGNED_BYTE,
     Bytes_val(bytes)
   );
-  CAMLreturn(Val_unit);
-}
-
-CAMLprim value gl_disable_scissor() {
-  CAMLparam0();
-  glDisable(GL_SCISSOR_TEST);
-  CAMLreturn(Val_unit);
-}
-
-CAMLprim value gl_enable_scissor() {
-  CAMLparam0();
-  glEnable(GL_SCISSOR_TEST);
-  CAMLreturn(Val_unit);
-}
-
-CAMLprim value gl_enable_texture_2d() {
-  CAMLparam0();
-  glEnable(GL_TEXTURE_2D);
+  // generate mipmap needs to be called after uploading the image data.
+  glGenerateMipmap(GL_TEXTURE_2D);
   CAMLreturn(Val_unit);
 }
 
@@ -228,6 +197,19 @@ CAMLprim value gl_compileshader(value shader) {
   CAMLreturn(Val_unit);
 }
 
+CAMLprim value gl_bind_vertex_array(value vtx_arr) {
+  CAMLparam1(vtx_arr);
+  glBindVertexArray(Int_val(vtx_arr));
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value gl_gen_vertex_array_obj() {
+  CAMLparam0();
+  GLuint array_obj;
+  glGenVertexArrays(1, &array_obj);
+  CAMLreturn(Val_int(array_obj));
+}
+
 CAMLprim value gl_gen_one_buffer() {
   CAMLparam0();
   GLuint buffer;
@@ -293,14 +275,13 @@ CAMLprim value gl_getattriblocation(value program, value name) {
   CAMLreturn(result);
 }
 
-CAMLprim value gl_create_fragment_shader(value unit) {
-  CAMLparam1(unit);
+CAMLprim value gl_create_fragment_shader() {
+  CAMLparam0();
   CAMLlocal1(result);
-  GLenum shader_type = GL_FRAGMENT_SHADER;
-  GLuint shader = glCreateShader(shader_type);
+  GLuint shader = glCreateShader(GL_FRAGMENT_SHADER);
   if (shader == 0) {
     result = caml_alloc(1, 1);
-    Store_field(result, 0, caml_copy_string("vertex shader couldn't be created"));
+    Store_field(result, 0, caml_copy_string("fragment shader couldn't be created"));
     CAMLreturn(result);
   }
   result = caml_alloc(1, 0);
@@ -308,11 +289,10 @@ CAMLprim value gl_create_fragment_shader(value unit) {
   CAMLreturn(result);
 }
 
-CAMLprim value gl_create_vertex_shader(value unit) {
-  CAMLparam1(unit);
+CAMLprim value gl_create_vertex_shader() {
+  CAMLparam0();
   CAMLlocal1(result);
-  GLenum shader_type = GL_VERTEX_SHADER;
-  GLuint shader = glCreateShader(shader_type);
+  GLuint shader = glCreateShader(GL_VERTEX_SHADER);
   if (shader == 0) {
     result = caml_alloc(1, 1);
     Store_field(result, 0, caml_copy_string("vertex shader couldn't be created"));

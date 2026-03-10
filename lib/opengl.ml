@@ -2,22 +2,6 @@ type render_buffer = (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.A
 
 external gl_check_error : unit -> unit = "check_error" "check_error"
 
-external gl_scissor
-  :  x:int
-  -> y:int
-  -> width:int
-  -> height:int
-  -> unit
-  = "gl_scissor" "gl_scissor"
-
-external gl_disable_scissor : unit -> unit = "gl_disable_scissor" "gl_disable_scissor"
-external gl_enable_scissor : unit -> unit = "gl_enable_scissor" "gl_enable_scissor"
-
-external set_gl_tex_parameters
-  :  unit
-  -> unit
-  = "set_gl_tex_parameters" "set_gl_tex_parameters"
-
 external set_gl_tex_parameters_ui_text
   :  unit
   -> unit
@@ -33,11 +17,6 @@ external gl_teximage_2d
   -> height:int
   -> unit
   = "gl_teximage_2d" "gl_teximage_2d"
-
-external gl_enable_texture_2d
-  :  unit
-  -> unit
-  = "gl_enable_texture_2d" "gl_enable_texture_2d"
 
 external gl_enable_blending : unit -> unit = "gl_enable_blending" "gl_enable_blending"
 
@@ -145,12 +124,24 @@ external gl_set_viewport
   -> unit
   = "gl_set_viewport" "gl_set_viewport"
 
+external gl_gen_vertex_array_obj
+  :  unit
+  -> int
+  = "gl_gen_vertex_array_obj" "gl_gen_vertex_array_obj"
+
+external gl_bind_vertex_array
+  :  int
+  -> unit
+  = "gl_bind_vertex_array" "gl_bind_vertex_array"
+
+external gl_generate_mipmap : unit -> unit = "gl_generate_mipmap" "gl_generate_mipmap"
+
 let compile_shaders_and_return_program ~vertex_id ~fragment_id ~vertex_src ~fragment_src =
   gl_shader_source fragment_id fragment_src;
-  gl_shader_source vertex_id vertex_src;
   gl_compileshader fragment_id;
   if not (gl_get_shader_compile_status fragment_id)
   then failwith (gl_get_shader_info_log fragment_id);
+  gl_shader_source vertex_id vertex_src;
   gl_compileshader vertex_id;
   if not (gl_get_shader_compile_status vertex_id)
   then failwith (gl_get_shader_info_log vertex_id);

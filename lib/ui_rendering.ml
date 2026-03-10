@@ -1,7 +1,6 @@
 open Freetype
 open Ui_types
 
-let _ = Opengl.gl_enable_texture_2d ()
 let _ = Opengl.gl_enable_blending ()
 let each_point_float_amount = 6
 let each_point_float_amount_text = 7
@@ -53,46 +52,16 @@ let text_buffer : render_buffer_wrapper =
   }
 ;;
 
-let vertex_cursor =
-  match Opengl.gl_create_vertex_shader () with
-  | Ok v -> v
-  | Error e -> failwith (e ^ "_CURSOR")
-;;
-
-let fragment_cursor =
-  match Opengl.gl_create_fragment_shader () with
-  | Ok f -> f
-  | Error e -> failwith (e ^ "_CURSOR")
-;;
-
-let vertex_highlight =
-  match Opengl.gl_create_vertex_shader () with
-  | Ok v -> v
-  | Error e -> failwith e
-;;
-
-let fragment_highlight =
-  match Opengl.gl_create_fragment_shader () with
-  | Ok v -> v
-  | Error e -> failwith e
-;;
-
-let text_vertex_id =
-  match Opengl.gl_create_vertex_shader () with
-  | Ok v -> v
-  | Error e -> failwith (e ^ "; couldn't create vertex shader for text")
-;;
-
 let text_vertex_shader =
   {|
-  #version 120
+  #version 410
 
-  attribute vec2 vertex;
-  attribute vec3 color;
-  attribute vec2 tex_coord;
+  in vec2 vertex;
+  in vec3 color;
+  in vec2 tex_coord;
 
-  varying vec3 color_frag;
-  varying vec2 tex_coord_frag;
+  out vec3 color_frag;
+  out vec2 tex_coord_frag;
 
   void main() {
     color_frag = color;
@@ -104,27 +73,33 @@ let text_vertex_shader =
 
 let text_fragment_shader =
   {|
-  #version 120
+  #version 410
 
-  varying vec2 tex_coord_frag;
-  varying vec3 color_frag;
+  in vec2 tex_coord_frag;
+  in vec3 color_frag;
+
+  out vec4 FragColor;
 
   uniform sampler2D sampler;
 
   void main() {
-    gl_FragColor = vec4(color_frag.r, color_frag.g, color_frag.b, texture2D(sampler, tex_coord_frag).a);
+    FragColor = vec4(
+      color_frag.r,
+      color_frag.g,
+      color_frag.b,
+      texture(sampler, tex_coord_frag).r);
   }
   |}
 ;;
 
 let generic_vertex_shader =
   {|
-  #version 120
+  #version 410
 
-  attribute vec2 point_vertex;
-  attribute vec4 color_attrib;
+  in vec2 point_vertex;
+  in vec4 color_attrib;
 
-  varying vec4 color;
+  out vec4 color;
 
   void main() {
     gl_Position = vec4(point_vertex.x, point_vertex.y, 0.0, 1.0);
@@ -135,10 +110,11 @@ let generic_vertex_shader =
 
 let generic_fragment_shader =
   {|
-  #version 120
-  varying vec4 color;
+  #version 410
+  in vec4 color;
+  out vec4 FragColor;
   void main() {
-    gl_FragColor = vec4(color.r, color.g, color.b, color.a);
+    FragColor = vec4(color.r, color.g, color.b, color.a);
   }
   |}
 ;;
@@ -167,6 +143,8 @@ let text_fragment_id =
   | Error s -> failwith s
 ;;
 
+let ui_vertex_array_obj = Opengl.gl_gen_vertex_array_obj ()
+
 let ui_program =
   Opengl.compile_shaders_and_return_program
     ~vertex_id
@@ -186,6 +164,8 @@ let location_color =
   | Ok l -> l
   | Error e -> failwith e
 ;;
+
+let text_vertex_array_obj = Opengl.gl_gen_vertex_array_obj ()
 
 let text_shader_program =
   Opengl.compile_shaders_and_return_program
@@ -219,14 +199,6 @@ let sampler_text_location =
   | Error e -> failwith (e ^ " " ^ __FILE__ ^ " " ^ string_of_int __LINE__)
 ;;
 
-let () =
-  Opengl.gl_enable_vertex_attrib_array vertex_text_location;
-  Opengl.gl_enable_vertex_attrib_array color_text_location;
-  Opengl.gl_enable_vertex_attrib_array tex_coord_text_location;
-  Opengl.gl_enable_vertex_attrib_array location_point_vertex;
-  Opengl.gl_enable_vertex_attrib_array location_color
-;;
-
 let width_ratio, height_ratio = Sdl.get_logical_to_opengl_window_dims_ratio ()
 
 let transform_xy_coords_to_opengl_viewport_coords ~(x : float) ~(y : float) =
@@ -238,13 +210,7 @@ let transform_xy_coords_to_opengl_viewport_coords ~(x : float) ~(y : float) =
 ;;
 
 let gl_ui_lib_buffer = Opengl.gl_gen_one_buffer ()
-
-let () =
-  Opengl.gl_bind_buffer gl_ui_lib_buffer;
-  Opengl.gl_buffer_data_big_array
-    ~render_buffer:ui_buffer.buffer
-    ~capacity:(Bigarray.Array1.dim ui_buffer.buffer)
-;;
+let () = Opengl.gl_bind_buffer gl_ui_lib_buffer
 
 let get_potential_clipped_points ~parent ~points =
   let { left; right; top; bottom } =
@@ -662,13 +628,7 @@ let write_container_values_to_ui_buffer ~(box : box) ~(parent : box option) =
 ;;
 
 let gl_text_buffer = Opengl.gl_gen_one_buffer ()
-
-let () =
-  Opengl.gl_bind_buffer gl_text_buffer;
-  Opengl.gl_buffer_data_big_array
-    ~render_buffer:text_buffer.buffer
-    ~capacity:(Bigarray.Array1.dim text_buffer.buffer)
-;;
+let () = Opengl.gl_bind_buffer gl_text_buffer
 
 let get_new_tex_coords_based_off_of_clipped_points
       ~clipped_points
@@ -843,8 +803,15 @@ let write_to_text_buffer
     text_buffer.length <- start + Float.Array.length values)
 ;;
 
-let draw_to_gl_buffer_text () =
+let () =
+  Opengl.gl_bind_vertex_array text_vertex_array_obj;
+  Opengl.gl_enable_vertex_attrib_array vertex_text_location;
+  Opengl.gl_enable_vertex_attrib_array color_text_location;
+  Opengl.gl_enable_vertex_attrib_array tex_coord_text_location;
   Opengl.gl_bind_buffer gl_text_buffer;
+  Opengl.gl_buffer_data_big_array
+    ~render_buffer:text_buffer.buffer
+    ~capacity:(Bigarray.Array1.dim text_buffer.buffer);
   Opengl.gl_use_program text_shader_program;
   Opengl.gl_uniform_1i ~location:sampler_text_location ~value:0;
   Opengl.gl_vertex_attrib_pointer_float_type
@@ -864,7 +831,18 @@ let draw_to_gl_buffer_text () =
     ~size:2
     ~stride:each_point_float_amount_text
     ~normalized:false
-    ~start_idx:5;
+    ~start_idx:5
+;;
+
+let text_draw font_size =
+  Opengl.gl_bind_vertex_array text_vertex_array_obj;
+  Opengl.gl_use_program text_shader_program;
+  Opengl.gl_bind_buffer gl_text_buffer;
+  let ~gl_texture_id, .. =
+    Ui.TextTextureInfo.get_or_add_font_size_text_texture
+      ~font_size:(Option.value font_size ~default:Freetype.font_size)
+  in
+  Opengl.gl_bind_texture ~texture_id:gl_texture_id;
   Opengl.gl_buffer_subdata_big_array
     ~render_buffer:text_buffer.buffer
     ~length:text_buffer.length;
@@ -872,8 +850,14 @@ let draw_to_gl_buffer_text () =
   text_buffer.length <- 0
 ;;
 
-let draw_to_gl_buffer () =
+let () =
+  Opengl.gl_bind_vertex_array ui_vertex_array_obj;
+  Opengl.gl_enable_vertex_attrib_array location_point_vertex;
+  Opengl.gl_enable_vertex_attrib_array location_color;
   Opengl.gl_bind_buffer gl_ui_lib_buffer;
+  Opengl.gl_buffer_data_big_array
+    ~render_buffer:ui_buffer.buffer
+    ~capacity:(Bigarray.Array1.dim ui_buffer.buffer);
   Opengl.gl_use_program ui_program;
   Opengl.gl_vertex_attrib_pointer_float_type
     ~location:location_point_vertex
@@ -886,7 +870,13 @@ let draw_to_gl_buffer () =
     ~size:4
     ~stride:each_point_float_amount
     ~normalized:false
-    ~start_idx:2;
+    ~start_idx:2
+;;
+
+let ui_draw () =
+  Opengl.gl_bind_vertex_array ui_vertex_array_obj;
+  Opengl.gl_bind_buffer gl_ui_lib_buffer;
+  Opengl.gl_use_program ui_program;
   Opengl.gl_buffer_subdata_big_array
     ~render_buffer:ui_buffer.buffer
     ~length:ui_buffer.length;
@@ -1538,7 +1528,7 @@ let draw ~(box : box) =
   add_event_handlers ~box;
   calculate_ui ~box ~context:{ in_scrollcontainer = false; parent = None };
   draw_box ~box ~context:{ parent = None; previous_context = None };
-  draw_to_gl_buffer ();
-  draw_to_gl_buffer_text ();
+  ui_draw ();
+  text_draw box.font_size;
   Sdl.sdl_gl_swapwindow Sdl.w
 ;;
