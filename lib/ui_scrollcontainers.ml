@@ -3,7 +3,7 @@ open Ui_types
 let handle_vertical_scroll_on_evt
       ~y
       ~content
-      ~scrollbar_box
+      ~(scrollbar_box : box)
       ~diff_from_initial_mousedown_to_start_of_bar
   =
   let { top; bottom; _ } = Ui.get_box_sides ~box:content in
@@ -25,7 +25,7 @@ let handle_vertical_scroll_on_evt
 let handle_horizontal_scroll_on_evt
       ~x
       ~content
-      ~scrollbar_box
+      ~(scrollbar_box : box)
       ~diff_from_initial_mousedown_to_start_of_bar
   =
   let { left; right; _ } = Ui.get_box_sides ~box:content in
@@ -155,7 +155,10 @@ let create_horizontal_scrollcontainer ~(content : box) =
   { horizontal_scroll = scrollbar; horizontal_scrollbar_container = scrollbar_container }
 ;;
 
-let adjust_scrollbar_container_according_to_content_size ~scrollcontainer_info ~content =
+let adjust_scrollbar_container_according_to_content_size
+      ~scrollcontainer_info
+      ~(content : box)
+  =
   let { vertical_scroll_info; horizontal_scroll_info } = scrollcontainer_info in
   assert (content.bbox <> None);
   let { left; right; top; bottom } = Ui.get_box_sides ~box:content in

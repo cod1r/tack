@@ -177,7 +177,8 @@ let handle_txt_evt ~(text_area_information : text_area_information) ~text =
     ; redo_list = []
     }
   in
-  { text = Some new_rope
+  { text_area_information with
+    text = Some new_rope
   ; highlight_pos = None, None
   ; holding_mousedown_rope_pos = None
   ; cursor_pos = Some (cursor_pos' + String.length text)

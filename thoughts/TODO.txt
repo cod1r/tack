@@ -2,7 +2,6 @@ Priorities:
     borders
         border radius etc
         - also i need to do corner clipping...
-    request 4.1 opengl version with SDL_GL attributes
     when the contents of the file change on disk, it needs to reflect in the editor
         as well. I'm thinking if there's unsaved changes in the editor and the
         contents of the file change on disk, then the editor won't show the changes.

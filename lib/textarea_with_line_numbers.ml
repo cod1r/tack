@@ -1,6 +1,6 @@
 open Ui_types
 
-let get_line_nums rope textarea =
+let get_line_nums rope (textarea : box) =
   let textarea_bbox = Option.get textarea.bbox in
   let ~font_info, .. =
     Ui.TextTextureInfo.get_or_add_font_size_text_texture
@@ -35,7 +35,7 @@ let get_line_number_boxes ~rope ~box_containing_textarea =
             height_constraint = Some (Content { fallback_size = 0 })
           ; width_constraint = Some (Content { fallback_size = 0 })
           ; horizontal_align = Some Right
-          ; content = Some (Text { string = s })
+          ; content = Some (Text { string = s; bbox = None })
           ; name = Some "LINE_NUM"
           })
        (stringified |> List.rev))

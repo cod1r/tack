@@ -124,12 +124,20 @@ and history_entries =
   ; redo_list : action list
   }
 
+and text_bbox =
+  { leftmost : int
+  ; rightmost : int
+  ; topmost : int
+  ; bottommost : int
+  }
+
 and text_area_information =
   { text : Rope_types.rope option
   ; cursor_pos : int option
   ; highlight_pos : int option * int option
   ; holding_mousedown_rope_pos : int option
   ; history : history_entries
+  ; bbox : text_bbox option
   }
 
 and vertical_scroll_info =
@@ -150,7 +158,10 @@ and scrollcontainer_info =
 and box_content =
   | Box of box
   | Boxes of box list
-  | Text of { string : string }
+  | Text of
+      { string : string
+      ; bbox : text_bbox option
+      }
   | Textarea of text_area_information
 
 type ui_traversal_context =

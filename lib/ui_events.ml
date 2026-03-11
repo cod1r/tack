@@ -111,7 +111,7 @@ let pass_evt_to_focused ~(e : Sdl.event) =
              in
              let y = y * height_ratio
              and x = x * width_ratio in
-             let adjust_scroll ~scroll ~scrollbar_container = function
+             let adjust_scroll ~(scroll : box) ~(scrollbar_container : box) = function
                | Vertical ->
                  assert (scroll.bbox <> None);
                  assert (scrollbar_container.bbox <> None);

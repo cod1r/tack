@@ -206,10 +206,11 @@ let default_text_area_information =
   ; highlight_pos = None, None
   ; holding_mousedown_rope_pos = None
   ; history = { undo_list = []; redo_list = [] }
+  ; bbox = None
   }
 ;;
 
-let is_within_box ~x ~y ~box ~from_sdl_evt =
+let is_within_box ~x ~y ~(box : box) ~from_sdl_evt =
   let x, y =
     if from_sdl_evt
     then (
@@ -376,17 +377,32 @@ let calculate_content_boundaries ~(box : box) =
     ; top = min_vertical_position
     ; bottom = max_vertical_position
     }
-  | Some (Text _ | Textarea _) ->
-    let ~min_x, ~max_x, ~min_y, ~max_y = get_text_bounding_box ~box in
-    { left = get_min_int left min_x
-    ; right = get_max_int right max_x
-    ; top = get_min_int top min_y
-    ; bottom = get_max_int bottom max_y
-    }
+  | Some (Text { bbox; _ }) ->
+    (match bbox with
+     | None ->
+       let ~min_x, ~max_x, ~min_y, ~max_y = get_text_bounding_box ~box in
+       { left = get_min_int left min_x
+       ; right = get_max_int right max_x
+       ; top = get_min_int top min_y
+       ; bottom = get_max_int bottom max_y
+       }
+     | Some { leftmost; rightmost; topmost; bottommost } ->
+       { left = leftmost; right = rightmost; top = topmost; bottom = bottommost })
+  | Some (Textarea { bbox; _ }) ->
+    (match bbox with
+     | None ->
+       let ~min_x, ~max_x, ~min_y, ~max_y = get_text_bounding_box ~box in
+       { left = get_min_int left min_x
+       ; right = get_max_int right max_x
+       ; top = get_min_int top min_y
+       ; bottom = get_max_int bottom max_y
+       }
+     | Some { leftmost; rightmost; topmost; bottommost } ->
+       { left = leftmost; right = rightmost; top = topmost; bottom = bottommost })
   | None -> { left; right; top; bottom }
 ;;
 
-let get_xy_pos_of_text_caret ~text_area_info ~box =
+let get_xy_pos_of_text_caret ~text_area_info ~(box : box) =
   assert (box.bbox <> None);
   let bbox = Option.get box.bbox in
   if Option.is_none text_area_info.cursor_pos
@@ -791,7 +807,7 @@ let handle_expansion_in_list parent list =
         (parent_width - fixed_sized_total_width) / num_expands_width
       in
       List.iter
-        (fun b ->
+        (fun (b : box) ->
            let b_bbox = Option.value b.bbox ~default:default_bbox in
            match b.width_constraint with
            | Some (ExpandAsMuchPossible _) ->
@@ -809,7 +825,7 @@ let handle_expansion_in_list parent list =
         (parent_height - fixed_sized_total_height) / num_expands_height
       in
       List.iter
-        (fun b ->
+        (fun (b : box) ->
            let b_bbox = Option.value b.bbox ~default:default_bbox in
            match b.height_constraint with
            | Some (ExpandAsMuchPossible _) ->
@@ -822,7 +838,7 @@ let handle_expansion_in_list parent list =
 then apply expands *)
 let rec size_each_box_in_list ~context ~list =
   List.iter
-    (fun b ->
+    (fun (b : box) ->
        let bbox = Option.value b.bbox ~default:default_bbox in
        (match b.width_constraint with
         | Some (Number n) -> b.bbox <- Some { bbox with width = n }
@@ -921,7 +937,7 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
      | Some Horizontal ->
        let max_height =
          List.fold_left
-           (fun acc b ->
+           (fun acc (b : box) ->
               let b_bbox = Option.value b.bbox ~default:default_bbox in
               max b_bbox.height acc)
            0
@@ -929,7 +945,7 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
        in
        let summed_width =
          List.fold_left
-           (fun acc b -> acc + (Option.value b.bbox ~default:default_bbox).width)
+           (fun acc (b : box) -> acc + (Option.value b.bbox ~default:default_bbox).width)
            0
            list
        in
@@ -964,7 +980,7 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
      | Some Vertical ->
        let max_width =
          List.fold_left
-           (fun acc b ->
+           (fun acc (b : box) ->
               let b_bbox = Option.value b.bbox ~default:default_bbox in
               max b_bbox.width acc)
            0
@@ -972,7 +988,7 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
        in
        let summed_height =
          List.fold_left
-           (fun acc b -> acc + (Option.value b.bbox ~default:default_bbox).height)
+           (fun acc (b : box) -> acc + (Option.value b.bbox ~default:default_bbox).height)
            0
            list
        in
@@ -1006,7 +1022,7 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
         | Some (Number n) -> box.bbox <- Some { bbox with height = n - amt_sub_height }
         | _ -> ())
      | None -> ())
-  | Some (Text { string }) ->
+  | Some (Text { string; _ }) ->
     let ~font_info, .. =
       TextTextureInfo.get_or_add_font_size_text_texture
         ~font_size:(Option.value box.font_size ~default:Freetype.font_size)
