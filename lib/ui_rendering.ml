@@ -1232,23 +1232,16 @@ let draw_text ~(s : string) ~(box : box) ~context =
     s
 ;;
 
-let draw_text_textarea_and_find_bounds_of_text
+let draw_text_textarea
       ~(font_info : Freetype.font_info)
       ~(box : box)
       ~(rope : Rope_types.rope)
   =
   assert (box.bbox <> None);
   let bbox = Option.get box.bbox in
-  let leftmost, rightmost, topmost, bottommost =
-    ref Int.max_int, ref Int.min_int, ref Int.max_int, ref Int.min_int
-  in
   let fn_for_drawing_text (Rope_types.Rope_Traversal_Info acc) c =
     if c <> '\n'
     then (
-      leftmost := Ui.get_min_int !leftmost acc.x;
-      rightmost := Ui.get_max_int !rightmost acc.x;
-      topmost := Ui.get_min_int !topmost acc.y;
-      bottommost := Ui.get_max_int !bottommost acc.y;
       let gi = Freetype.get_glyph_info_from_glyph ~glyph:c ~font_info in
       let ~wraps, .. =
         Ui_utils.get_text_wrap_info ~box ~glyph:c ~x:acc.x ~y:acc.y ~font_info
@@ -1280,8 +1273,7 @@ let draw_text_textarea_and_find_bounds_of_text
             { rope_pos = 0
             ; x = bbox.x
             ; y = bbox.y + font_info.font_height + box.scroll_y_offset
-            }));
-  ~leftmost, ~rightmost, ~topmost, ~bottommost
+            }))
 ;;
 
 let draw_textarea
@@ -1293,26 +1285,12 @@ let draw_textarea
   =
   match rope with
   | Some r ->
-    let ~leftmost, ~rightmost, ~topmost, ~bottommost =
-      draw_text_textarea_and_find_bounds_of_text ~font_info ~rope:r ~box
-    in
+    draw_text_textarea ~font_info ~rope:r ~box;
     (match !Ui_globals.focused_element with
      | Some b when b == box ->
        draw_highlight ~r ~highlight ~box ~font_info;
        draw_cursor ~r ~cursor_pos ~font_info ~box
-     | _ -> ());
-    (match box.content with
-     | Some (Textarea old_text_area_info) ->
-       let leftmost, rightmost, topmost, bottommost =
-         !leftmost, !rightmost, !topmost, !bottommost
-       in
-       box.content
-       <- Some
-            (Textarea
-               { old_text_area_info with
-                 bbox = Some { leftmost; rightmost; topmost; bottommost }
-               })
-     | _ -> "THERE SHOULD ONLY BE TEXTAREA HERE;" ^ __LOC__ |> failwith)
+     | _ -> ())
   | None -> ()
 ;;
 

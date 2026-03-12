@@ -1057,7 +1057,7 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
               height = (max min' font_info.font_height |> min max') - amt_sub_height
             }
      | _ -> ())
-  | Some (Textarea _) ->
+  | Some (Textarea old_text_area_information) ->
     if Option.is_none box.bbox
     then (
       match context.parent with
@@ -1067,6 +1067,18 @@ and constrain_width_height ?(in_list = false) ~(box : box) ~context () =
          | None -> box.bbox <- Some default_bbox)
       | None -> box.bbox <- Some default_bbox);
     let ~min_x, ~max_x, ~min_y, ~max_y = get_text_bounding_box ~box in
+    box.content
+    <- Some
+         (Textarea
+            { old_text_area_information with
+              bbox =
+                Some
+                  { leftmost = min_x
+                  ; rightmost = max_x
+                  ; topmost = min_y
+                  ; bottommost = max_y
+                  }
+            });
     let textarea_width = max_x - min_x
     and textarea_height = max_y - min_y in
     let bbox = Option.value box.bbox ~default:default_bbox in
