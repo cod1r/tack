@@ -196,22 +196,9 @@ let () = Callback.register "redo_function_from_ocaml" redo_action
 let place_holder_box_before_any_focused_file =
   { Ui.default_box with
     bbox = Some { x = 0; y = 0; width = 1000; height = 1000 }
-  ; background_color = 0.5, 0.5, 0.0, 1.
   ; width_constraint = Some (Number 1000)
   ; height_constraint = Some (Number 1000)
   ; name = Some "WTF"
-  ; border =
-      Some
-        { top_thickness = 10
-        ; right_thickness = 10
-        ; bottom_thickness = 10
-        ; left_thickness = 10
-        ; top_left_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
-        ; top_right_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
-        ; bottom_left_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
-        ; bottom_right_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
-        ; color = 0., 0., 0., 1.
-        }
   }
 ;;
 
@@ -224,16 +211,17 @@ let wrapper =
   ; name = Some "URMOM"
   ; border =
       Some
-        { top_thickness = 10
-        ; right_thickness = 10
-        ; bottom_thickness = 10
-        ; left_thickness = 10
-        ; top_left_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
-        ; top_right_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
-        ; bottom_left_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
-        ; bottom_right_corner_options = { vertical_radius = 20; horizontal_radius = 20 }
+        { top_thickness = 5
+        ; right_thickness = 5
+        ; bottom_thickness = 5
+        ; left_thickness = 5
+        ; top_left_corner_options = { vertical_radius = 10; horizontal_radius = 10 }
+        ; top_right_corner_options = { vertical_radius = 10; horizontal_radius = 10 }
+        ; bottom_left_corner_options = { vertical_radius = 10; horizontal_radius = 10 }
+        ; bottom_right_corner_options = { vertical_radius = 10; horizontal_radius = 10 }
         ; color = 0., 0., 0., 1.
         }
+  ; background_color = 0.5, 0.5, 0., 1.
   }
 ;;
 

@@ -36,7 +36,6 @@ open Tack
 let window_box =
   { Ui.default_box with
     content = Some (Box Editor.editor_view)
-  ; background_color = 0.5, 0.3, 0., 0.5
   ; clip_content = true
   ; width_constraint = Some (Number 1800)
   ; height_constraint = Some (Number 1600)
